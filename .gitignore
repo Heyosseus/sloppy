@@ -1,0 +1,17 @@
+/build
+/vendor
+/node_modules
+/docs
+/.phpunit.cache
+/.pest
+phpunit.xml
+composer.lock
+package-lock.json
+.phpunit.result.cache
+.php-cs-fixer.cache
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+.env
+.superpowers/

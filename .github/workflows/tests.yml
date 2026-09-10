@@ -1,0 +1,129 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    # A passing suite finishes in a couple of minutes; anything approaching this
+    # is a hang, and failing fast is cheaper than burning runner time.
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Laravel and Testbench move together -- Testbench 9 targets Laravel 11,
+        # 10 targets 12, 11 targets 13 -- so the pair is pinned per leg rather
+        # than left as two free axes that would resolve to impossible cells.
+        #
+        # `highest` is the install most users get. `lowest` is run on the two ends
+        # of the supported range only: it exists to catch a constraint in
+        # composer.json that is wider than the code actually supports, and that
+        # answer does not change in the middle of the range.
+        include:
+          - php: '8.3'
+            laravel: '11.*'
+            testbench: '9.*'
+            dependencies: lowest
+          - php: '8.3'
+            laravel: '11.*'
+            testbench: '9.*'
+            dependencies: highest
+          - php: '8.4'
+            laravel: '11.*'
+            testbench: '9.*'
+            dependencies: highest
+          - php: '8.3'
+            laravel: '12.*'
+            testbench: '10.*'
+            dependencies: highest
+          - php: '8.4'
+            laravel: '12.*'
+            testbench: '10.*'
+            dependencies: highest
+          - php: '8.3'
+            laravel: '13.*'
+            testbench: '11.*'
+            dependencies: highest
+          - php: '8.4'
+            laravel: '13.*'
+            testbench: '11.*'
+            dependencies: highest
+          - php: '8.4'
+            laravel: '13.*'
+            testbench: '11.*'
+            dependencies: lowest
+
+    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }} · ${{ matrix.dependencies }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, sqlite3, pdo_sqlite
+          # PCOV is many times faster than Xdebug for the line coverage that
+          # --min=100 needs, and line coverage is all it needs.
+          coverage: pcov
+
+      - name: Constrain Laravel and Testbench
+        run: |
+          composer require --no-update --no-interaction \
+            "illuminate/console:${{ matrix.laravel }}" \
+            "illuminate/contracts:${{ matrix.laravel }}" \
+            "illuminate/database:${{ matrix.laravel }}" \
+            "illuminate/support:${{ matrix.laravel }}"
+
+          composer require --dev --no-update --no-interaction \
+            "orchestra/testbench:${{ matrix.testbench }}"
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
+
+      - name: Tests
+        run: vendor/bin/pest --colors=always --coverage --min=100
+
+  quality:
+    runs-on: ubuntu-latest
+    name: Lint, static analysis and types
+
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, sqlite3, pdo_sqlite
+          coverage: pcov
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Rector
+        run: vendor/bin/rector --dry-run --no-progress-bar
+
+      - name: Pint
+        run: vendor/bin/pint --test
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
+
+      - name: Type coverage
+        run: vendor/bin/pest --type-coverage --min=100
