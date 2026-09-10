@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="696" height="408" viewBox="0 0 696 408" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, &quot;DejaVu Sans Mono&quot;, monospace">
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2530"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="695" height="407" rx="12" fill="#0d1117" stroke="#30363d"/>
+  <path d="M0.5 12.5a12 12 0 0 1 12-12h671 a12 12 0 0 1 12 12V38H0.5z" fill="url(#chrome)"/>
+  <line x1="0.5" y1="38" x2="695.5" y2="38" stroke="#30363d"/>
+  <circle cx="22" cy="19.5" r="5.5" fill="#ec6a5f"/>
+  <circle cx="41" cy="19.5" r="5.5" fill="#f4bf50"/>
+  <circle cx="60" cy="19.5" r="5.5" fill="#61c454"/>
+  <text x="348" y="24" fill="#7d8590" font-size="12" text-anchor="middle">php artisan sloppy:baseline  &amp;&amp;  php artisan sloppy</text>
+  <text x="26" y="62" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#6cb6ff"> INFO </tspan><tspan fill="#c9d1d9"> Baselined 38 finding(s) across 14 file(s) into .sloppy-baseline.json.  </tspan></text>
+  <text x="26" y="102" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#7d8590">Score at baseline: 0/100. Commit this file so CI compares against it.</tspan></text>
+  <text x="26" y="162" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#6cb6ff"> INFO </tspan><tspan fill="#c9d1d9"> 38 existing finding(s) hidden by .sloppy-baseline.json.  </tspan></text>
+  <text x="26" y="222" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#c9d1d9" font-weight="600">Sloppy</tspan></text>
+  <text x="26" y="262" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Score  </tspan><tspan fill="#94d3a2" font-weight="600">100/100</tspan><tspan fill="#c9d1d9">  </tspan><tspan fill="#94d3a2">Clean</tspan></text>
+  <text x="26" y="282" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Files  14 analysed  ·  472 lines  ·  0 findings</tspan></text>
+  <text x="26" y="322" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#94d3a2">Nothing flagged.</tspan></text>
+  <text x="26" y="362" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#94d3a2" font-weight="600">✓ Passed</tspan><tspan fill="#c9d1d9"> — nothing at high or above</tspan></text>
+</svg>

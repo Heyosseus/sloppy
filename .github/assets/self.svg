@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="785" height="468" viewBox="0 0 785 468" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, &quot;DejaVu Sans Mono&quot;, monospace">
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2530"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="784" height="467" rx="12" fill="#0d1117" stroke="#30363d"/>
+  <path d="M0.5 12.5a12 12 0 0 1 12-12h760 a12 12 0 0 1 12 12V38H0.5z" fill="url(#chrome)"/>
+  <line x1="0.5" y1="38" x2="784.5" y2="38" stroke="#30363d"/>
+  <circle cx="22" cy="19.5" r="5.5" fill="#ec6a5f"/>
+  <circle cx="41" cy="19.5" r="5.5" fill="#f4bf50"/>
+  <circle cx="60" cy="19.5" r="5.5" fill="#61c454"/>
+  <text x="392.5" y="24" fill="#7d8590" font-size="12" text-anchor="middle">php artisan sloppy --path=src</text>
+  <text x="26" y="62" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#c9d1d9" font-weight="600">Sloppy</tspan></text>
+  <text x="26" y="102" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Score  </tspan><tspan fill="#94d3a2" font-weight="600">99/100</tspan><tspan fill="#c9d1d9">  </tspan><tspan fill="#94d3a2">Clean</tspan></text>
+  <text x="26" y="122" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Files  72 analysed  ·  6,962 lines  ·  1 finding</tspan></text>
+  <text x="26" y="162" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#d6dae2" font-weight="600">src/Ast/NodeHelper.php</tspan></text>
+  <text x="26" y="202" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     59  </tspan><tspan fill="#e57373" font-weight="600">HIGH    </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL102</tspan><tspan fill="#c9d1d9">  God Class  </tspan><tspan fill="#7d8590">(91% confidence)</tspan></text>
+  <text x="26" y="222" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         NodeHelper spans 983 lines with 57 methods (49 public), 269 statements, 0 injected</tspan></text>
+  <text x="26" y="242" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         dependencies and talks to 13 distinct collaborators.</tspan></text>
+  <text x="26" y="262" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Group the members that change together and move each group into its own class.</tspan></text>
+  <text x="26" y="282" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           Clusters of methods that share the same subset of properties are usually a class</tspan></text>
+  <text x="26" y="302" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           trying to get out.</tspan></text>
+  <text x="26" y="342" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#7d8590">────────────────────────────────────────────────────────────</tspan></text>
+  <text x="26" y="382" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  1 finding: </tspan><tspan fill="#e57373">1 high</tspan></text>
+  <text x="26" y="422" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#e57373" font-weight="600">✗ Failed</tspan><tspan fill="#c9d1d9"> — 1 finding(s) at high or above (fail_on: high)</tspan></text>
+</svg>

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="817" height="728" viewBox="0 0 817 728" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, &quot;DejaVu Sans Mono&quot;, monospace">
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2530"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d1117" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0d1117" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="816" height="727" rx="12" fill="#0d1117" stroke="#30363d"/>
+  <path d="M0.5 12.5a12 12 0 0 1 12-12h792 a12 12 0 0 1 12 12V38H0.5z" fill="url(#chrome)"/>
+  <line x1="0.5" y1="38" x2="816.5" y2="38" stroke="#30363d"/>
+  <circle cx="22" cy="19.5" r="5.5" fill="#ec6a5f"/>
+  <circle cx="41" cy="19.5" r="5.5" fill="#f4bf50"/>
+  <circle cx="60" cy="19.5" r="5.5" fill="#61c454"/>
+  <text x="408.5" y="24" fill="#7d8590" font-size="12" text-anchor="middle">php artisan sloppy:diff main</text>
+  <text x="26" y="62" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#c9d1d9" font-weight="600">Sloppy Review</tspan></text>
+  <text x="26" y="102" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Base   </tspan><tspan fill="#56d4dd">main</tspan></text>
+  <text x="26" y="122" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Files  2 changed  ·  221 lines touched</tspan></text>
+  <text x="26" y="162" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#c9d1d9" font-weight="600">New findings: 24</tspan></text>
+  <text x="26" y="202" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#e57373" font-weight="600">HIGH    </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL101</tspan><tspan fill="#c9d1d9">  God Method  </tspan><tspan fill="#7d8590">(94%)</tspan></text>
+  <text x="26" y="222" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#d6dae2">app/Http/Controllers/OrderController.php:30:5</tspan></text>
+  <text x="26" y="242" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         OrderController::store() spans 98 lines with 44 statements, cyclomatic complexity</tspan></text>
+  <text x="26" y="262" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         12, nesting depth 6 and 24 calls to 17 distinct collaborators.</tspan></text>
+  <text x="26" y="282" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Identify the distinct jobs this method performs and extract each into its own</tspan></text>
+  <text x="26" y="302" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           well-named method or class. Extracting the outermost branches first usually makes</tspan></text>
+  <text x="26" y="322" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           the remaining shape obvious.</tspan></text>
+  <text x="26" y="362" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#e57373" font-weight="600">HIGH    </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL201</tspan><tspan fill="#c9d1d9">  Business Logic In Controller  </tspan><tspan fill="#7d8590">(90%)</tspan></text>
+  <text x="26" y="382" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#d6dae2">app/Http/Controllers/OrderController.php:30:5</tspan></text>
+  <text x="26" y="402" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         OrderController::store() carries business logic: 4 database writes; 1 outbound HTTP</tspan></text>
+  <text x="26" y="422" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         calls; 2 notifications or queued jobs; 8 arithmetic operations; a database</tspan></text>
+  <text x="26" y="442" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         transaction; cyclomatic complexity 12; 44 statements.</tspan></text>
+  <text x="26" y="462" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Move the decision-making into a dedicated action, service or job and let the</tspan></text>
+  <text x="26" y="482" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           controller validate input, call it once, and turn the result into a response. That</tspan></text>
+  <text x="26" y="502" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           makes the logic testable without an HTTP request and reusable from a command or a</tspan></text>
+  <text x="26" y="522" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           queue.</tspan></text>
+  <text x="26" y="562" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#e57373" font-weight="600">HIGH    </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL107</tspan><tspan fill="#c9d1d9">  Swallowed Exception  </tspan><tspan fill="#7d8590">(84%)</tspan></text>
+  <text x="26" y="582" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#d6dae2">app/Http/Controllers/OrderController.php:77:27</tspan></text>
+  <text x="26" y="602" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         OrderController::store() catches Throwable and returns without recording the</tspan></text>
+  <text x="26" y="622" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         failure.</tspan></text>
+  <text x="26" y="642" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Do at least one of: log or report the exception, rethrow it wrapped in a</tspan></text>
+  <text x="26" y="662" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           domain-specific type, or return a result the caller can distinguish from success. If</tspan></text>
+  <text x="26" y="682" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           the failure genuinely is expected and unremarkable, say so in a comment so the next</tspan></text>
+  <rect x="1" y="657" width="815" height="70" fill="url(#fade)"/>
+</svg>

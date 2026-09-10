@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="809" height="1208" viewBox="0 0 809 1208" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, &quot;DejaVu Sans Mono&quot;, monospace">
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2530"/>
+      <stop offset="1" stop-color="#161b22"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="808" height="1207" rx="12" fill="#0d1117" stroke="#30363d"/>
+  <path d="M0.5 12.5a12 12 0 0 1 12-12h784 a12 12 0 0 1 12 12V38H0.5z" fill="url(#chrome)"/>
+  <line x1="0.5" y1="38" x2="808.5" y2="38" stroke="#30363d"/>
+  <circle cx="22" cy="19.5" r="5.5" fill="#ec6a5f"/>
+  <circle cx="41" cy="19.5" r="5.5" fill="#f4bf50"/>
+  <circle cx="60" cy="19.5" r="5.5" fill="#61c454"/>
+  <text x="404.5" y="24" fill="#7d8590" font-size="12" text-anchor="middle">php artisan sloppy --path=app/Services/ReportingService.php</text>
+  <text x="26" y="62" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#c9d1d9" font-weight="600">Sloppy</tspan></text>
+  <text x="26" y="102" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Score  </tspan><tspan fill="#e3b341" font-weight="600">67/100</tspan><tspan fill="#c9d1d9">  </tspan><tspan fill="#e3b341">Needs attention</tspan></text>
+  <text x="26" y="122" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  Files  1 analysed  ·  65 lines  ·  7 findings</tspan></text>
+  <text x="26" y="162" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#d6dae2" font-weight="600">app/Services/ReportingService.php</tspan></text>
+  <text x="26" y="202" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     12  </tspan><tspan fill="#e3b341" font-weight="600">MEDIUM  </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL106</tspan><tspan fill="#c9d1d9">  Unused Constructor Dependency  </tspan><tspan fill="#7d8590">(88% confidence)</tspan></text>
+  <text x="26" y="222" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService injects $logger but never uses $this-&gt;logger.</tspan></text>
+  <text x="26" y="242" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Remove $logger from the constructor, and from any container binding or test that</tspan></text>
+  <text x="26" y="262" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           builds this class by hand.</tspan></text>
+  <text x="26" y="302" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     16  </tspan><tspan fill="#e3b341" font-weight="600">MEDIUM  </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL104</tspan><tspan fill="#c9d1d9">  Duplicate Logic  </tspan><tspan fill="#7d8590">(70% confidence)</tspan></text>
+  <text x="26" y="322" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService::monthlyOrderTotals() is structurally identical to</tspan></text>
+  <text x="26" y="342" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService::monthlyInvoiceTotals() at app/Services/ReportingService.php:37.</tspan></text>
+  <text x="26" y="362" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">If the two really do the same work, keep one and call it from both places. If they</tspan></text>
+  <text x="26" y="382" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           differ only in the values they use, a single method taking those values as</tspan></text>
+  <text x="26" y="402" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           parameters usually replaces both.</tspan></text>
+  <text x="26" y="442" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     37  </tspan><tspan fill="#e3b341" font-weight="600">MEDIUM  </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL104</tspan><tspan fill="#c9d1d9">  Duplicate Logic  </tspan><tspan fill="#7d8590">(70% confidence)</tspan></text>
+  <text x="26" y="462" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService::monthlyInvoiceTotals() is structurally identical to</tspan></text>
+  <text x="26" y="482" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService::monthlyOrderTotals() at app/Services/ReportingService.php:16.</tspan></text>
+  <text x="26" y="502" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">If the two really do the same work, keep one and call it from both places. If they</tspan></text>
+  <text x="26" y="522" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           differ only in the values they use, a single method taking those values as</tspan></text>
+  <text x="26" y="542" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           parameters usually replaces both.</tspan></text>
+  <text x="26" y="582" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     60  </tspan><tspan fill="#e3b341" font-weight="600">MEDIUM  </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL205</tspan><tspan fill="#c9d1d9">  Collection Instead Of Database Query  </tspan><tspan fill="#7d8590">(88% confidence)</tspan></text>
+  <text x="26" y="602" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService::activeCustomerCount() loads every Customer row with</tspan></text>
+  <text x="26" y="622" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         Customer::all() and then filters it in PHP with -&gt;where().</tspan></text>
+  <text x="26" y="642" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Let the database do it: Customer::where(...)-&gt;get().</tspan></text>
+  <text x="26" y="682" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     80  </tspan><tspan fill="#e3b341" font-weight="600">MEDIUM  </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL105</tspan><tspan fill="#c9d1d9">  Dead Private Method  </tspan><tspan fill="#7d8590">(88% confidence)</tspan></text>
+  <text x="26" y="702" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService::formatLegacyRow() is private and has no caller in</tspan></text>
+  <text x="26" y="722" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         app/Services/ReportingService.php.</tspan></text>
+  <text x="26" y="742" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Delete the method if it is genuinely unused. If it is reached through a callback, a</tspan></text>
+  <text x="26" y="762" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           route or a framework hook, make that call site explicit so both readers and tools</tspan></text>
+  <text x="26" y="782" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           can see it.</tspan></text>
+  <text x="26" y="822" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     69  </tspan><tspan fill="#56d4dd" font-weight="600">LOW     </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL110</tspan><tspan fill="#c9d1d9">  Defensive Programming Noise  </tspan><tspan fill="#7d8590">(78% confidence)</tspan></text>
+  <text x="26" y="842" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService::summarise() already guarded that $window is null on line 65, with</tspan></text>
+  <text x="26" y="862" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         the same outcome.</tspan></text>
+  <text x="26" y="882" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Keep one guard. If the two were meant to catch different states -- null versus</tspan></text>
+  <text x="26" y="902" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           empty, say -- make that difference explicit in the conditions and in what each</tspan></text>
+  <text x="26" y="922" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           returns.</tspan></text>
+  <text x="26" y="962" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">     73  </tspan><tspan fill="#56d4dd" font-weight="600">LOW     </tspan><tspan fill="#c9d1d9"> </tspan><tspan fill="#c9d1d9" font-weight="600">SL108</tspan><tspan fill="#c9d1d9">  Redundant Condition  </tspan><tspan fill="#7d8590">(90% confidence)</tspan></text>
+  <text x="26" y="982" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         ReportingService repeats `isset($window[&apos;from&apos;])` on both sides of a boolean</tspan></text>
+  <text x="26" y="1002" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         operator.</tspan></text>
+  <text x="26" y="1022" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">         </tspan><tspan fill="#56d4dd">→ </tspan><tspan fill="#c9d1d9">Keep one side. If the two were meant to test different things, one of them has the</tspan></text>
+  <text x="26" y="1042" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">           wrong subject.</tspan></text>
+  <text x="26" y="1082" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#7d8590">────────────────────────────────────────────────────────────</tspan></text>
+  <text x="26" y="1122" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  7 findings: </tspan><tspan fill="#e3b341">5 medium</tspan><tspan fill="#c9d1d9">  </tspan><tspan fill="#56d4dd">2 low</tspan></text>
+  <text x="26" y="1162" font-size="13" xml:space="preserve"><tspan fill="#c9d1d9">  </tspan><tspan fill="#94d3a2" font-weight="600">✓ Passed</tspan><tspan fill="#c9d1d9"> — nothing at high or above</tspan></text>
+</svg>

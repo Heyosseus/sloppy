@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="132" viewBox="0 0 760 132" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Inter, Roboto, Helvetica, Arial, sans-serif">
+  <g>
+    <path d="M20 34h268v40H20a8 8 0 0 1-8-8V42a8 8 0 0 1 8-8z" fill="#a40e26"/>
+    <rect x="288" y="34" width="140" height="40" fill="#d1242f"/>
+    <rect x="428" y="34" width="105" height="40" fill="#bf8700"/>
+    <rect x="533" y="34" width="105" height="40" fill="#2da44e"/>
+    <path d="M638 34h94a8 8 0 0 1 8 8v24a8 8 0 0 1-8 8h-94z" fill="#1a7f37"/>
+  </g>
+
+  <g fill="#ffffff" font-size="13" font-weight="600" text-anchor="middle">
+    <text x="150" y="59">Severe slop</text>
+    <text x="358" y="59">Sloppy</text>
+    <text x="480" y="59">Needs attention</text>
+    <text x="585" y="59">Healthy</text>
+    <text x="685" y="59">Clean</text>
+  </g>
+
+  <g fill="#7d8590" font-size="12.5">
+    <text x="12" y="26">0</text>
+    <text x="288" y="26" text-anchor="middle">40</text>
+    <text x="428" y="26" text-anchor="middle">60</text>
+    <text x="533" y="26" text-anchor="middle">75</text>
+    <text x="638" y="26" text-anchor="middle">90</text>
+    <text x="748" y="26" text-anchor="end">100</text>
+  </g>
+
+  <g fill="#7d8590" font-size="12.5">
+    <text x="12" y="98">worse</text>
+    <text x="748" y="98" text-anchor="end">better</text>
+    <text x="380" y="120" font-size="12" text-anchor="middle">A code-quality reading for the analysed paths &#8212; never a probability that code was AI-written.</text>
+  </g>
+</svg>
