@@ -56,6 +56,25 @@ it('reads a file as it was at a revision', function (): void {
     $repository->remove();
 });
 
+it('counts every line of a new file as touched', function (): void {
+    $repository = TempRepository::create();
+    $repository->write('app/Kept.php', "<?php\nclass Kept {}\n")->commit('first');
+
+    // Five lines, and all five of them are new against the base.
+    $repository->write('app/Fresh.php', "<?php\n\nclass Fresh\n{\n}\n");
+
+    $git = $repository->client();
+    $changed = $git->changedFiles('HEAD');
+
+    expect($changed)->toHaveCount(1)
+        ->and($changed[0]->relativePath)->toBe('app/Fresh.php')
+        // Hunks are filled in on request, so the bare listing carries none.
+        ->and($changed[0]->changedLineCount())->toBe(0)
+        ->and($git->withHunks('HEAD', $changed[0])->changedLineCount())->toBe(5);
+
+    $repository->remove();
+});
+
 it('lists modified, added, deleted and untracked files', function (): void {
     $repository = TempRepository::create();
     $repository

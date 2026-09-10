@@ -18,6 +18,15 @@ it('reports a clean run', function (): void {
         ->toContain('1 analysed');
 });
 
+it('says a clean run passed when a threshold is set', function (): void {
+    $result = AnalysisResult::create([], ['app/A.php'], 500, new ScoreCalculator);
+    $output = (new ConsoleFormatter(failOn: Severity::High))->format($result);
+
+    expect($output)->toContain('Nothing flagged.')
+        ->toContain('Passed')
+        ->toContain('nothing at high or above');
+});
+
 it('groups findings by file and shows message, rule and confidence', function (): void {
     $result = AnalysisResult::create([
         finding(rule: 'SL101', file: 'app/A.php', line: 42, confidence: 96),

@@ -49,6 +49,14 @@ final readonly class ConsoleFormatter implements Formatter
         if ($result->isEmpty()) {
             $lines[] = '';
             $lines[] = '  <fg=green>Nothing flagged.</>';
+
+            // A clean run still says it passed: a pipeline log that goes quiet
+            // reads the same whether the gate ran or was skipped.
+            if ($this->failOn instanceof Severity) {
+                $lines[] = '';
+                $lines[] = '  '.$this->verdict($this->failOn, 0);
+            }
+
             $lines[] = '';
 
             return $this->join($lines, $result);
@@ -87,8 +95,11 @@ final readonly class ConsoleFormatter implements Formatter
                 $finding->ruleName,
                 $finding->confidence,
             ),
-            '         '.OutputFormatter::escape($finding->message),
         ];
+
+        foreach ($this->wrap($finding->message, 84) as $line) {
+            $lines[] = '         '.OutputFormatter::escape($line);
+        }
 
         if ($this->explain) {
             foreach ($this->wrap($finding->explanation, 84) as $line) {
@@ -119,11 +130,14 @@ final readonly class ConsoleFormatter implements Formatter
             return $summary;
         }
 
-        $breaching = count($result->atOrAbove($this->failOn));
+        return $summary."\n\n  ".$this->verdict($this->failOn, count($result->atOrAbove($this->failOn)));
+    }
 
-        return $summary."\n\n  ".($breaching > 0
-            ? sprintf('<fg=red;options=bold>✗ Failed</> — %d finding(s) at %s or above (fail_on: %s)', $breaching, $this->failOn->value, $this->failOn->value)
-            : sprintf('<fg=green;options=bold>✓ Passed</> — nothing at %s or above', $this->failOn->value));
+    private function verdict(Severity $failOn, int $breaching): string
+    {
+        return $breaching > 0
+            ? sprintf('<fg=red;options=bold>✗ Failed</> — %d finding(s) at %s or above (fail_on: %s)', $breaching, $failOn->value, $failOn->value)
+            : sprintf('<fg=green;options=bold>✓ Passed</> — nothing at %s or above', $failOn->value);
     }
 
     private function countLabel(int $count): string

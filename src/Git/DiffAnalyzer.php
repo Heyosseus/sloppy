@@ -34,12 +34,15 @@ final readonly class DiffAnalyzer
     {
         $projectFiles = $this->projectSources();
 
-        $changed = array_values(array_filter(
-            $this->git->changedFiles($base),
-            fn (ChangedFile $file): bool => $file->isAnalysable()
-                && ! $this->finder->isExcluded($file->relativePath)
-                && isset($projectFiles[$file->relativePath]),
-        ));
+        $changed = array_map(
+            fn (ChangedFile $file): ChangedFile => $this->git->withHunks($base, $file),
+            array_values(array_filter(
+                $this->git->changedFiles($base),
+                fn (ChangedFile $file): bool => $file->isAnalysable()
+                    && ! $this->finder->isExcluded($file->relativePath)
+                    && isset($projectFiles[$file->relativePath]),
+            )),
+        );
 
         $changedPaths = array_map(static fn (ChangedFile $file): string => $file->relativePath, $changed);
 

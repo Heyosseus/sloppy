@@ -117,8 +117,11 @@ final readonly class DiffConsoleFormatter implements DiffFormatter
                 $finding->confidence,
             ),
             '         <fg=white>'.OutputFormatter::escape((string) $finding->location).'</>',
-            '         '.OutputFormatter::escape($finding->message),
         ];
+
+        foreach (explode("\n", wordwrap($finding->message, 84)) as $line) {
+            $lines[] = '         '.OutputFormatter::escape($line);
+        }
 
         if ($this->explain) {
             foreach (explode("\n", wordwrap($finding->explanation, 84)) as $line) {

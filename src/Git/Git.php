@@ -108,19 +108,6 @@ final readonly class Git
             $files[$path] ??= new ChangedFile($path, 'untracked');
         }
 
-        foreach ($files as $path => $file) {
-            if (in_array($file->status, ['added', 'untracked', 'deleted'], true)) {
-                continue;
-            }
-
-            $files[$path] = new ChangedFile(
-                relativePath: $file->relativePath,
-                status: $file->status,
-                hunks: $this->hunksFor($base, $path),
-                previousPath: $file->previousPath,
-            );
-        }
-
         $result = array_values($files);
 
         usort($result, static fn (ChangedFile $a, ChangedFile $b): int => $a->relativePath <=> $b->relativePath);
@@ -159,6 +146,49 @@ final readonly class Git
         }
 
         return $hunks;
+    }
+
+    /**
+     * The same file with its changed line ranges filled in.
+     *
+     * Hunks cost a `git diff` or a file read each, and only the files that
+     * survive the project's own path filtering are ever asked about, so the
+     * caller decides which files are worth the work. An untracked `vendor`
+     * directory is the reason that decision does not belong here.
+     */
+    public function withHunks(string $base, ChangedFile $file): ChangedFile
+    {
+        if (! $file->isAnalysable()) {
+            return $file;
+        }
+
+        return new ChangedFile(
+            relativePath: $file->relativePath,
+            status: $file->status,
+            // A wholly new file has no hunks against the base, but every line
+            // in it is new, so the file is its own hunk. Without this a review
+            // of a brand new class would report that it touched no lines.
+            hunks: $file->existedBefore()
+                ? $this->hunksFor($base, $file->relativePath)
+                : $this->wholeFileHunks($file->relativePath),
+            previousPath: $file->previousPath,
+        );
+    }
+
+    /**
+     * The single hunk covering a file that is new in its entirety.
+     *
+     * @return list<DiffHunk>
+     */
+    private function wholeFileHunks(string $relativePath): array
+    {
+        $contents = @file_get_contents($this->workingDirectory.'/'.$relativePath);
+
+        if ($contents === false || trim($contents) === '') {
+            return [];
+        }
+
+        return [new DiffHunk(startLine: 1, lineCount: count(explode("\n", rtrim($contents, "\n"))))];
     }
 
     /**
