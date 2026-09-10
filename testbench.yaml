@@ -1,0 +1,8 @@
+# Lets contributors run the commands for real, outside the test suite:
+#
+#   vendor/bin/testbench sloppy --path=/absolute/path/to/app
+#
+# The test suite registers the provider itself, so this file only affects
+# manual runs.
+providers:
+  - Heyosseus\Sloppy\SloppyServiceProvider

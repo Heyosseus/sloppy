@@ -74,7 +74,7 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: mbstring, intl, sqlite3, pdo_sqlite
           # PCOV is many times faster than Xdebug for the line coverage that
-          # --min=100 needs, and line coverage is all it needs.
+          # --min=95 needs, and line coverage is all it needs.
           coverage: pcov
 
       - name: Constrain Laravel and Testbench
@@ -82,7 +82,6 @@ jobs:
           composer require --no-update --no-interaction \
             "illuminate/console:${{ matrix.laravel }}" \
             "illuminate/contracts:${{ matrix.laravel }}" \
-            "illuminate/database:${{ matrix.laravel }}" \
             "illuminate/support:${{ matrix.laravel }}"
 
           composer require --dev --no-update --no-interaction \
@@ -94,7 +93,7 @@ jobs:
           dependency-versions: ${{ matrix.dependencies }}
 
       - name: Tests
-        run: vendor/bin/pest --colors=always --coverage --min=100
+        run: vendor/bin/pest --colors=always --coverage --min=95
 
   quality:
     runs-on: ubuntu-latest

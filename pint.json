@@ -15,5 +15,8 @@
         "strict_comparison": true,
         "strict_param": true,
         "void_return": true
-    }
+    },
+    "exclude": [
+        "tests/Fixtures"
+    ]
 }
