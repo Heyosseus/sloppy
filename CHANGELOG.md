@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`sloppy:diff` was spending minutes in process startup.** On a 70,000-line
+  application with 773 changed files it took 4m01s, of which 4m31s of measured
+  work was git: one `git diff` process per changed file to read its hunks
+  (144s) and one `git show` per file to read its base contents (126s). The
+  analysis those calls feed took 22s. Hunks are now read in batched
+  `git diff` calls sized to the platform's command-line limit, and base
+  contents come from a single `git cat-file --batch` process fed on stdin. The
+  same comparison now runs in **20.8s** — identical findings, identical score.
+- **`sloppy:diff` no longer analyses the project twice to discover it has
+  nothing to compare.** A diff with no analysable PHP changes in it returns
+  immediately instead of parsing every file on both sides first.
+
 ## [0.1.0] — 2026-09-10
 
 First release: the deterministic analyser.
