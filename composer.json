@@ -24,9 +24,9 @@
     ],
     "require": {
         "php": "^8.3",
-        "illuminate/console": "^11.0 || ^12.0 || ^13.0",
-        "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
-        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/console": "^12.0 || ^13.0",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0",
         "nikic/php-parser": "^5.3",
         "symfony/finder": "^7.0 || ^8.0",
         "symfony/process": "^7.0 || ^8.0"
@@ -34,7 +34,7 @@
     "require-dev": {
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.18",
-        "orchestra/testbench": "^9.5 || ^10.0 || ^11.0",
+        "orchestra/testbench": "^10.0 || ^11.0",
         "pestphp/pest": "^3.7 || ^4.0",
         "pestphp/pest-plugin-laravel": "^3.1 || ^4.0",
         "pestphp/pest-plugin-type-coverage": "^3.2 || ^4.0",

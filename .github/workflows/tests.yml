@@ -20,9 +20,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Laravel and Testbench move together -- Testbench 9 targets Laravel 11,
-        # 10 targets 12, 11 targets 13 -- so the pair is pinned per leg rather
-        # than left as two free axes that would resolve to impossible cells.
+        # Laravel and Testbench move together -- Testbench 10 targets Laravel 12,
+        # 11 targets 13 -- so the pair is pinned per leg rather than left as two
+        # free axes that would resolve to impossible cells.
+        #
+        # Laravel 11 is deliberately absent. Its security window has closed, so
+        # every 11.x release now carries advisories that will never be patched,
+        # and Composer's advisory policy refuses to install any of them. A leg
+        # that cannot install is not a supported version.
         #
         # `highest` is the install most users get. `lowest` is run on the two ends
         # of the supported range only: it exists to catch a constraint in
@@ -30,17 +35,9 @@ jobs:
         # answer does not change in the middle of the range.
         include:
           - php: '8.3'
-            laravel: '11.*'
-            testbench: '9.*'
+            laravel: '12.*'
+            testbench: '10.*'
             dependencies: lowest
-          - php: '8.3'
-            laravel: '11.*'
-            testbench: '9.*'
-            dependencies: highest
-          - php: '8.4'
-            laravel: '11.*'
-            testbench: '9.*'
-            dependencies: highest
           - php: '8.3'
             laravel: '12.*'
             testbench: '10.*'
