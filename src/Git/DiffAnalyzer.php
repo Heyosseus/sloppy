@@ -34,15 +34,18 @@ final readonly class DiffAnalyzer
     {
         $projectFiles = $this->projectSources();
 
-        $changed = array_map(
-            fn (ChangedFile $file): ChangedFile => $this->git->withHunks($base, $file),
-            array_values(array_filter(
-                $this->git->changedFiles($base),
-                fn (ChangedFile $file): bool => $file->isAnalysable()
-                    && ! $this->finder->isExcluded($file->relativePath)
-                    && isset($projectFiles[$file->relativePath]),
-            )),
-        );
+        $changed = $this->git->withHunks($base, array_values(array_filter(
+            $this->git->changedFiles($base),
+            fn (ChangedFile $file): bool => $file->isAnalysable()
+                && ! $this->finder->isExcluded($file->relativePath)
+                && isset($projectFiles[$file->relativePath]),
+        )));
+
+        // Nothing analysable changed, so both trees are the same tree. Parsing
+        // the project twice to prove it would be the slowest way to say so.
+        if ($changed === []) {
+            return $this->unchanged($base);
+        }
 
         $changedPaths = array_map(static fn (ChangedFile $file): string => $file->relativePath, $changed);
 
@@ -53,10 +56,20 @@ final readonly class DiffAnalyzer
         // reading them from git again would be pointless work.
         $baseSources = $projectFiles;
         $basePaths = [];
+        $wanted = [];
 
         foreach ($changed as $file) {
-            $path = $file->previousPath ?? $file->relativePath;
-            $contents = $file->existedBefore() ? $this->git->showFile($base, $path) : null;
+            if ($file->existedBefore()) {
+                $wanted[$file->relativePath] = $file->previousPath ?? $file->relativePath;
+            }
+        }
+
+        $previousContents = $this->git->showFiles($base, array_values($wanted));
+
+        foreach ($changed as $file) {
+            $contents = isset($wanted[$file->relativePath])
+                ? $previousContents[$wanted[$file->relativePath]] ?? null
+                : null;
 
             if ($contents === null) {
                 unset($baseSources[$file->relativePath]);
@@ -81,6 +94,25 @@ final readonly class DiffAnalyzer
             currentScore: $this->calculator->calculate($current->findings, $current->analyzedLines),
             baseScore: $this->calculator->calculate($previous->findings, $previous->analyzedLines),
             errors: [...$previous->errors, ...$current->errors],
+        );
+    }
+
+    /**
+     * The report for a comparison with no analysable changes in it.
+     */
+    private function unchanged(string $base): DiffReport
+    {
+        $score = $this->calculator->calculate([], 0);
+
+        return new DiffReport(
+            base: $base,
+            changedFiles: [],
+            new: [],
+            existing: [],
+            resolved: [],
+            currentScore: $score,
+            baseScore: $score,
+            errors: [],
         );
     }
 

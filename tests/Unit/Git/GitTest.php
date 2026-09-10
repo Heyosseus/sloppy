@@ -70,7 +70,56 @@ it('counts every line of a new file as touched', function (): void {
         ->and($changed[0]->relativePath)->toBe('app/Fresh.php')
         // Hunks are filled in on request, so the bare listing carries none.
         ->and($changed[0]->changedLineCount())->toBe(0)
-        ->and($git->withHunks('HEAD', $changed[0])->changedLineCount())->toBe(5);
+        ->and($git->withHunks('HEAD', $changed)[0]->changedLineCount())->toBe(5);
+
+    $repository->remove();
+});
+
+it('reads many files at one revision in a single pass', function (): void {
+    $repository = TempRepository::create();
+    $repository
+        ->write('app/A.php', "<?php\nclass A {}\n")
+        ->write('app/B.php', "<?php\nclass B {}\n")
+        ->write('app/C with space.php', "<?php\nclass C {}\n")
+        ->commit('first');
+
+    $contents = $repository->client()->showFiles('HEAD', [
+        'app/A.php',
+        'app/Gone.php',
+        'app/B.php',
+        'app/C with space.php',
+    ]);
+
+    expect($contents)->toHaveCount(4)
+        ->and($contents['app/A.php'])->toContain('class A')
+        ->and($contents['app/B.php'])->toContain('class B')
+        ->and($contents['app/C with space.php'])->toContain('class C')
+        // A path that never existed answers null rather than shifting the
+        // files after it onto the wrong contents.
+        ->and($contents['app/Gone.php'])->toBeNull();
+
+    $repository->remove();
+});
+
+it('reads the hunks of many files in a single pass', function (): void {
+    $repository = TempRepository::create();
+    $repository
+        ->write('app/A.php', "<?php\n\$a = 1;\n\$b = 2;\n")
+        ->write('app/B.php', "<?php\n\$c = 3;\n\$d = 4;\n")
+        ->write('app/C.php', "<?php\n\$e = 5;\n")
+        ->commit('first');
+
+    $repository
+        ->write('app/A.php', "<?php\n\$a = 99;\n\$b = 2;\n")
+        ->write('app/B.php', "<?php\n\$c = 3;\n\$d = 44;\n");
+
+    $hunks = $repository->client()->hunksForFiles('HEAD', ['app/A.php', 'app/B.php', 'app/C.php']);
+
+    expect($hunks)->toHaveKeys(['app/A.php', 'app/B.php'])
+        ->and($hunks['app/A.php'][0]->startLine)->toBe(2)
+        ->and($hunks['app/B.php'][0]->startLine)->toBe(3)
+        // An unchanged file has no hunks, so it is absent rather than empty.
+        ->and($hunks)->not->toHaveKey('app/C.php');
 
     $repository->remove();
 });
