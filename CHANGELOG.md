@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-09-12
+
+Sloppy stops being a Laravel-only tool.
+
 ### Added
 
 - **Sloppy runs on any PHP project.** `vendor/bin/sloppy` analyses a project
@@ -193,5 +197,6 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/heyosseus/sloppy/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/heyosseus/sloppy/releases/tag/v0.1.0
