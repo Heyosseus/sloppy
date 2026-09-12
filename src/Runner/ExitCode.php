@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Heyosseus\Sloppy\Console;
+namespace Heyosseus\Sloppy\Runner;
 
 /**
  * Process exit codes, kept small and stable so CI can rely on them.

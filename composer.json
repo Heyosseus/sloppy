@@ -1,6 +1,6 @@
 {
     "name": "heyosseus/sloppy",
-    "description": "Laravel-aware static analysis that detects AI-slop code patterns: god methods, abstraction inflation, N+1 risks and other technical debt.",
+    "description": "Static analysis that detects AI-slop code patterns -- god methods, abstraction inflation, N+1 risks and other technical debt. Runs on any PHP project, with extra rules for Laravel.",
     "keywords": [
         "laravel",
         "php",
@@ -24,14 +24,15 @@
     ],
     "require": {
         "php": "^8.3",
-        "illuminate/console": "^12.0 || ^13.0",
-        "illuminate/contracts": "^12.0 || ^13.0",
-        "illuminate/support": "^12.0 || ^13.0",
         "nikic/php-parser": "^5.3",
+        "symfony/console": "^7.0 || ^8.0",
         "symfony/finder": "^7.0 || ^8.0",
         "symfony/process": "^7.0 || ^8.0"
     },
     "require-dev": {
+        "illuminate/console": "^12.0 || ^13.0",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0",
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.18",
         "orchestra/testbench": "^10.0 || ^11.0",
@@ -39,6 +40,12 @@
         "pestphp/pest-plugin-laravel": "^3.1 || ^4.0",
         "pestphp/pest-plugin-type-coverage": "^3.2 || ^4.0",
         "rector/rector": "^2.0"
+    },
+    "bin": [
+        "bin/sloppy"
+    ],
+    "suggest": {
+        "illuminate/console": "Required for the php artisan sloppy commands. Not needed for the standalone bin/sloppy binary."
     },
     "autoload": {
         "psr-4": {
@@ -55,6 +62,7 @@
     "config": {
         "sort-packages": true,
         "preferred-install": "dist",
+        "process-timeout": 600,
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }

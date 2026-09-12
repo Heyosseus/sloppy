@@ -75,13 +75,15 @@ jobs:
           coverage: pcov
 
       - name: Constrain Laravel and Testbench
+        # `--dev` on the illuminate packages is load-bearing. They are dev
+        # dependencies now that the package ships a standalone binary, and a
+        # bare `composer require` would write them back into `require` -- which
+        # is exactly what tests/Unit/Cli/ComposerManifestTest.php fails on.
         run: |
-          composer require --no-update --no-interaction \
+          composer require --dev --no-update --no-interaction \
             "illuminate/console:${{ matrix.laravel }}" \
             "illuminate/contracts:${{ matrix.laravel }}" \
-            "illuminate/support:${{ matrix.laravel }}"
-
-          composer require --dev --no-update --no-interaction \
+            "illuminate/support:${{ matrix.laravel }}" \
             "orchestra/testbench:${{ matrix.testbench }}"
 
       - name: Install dependencies

@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\StaticCall;
@@ -24,7 +24,7 @@ use PhpParser\Node\Stmt\ClassLike;
  * has nothing to do with it. Classes that exist to be the boundary -- clients,
  * gateways, connectors, services -- are not flagged.
  */
-final class DirectExternalApiRule extends BaseRule
+final class DirectExternalApiRule extends LaravelRule
 {
     /**
      * Name fragments that mark a class as an intentional integration boundary.

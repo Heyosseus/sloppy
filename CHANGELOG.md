@@ -6,6 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Sloppy runs on any PHP project.** `vendor/bin/sloppy` analyses a project
+  with no framework, discovering its source roots from `composer.json` PSR-4
+  autoload entries when there is no configuration file. The Artisan commands
+  are unchanged and now share their entire implementation with the binary, so
+  the two surfaces cannot drift.
+- **`sloppy.framework`**, defaulting to `auto`. The ten `SL2xx` Laravel rules
+  run when the analysed project's `composer.json` requires Laravel, and are
+  skipped otherwise. **Skipped rules are always reported** — named in the
+  console footer and listed under `rules_skipped` in JSON output — because a
+  project that silently lost ten rules would score better than its code
+  deserves.
+
+### Changed
+
+- `illuminate/console`, `illuminate/contracts` and `illuminate/support` are now
+  **dev dependencies**, and `symfony/console` is a runtime one. A Laravel
+  application is unaffected: it already has Illuminate, and the service
+  provider is only loaded by package discovery. A Symfony or vanilla project no
+  longer installs Laravel to use Sloppy.
+- `--format` is validated against an enum rather than compared as a string, so
+  an unsupported format fails with `exit 2` and a message naming the value.
+- **`--min-confidence` now rejects a value outside 0-100** instead of silently
+  clamping it. Passing `--min-confidence=200` previously clamped to 100, and
+  since no rule reports 100% confidence that produced zero findings and a score
+  of 100/100 — a clean report for code that had not been checked. It now exits
+  `2` with `--min-confidence must be a number between 0 and 100.`
+
 ### Fixed
 
 - **`sloppy:diff` was spending minutes in process startup.** On a 70,000-line

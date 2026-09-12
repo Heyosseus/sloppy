@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
 
@@ -19,7 +19,7 @@ use PhpParser\Node\Expr\StaticCall;
  * discards most of them. The equivalent query does the same work in the engine
  * that is built for it.
  */
-final class CollectionInsteadOfQueryRule extends BaseRule
+final class CollectionInsteadOfQueryRule extends LaravelRule
 {
     /**
      * Collection methods with a direct query builder equivalent, mapped to

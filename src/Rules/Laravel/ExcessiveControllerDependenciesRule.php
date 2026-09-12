@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Stmt\ClassMethod;
 
 /**
@@ -18,7 +18,7 @@ use PhpParser\Node\Stmt\ClassMethod;
  * usually means the actions belong to different things, or that orchestration
  * that should live one layer down is happening here.
  */
-final class ExcessiveControllerDependenciesRule extends BaseRule
+final class ExcessiveControllerDependenciesRule extends LaravelRule
 {
     public function id(): string
     {

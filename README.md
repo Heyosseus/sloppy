@@ -7,7 +7,7 @@
 
 <p align="center">
   <b>Static analysis for the code-quality patterns AI coding agents leave behind.</b><br>
-  Deterministic, local, Laravel-aware. No model, no API key, no network.
+  Deterministic, local, framework-agnostic — with extra rules for Laravel. No model, no API key, no network.
 </p>
 
 <p align="center">
@@ -56,6 +56,9 @@ as a gate.
 
 ```bash
 composer require --dev heyosseus/sloppy
+
+php artisan sloppy          # Laravel
+vendor/bin/sloppy           # any PHP project
 ```
 
 The service provider is discovered automatically. Publish the config when you
@@ -65,7 +68,8 @@ want to tune it:
 php artisan vendor:publish --tag=sloppy-config
 ```
 
-Requirements: **PHP 8.3+**, **Laravel 12 or 13**.
+Requirements: **PHP 8.3+**. Laravel 12 or 13 for the Artisan commands and the
+`SL2xx` rules; everything else runs anywhere.
 
 ## Contents
 
@@ -536,6 +540,9 @@ Sloppy complements the tools you already run; it does not replace any of them.
 | **Sloppy** | Is this shaped like code somebody will regret? |
 
 There is no overlap by design. If PHPStan can prove it, Sloppy stays out of it.
+
+Outside Laravel the ten `SL2xx` rules are skipped and the report says so —
+`sloppy.framework` pins the decision if autodetection gets it wrong.
 
 ## False positives
 

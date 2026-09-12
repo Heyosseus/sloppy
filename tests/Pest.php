@@ -160,3 +160,22 @@ function messages(array $findings): string
 {
     return implode("\n", array_map(static fn (Finding $finding): string => $finding->message, $findings));
 }
+
+/**
+ * A class with one method that trips SL101 (God Method), for tests that need
+ * a finding without depending on fixture files other suites assert on.
+ */
+function godMethodSource(): string
+{
+    $body = '';
+
+    // SL101 fires when TWO of its signals are exceeded (defaults: max_lines 80,
+    // max_statements 40, max_calls 25). One hundred call-bearing assignments
+    // clear three of them, so the fixture does not rest on a single threshold
+    // staying where it is.
+    for ($i = 1; $i <= 100; $i++) {
+        $body .= sprintf("        \$value%d = strlen('x%d');\n", $i, $i);
+    }
+
+    return "<?php\n\nclass Bad\n{\n    public function run(): void\n    {\n".$body."    }\n}\n";
+}

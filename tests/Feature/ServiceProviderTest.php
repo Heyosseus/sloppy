@@ -34,6 +34,11 @@ it('binds a configuration rooted at the application path', function (): void {
 });
 
 it('binds the entry point with every rule wired up', function (): void {
+    // Testbench's fake application skeleton has no `require` section in its
+    // composer.json to detect, even though it is genuinely a Laravel app --
+    // pin it explicitly rather than let that testing artefact skip rules.
+    app(Repository::class)->set('sloppy.framework', 'laravel');
+
     $sloppy = app(Sloppy::class);
 
     expect($sloppy)->toBeInstanceOf(Sloppy::class)
@@ -65,6 +70,8 @@ it('exposes a working analyzer, finder and score calculator', function (): void 
 });
 
 it('narrows to selected rules without touching the original', function (): void {
+    app(Repository::class)->set('sloppy.framework', 'laravel');
+
     $sloppy = app(Sloppy::class);
     $narrowed = $sloppy->onlyRules(['SL101']);
 

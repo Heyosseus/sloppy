@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node;
 use PhpParser\Node\Expr\StaticCall;
 
@@ -18,7 +18,7 @@ use PhpParser\Node\Expr\StaticCall;
  * Distinct from SL203: this is not a relationship being lazily loaded, it is a
  * new query issued per iteration, which no amount of eager loading fixes.
  */
-final class QueryInsideLoopRule extends BaseRule
+final class QueryInsideLoopRule extends LaravelRule
 {
     public function id(): string
     {

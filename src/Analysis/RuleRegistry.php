@@ -9,6 +9,7 @@ use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Rules\Architecture\AbstractionInflationRule;
 use Heyosseus\Sloppy\Rules\Architecture\EmptyWrapperClassRule;
 use Heyosseus\Sloppy\Rules\Architecture\SingleUseAbstractionRule;
+use Heyosseus\Sloppy\Rules\BaseRule;
 use Heyosseus\Sloppy\Rules\Laravel\BusinessLogicInControllerRule;
 use Heyosseus\Sloppy\Rules\Laravel\CollectionInsteadOfQueryRule;
 use Heyosseus\Sloppy\Rules\Laravel\DirectExternalApiRule;
@@ -41,8 +42,9 @@ final readonly class RuleRegistry
 {
     /**
      * @param  list<Rule>  $rules
+     * @param  list<string>  $skipped  IDs left out because their framework is absent.
      */
-    public function __construct(private array $rules = []) {}
+    public function __construct(private array $rules = [], private array $skipped = []) {}
 
     /**
      * Every rule shipped with the package.
@@ -88,6 +90,7 @@ final readonly class RuleRegistry
     public static function fromConfiguration(Configuration $config): self
     {
         $rules = [];
+        $skipped = [];
 
         foreach ([...self::shipped(), ...$config->customRules()] as $class) {
             $rule = new $class;
@@ -97,11 +100,21 @@ final readonly class RuleRegistry
                 continue;
             }
 
+            $required = $rule instanceof BaseRule ? $rule->requiredFramework() : null;
+
+            if ($required !== null && ! $config->hasFramework($required)) {
+                $skipped[] = $id;
+
+                continue;
+            }
+
             $options = $config->ruleOptions($id);
             $rules[] = $options === [] ? $rule : new $class($options);
         }
 
-        return new self($rules);
+        sort($skipped);
+
+        return new self($rules, $skipped);
     }
 
     /**
@@ -169,5 +182,19 @@ final readonly class RuleRegistry
     public function ids(): array
     {
         return array_map(static fn (Rule $rule): string => $rule->id(), $this->rules);
+    }
+
+    /**
+     * Rules left out of this run because the project does not use their
+     * framework.
+     *
+     * Reported rather than silently dropped: a project that quietly lost ten
+     * rules would score better than its code deserves.
+     *
+     * @return list<string>
+     */
+    public function skipped(): array
+    {
+        return $this->skipped;
     }
 }

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Configuration\Configuration;
-use Heyosseus\Sloppy\Console\ExitCode;
+use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 

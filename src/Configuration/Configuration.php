@@ -17,13 +17,17 @@ use InvalidArgumentException;
  */
 final readonly class Configuration
 {
+    private ConfigReader $values;
+
     /**
      * @param  array<string, mixed>  $config
      */
     public function __construct(
         private array $config,
         public string $basePath,
-    ) {}
+    ) {
+        $this->values = new ConfigReader($config);
+    }
 
     /**
      * @param  array<string, mixed>  $config
@@ -35,7 +39,7 @@ final readonly class Configuration
 
     public function enabled(): bool
     {
-        return $this->bool('enabled', true);
+        return $this->values->bool('enabled', true);
     }
 
     /**
@@ -45,7 +49,7 @@ final readonly class Configuration
      */
     public function paths(): array
     {
-        $paths = $this->stringList('paths');
+        $paths = $this->values->stringList('paths');
 
         return $paths === [] ? ['app'] : $paths;
     }
@@ -57,7 +61,7 @@ final readonly class Configuration
      */
     public function exclude(): array
     {
-        return $this->stringList('exclude');
+        return $this->values->stringList('exclude');
     }
 
     /**
@@ -85,7 +89,7 @@ final readonly class Configuration
      */
     public function minConfidence(): int
     {
-        return max(0, min(100, $this->int('min_confidence', 0)));
+        return max(0, min(100, $this->values->int('min_confidence', 0)));
     }
 
     /**
@@ -93,7 +97,7 @@ final readonly class Configuration
      */
     public function baselinePath(): string
     {
-        $path = $this->string('baseline', '.sloppy-baseline.json');
+        $path = $this->values->string('baseline', '.sloppy-baseline.json');
 
         if ($this->isAbsolute($path)) {
             return $path;
@@ -104,7 +108,36 @@ final readonly class Configuration
 
     public function score(): ScoreConfiguration
     {
-        return ScoreConfiguration::fromArray($this->arrayValue('score'));
+        return ScoreConfiguration::fromArray($this->values->arrayValue('score'));
+    }
+
+    /**
+     * Which framework's rules apply: an explicit name, or `auto` to read the
+     * answer off the project's `composer.json`.
+     */
+    public function framework(): string
+    {
+        $value = $this->config['framework'] ?? 'auto';
+
+        return is_string($value) && trim($value) !== '' ? mb_strtolower(trim($value)) : 'auto';
+    }
+
+    /**
+     * Whether a framework's rules should run for this project.
+     */
+    public function hasFramework(string $framework): bool
+    {
+        $configured = $this->framework();
+
+        if ($configured === 'none') {
+            return false;
+        }
+
+        if ($configured !== 'auto') {
+            return $configured === mb_strtolower($framework);
+        }
+
+        return (new FrameworkDetector($this->basePath))->has($framework);
     }
 
     /**
@@ -116,7 +149,7 @@ final readonly class Configuration
     {
         $classes = [];
 
-        foreach ($this->stringList('custom_rules') as $class) {
+        foreach ($this->values->stringList('custom_rules') as $class) {
             if (! is_subclass_of($class, Rule::class)) {
                 throw new InvalidArgumentException(sprintf(
                     'Custom rule [%s] must implement %s.',
@@ -138,7 +171,7 @@ final readonly class Configuration
      */
     public function ruleOptions(string $id): array
     {
-        $rules = $this->arrayValue('rules');
+        $rules = $this->values->arrayValue('rules');
 
         $options = $rules[$id] ?? null;
 
@@ -196,59 +229,6 @@ final readonly class Configuration
         $config['min_confidence'] = $confidence;
 
         return new self($config, $this->basePath);
-    }
-
-    // -----------------------------------------------------------------
-    // Primitive readers
-    // -----------------------------------------------------------------
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(string $key): array
-    {
-        $values = [];
-
-        /** @var mixed $value */
-        foreach ($this->arrayValue($key) as $value) {
-            if (is_string($value) && trim($value) !== '') {
-                $values[] = trim($value);
-            }
-        }
-
-        return $values;
-    }
-
-    /**
-     * @return array<array-key, mixed>
-     */
-    private function arrayValue(string $key): array
-    {
-        /** @var mixed $value */
-        $value = $this->config[$key] ?? [];
-
-        return is_array($value) ? $value : [];
-    }
-
-    private function string(string $key, string $default): string
-    {
-        $value = $this->config[$key] ?? null;
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : $default;
-    }
-
-    private function int(string $key, int $default): int
-    {
-        $value = $this->config[$key] ?? null;
-
-        return is_int($value) ? $value : $default;
-    }
-
-    private function bool(string $key, bool $default): bool
-    {
-        $value = $this->config[$key] ?? null;
-
-        return is_bool($value) ? $value : $default;
     }
 
     private function isAbsolute(string $path): bool

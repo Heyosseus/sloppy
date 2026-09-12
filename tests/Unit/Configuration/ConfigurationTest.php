@@ -112,3 +112,22 @@ it('reads score configuration', function (): void {
     expect($score->linesPerUnit)->toBe(500)
         ->and($score->penaltyMultiplier)->toBe(2.0);
 });
+
+it('defaults the framework to auto and reads it from composer.json', function (): void {
+    $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
+    $config = Configuration::fromArray([], $project);
+
+    expect($config->framework())->toBe('auto')
+        ->and($config->hasFramework('laravel'))->toBeTrue();
+
+    removeTree($project);
+});
+
+it('honours an explicitly pinned framework over what composer.json says', function (): void {
+    $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
+
+    expect(Configuration::fromArray(['framework' => 'none'], $project)->hasFramework('laravel'))->toBeFalse()
+        ->and(Configuration::fromArray(['framework' => 'laravel'], '/nowhere')->hasFramework('laravel'))->toBeTrue();
+
+    removeTree($project);
+});

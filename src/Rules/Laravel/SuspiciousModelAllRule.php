@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Assign;
@@ -26,7 +26,7 @@ use PhpParser\Node\Stmt\Foreach_;
  * result is being processed row by row, or when the load itself sits inside a
  * loop -- the cases where growth in the table turns into memory pressure.
  */
-final class SuspiciousModelAllRule extends BaseRule
+final class SuspiciousModelAllRule extends LaravelRule
 {
     public function id(): string
     {
