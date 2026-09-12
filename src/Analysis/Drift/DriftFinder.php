@@ -21,6 +21,8 @@ final class DriftFinder
 {
     private bool $truncated = false;
 
+    private int $comparisons = 0;
+
     public function __construct(
         private readonly int $budget,
         private readonly float $maxRatio,
@@ -41,6 +43,7 @@ final class DriftFinder
     public function pairs(ProjectIndex $index): array
     {
         $this->truncated = false;
+        $this->comparisons = 0;
 
         $signatures = array_values(array_filter(
             $index->blockSignatures(),
@@ -49,7 +52,6 @@ final class DriftFinder
 
         $count = count($signatures);
         $pairs = [];
-        $comparisons = 0;
 
         // No deduplication step, because `$j` starting at `$i + 1` visits each
         // unordered pair exactly once and each body appears in the corpus once
@@ -84,12 +86,12 @@ final class DriftFinder
                     continue;
                 }
 
-                if ($comparisons >= $this->maxComparisons) {
+                if ($this->comparisons >= $this->maxComparisons) {
                     $this->truncated = true;
                     break 2;
                 }
 
-                $comparisons++;
+                $this->comparisons++;
                 $pair = BoundedTokenDistance::between($signatures[$i], $signatures[$j], $this->budget);
 
                 if (! $pair instanceof DriftPair || $pair->divergenceRatio > $this->maxRatio) {
@@ -113,6 +115,21 @@ final class DriftFinder
     public function truncated(): bool
     {
         return $this->truncated;
+    }
+
+    /**
+     * How many band-limited comparisons the last search actually performed.
+     *
+     * The count, not the clock, is what says whether the search is behaving:
+     * it is deterministic for a given corpus, identical on every machine, and
+     * it is what changes if the window degenerates to all-pairs or the
+     * frequency prefilter stops rejecting. Wall-clock time measures the
+     * machine as much as the code -- the same 600-body corpus measured 23s on
+     * one machine and 89s on another.
+     */
+    public function comparisons(): int
+    {
+        return $this->comparisons;
     }
 
     /**

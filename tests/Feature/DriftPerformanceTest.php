@@ -68,26 +68,55 @@ function driftPerformanceIndex(int $count, int $spread): ProjectIndex
     return ProjectIndex::build($parsed);
 }
 
-it('searches a realistic 600-body corpus well inside its ceiling', function (): void {
-    // A ceiling, not a benchmark. The comparison is quadratic in the number of
-    // candidate pairs and quadratic in body length, so this rule is one
-    // careless edit away from unusable: dropping the frequency prefilter, or
-    // widening the window, turns a fraction of a second into minutes.
-    $index = driftPerformanceIndex(600, 120);
+it('keeps the search linear in a realistic corpus, not quadratic', function (): void {
+    // A ceiling, not a benchmark -- and asserted on the comparison COUNT, which
+    // is deterministic for a given corpus and identical on every machine.
+    //
+    // An earlier version asserted wall-clock only: 600 bodies under 60 seconds.
+    // That measured 23s on the machine that wrote it and 89s on another, so it
+    // failed for reasons that had nothing to do with the code.
+    //
+    // What this guards, precisely: that the number of comparisons stays
+    // proportional to the corpus rather than to its square. The two mechanisms
+    // that keep it there are guarded elsewhere, because neither is observable
+    // from this corpus -- mutating each one out leaves these counts unchanged:
+    //   - the cheap gates' rejections are counted, not skipped:
+    //     DriftFinderTest, 'does not truncate a corpus the cheap gates can
+    //     reject' (mutation-verified against moving the counter).
+    //   - each comparison stays band-limited: the elapsed-time backstop at the
+    //     bottom of this test, which is the only thing a count cannot see.
+    $index = driftPerformanceIndex(240, 120);
 
-    expect($index->blockSignatures())->toHaveCount(600);
+    $finder = new DriftFinder(budget: 28, maxRatio: 0.08, minStatements: 8, maxComparisons: 5000);
 
     $started = microtime(true);
-    $pairs = (new DriftFinder(budget: 28, maxRatio: 0.08, minStatements: 8, maxComparisons: 5000))->pairs($index);
+    $pairs = $finder->pairs($index);
     $elapsed = microtime(true) - $started;
 
-    // Loose enough for a cold shared CI runner, tight enough to fail if the
-    // window degenerates to all-pairs or the prefilter stops rejecting.
-    expect($elapsed)->toBeLessThan(60.0, sprintf('drift search over 600 bodies took %.2fs', $elapsed))
-        // And it must not pass by finding nothing quickly: these bodies differ
-        // only in an index that appears in several tokens, so they are genuine
-        // near-misses and the search is expected to return some.
-        ->and($pairs)->not->toBe([]);
+    // 240 bodies is 28,680 possible pairs. Because the corpus spreads its
+    // bodies over 120 distinct lengths, the token-count window only admits
+    // same-length ones -- measured at 120 comparisons, 0.42% of the total. The
+    // bound has room for the fixture to shift without going quadratic.
+    expect($finder->comparisons())->toBeLessThan(500, sprintf(
+        'the search made %d comparisons out of %d possible pairs, so it is no longer proportional to the corpus',
+        $finder->comparisons(),
+        240 * 239 / 2,
+    ))
+        // It must not pass by finding nothing: these bodies differ only in an
+        // index appearing in several tokens, so they are genuine near-misses.
+        ->and($pairs)->not->toBe([])
+        ->and($finder->truncated())->toBeFalse();
+
+    // A loose backstop for the one regression the count cannot see: each
+    // comparison is band-limited, so removing the band would leave the count
+    // unchanged and make every comparison quadratic in body length instead of
+    // linear. Measured at 2.57s, so this is ~23x headroom rather than the 2.5x
+    // the old bound had.
+    expect($elapsed)->toBeLessThan(60.0, sprintf(
+        'the search took %.2fs for %d comparisons, so each one is far more expensive than a band-limited pass',
+        $elapsed,
+        $finder->comparisons(),
+    ));
 });
 
 it('stops at max_comparisons instead of running to completion', function (): void {
