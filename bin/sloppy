@@ -1,0 +1,27 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Heyosseus\Sloppy\Cli\SloppyApplication;
+
+foreach ([
+    // Installed as a dependency of the analysed project.
+    __DIR__.'/../../../autoload.php',
+    // Running from a clone of the package itself.
+    __DIR__.'/../vendor/autoload.php',
+] as $autoload) {
+    if (is_file($autoload)) {
+        require $autoload;
+
+        break;
+    }
+}
+
+if (! class_exists(SloppyApplication::class)) {
+    fwrite(STDERR, "Composer autoloader not found. Run `composer install` first.\n");
+
+    exit(2);
+}
+
+exit((new SloppyApplication('0.2.0'))->run());
