@@ -28,7 +28,7 @@ final class BaselineCliCommand extends CliCommandBase
         $runnerOutput = $this->runnerOutput($input, $output);
 
         try {
-            $sloppy = $this->sloppy($input);
+            $sloppy = $this->sloppy($input, $runnerOutput);
 
             $options = new BaselineOptions(
                 paths: $this->stringListOption($input, 'path'),

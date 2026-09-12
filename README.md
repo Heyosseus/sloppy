@@ -25,7 +25,7 @@
 Sloppy reads your PHP with a real parser and reports the shapes that turn into
 maintenance cost: god methods, swallowed exceptions, likely N+1 queries,
 business logic in controllers, abstractions that never earned their keep. It
-ships 23 rules, a git-diff review mode, a baseline for existing projects, and
+ships 24 rules, a git-diff review mode, a baseline for existing projects, and
 JSON output for CI.
 
 Every screenshot on this page is real output from the command in its caption.
@@ -167,7 +167,7 @@ test fails on any *new* finding about Sloppy's own code. Four others it found
 were genuine, and they were fixed.
 
 The other half of the answer is `tests/Fixtures/Good`: deliberately ordinary
-Laravel code, with a test asserting that all 23 rules report **zero** findings
+Laravel code, with a test asserting that all 24 rules report **zero** findings
 on it at a score of 100.
 
 ## Slop score
@@ -219,8 +219,8 @@ that claims certainty is lying.
 
 ## Rules
 
-23 rules ship in v0.1. Every one has tests proving both that it fires on the
-pattern and that it stays quiet on ordinary Laravel code.
+24 rules ship. Every one has tests proving both that it fires on the pattern
+and that it stays quiet on ordinary Laravel code.
 
 ### PHP and general
 
@@ -236,6 +236,7 @@ pattern and that it stays quiet on ordinary Laravel code.
 | `SL108` | Redundant Condition | Low | Readability | Conditions re-tested immediately inside themselves, repeated within one if/elseif chain, duplicated across a boolean operator, or written as a literal true/false. |
 | `SL109` | Narrative Comment | Low | Readability | Short comments whose every meaningful word already appears in the statement directly below them. |
 | `SL110` | Defensive Programming Noise | Low | Readability | A method that guards the same subject the same way twice, with the same outcome and no reassignment in between. |
+| `SL111` | Copy-Paste Drift | High | Duplication | A method body nearly identical to a sibling's, where the one difference looks like an unfinished copy rather than a deliberate variation -- a missing guard, a flipped comparison, the wrong class constructed. Heuristic: the majority is more likely to be right, not automatically right. |
 
 ### Laravel
 
@@ -331,6 +332,17 @@ The shape is a published contract. `schema` is bumped when a field changes
 meaning; within a schema version keys are only ever added. Findings come out in
 the analyser's canonical order, so two runs over the same code produce
 byte-identical output that is safe to diff in CI.
+
+**Standard output carries the report and nothing else**, so it pipes:
+
+```bash
+vendor/bin/sloppy scan --format=json | jq '.findings[] | select(.severity == "high")'
+```
+
+Anything written for the reader rather than for the machine -- the project root
+and configuration source, the count of findings a baseline is hiding, progress
+-- goes to standard error. In a terminal you see it as usual; in a pipe it stays
+out of the way. Redirect it with `2>/dev/null` if you want it gone entirely.
 
 This is the report behind the screenshot above, abridged to one finding:
 
@@ -561,7 +573,7 @@ priority the whole rule set is tuned around:
   attributes, reflection, `compact()`, subclasses — anything that could reach a
   member indirectly makes the relevant rule step back rather than guess.
 - **A regression test for silence.** `tests/Fixtures/Good` is ordinary Laravel
-  code, and a test asserts all 23 rules report zero findings on it. If a change
+  code, and a test asserts all 24 rules report zero findings on it. If a change
   to any rule breaks that test, the rule is wrong.
 
 Found a false positive? That is a bug worth reporting, not a threshold to work

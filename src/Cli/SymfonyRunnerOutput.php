@@ -39,6 +39,11 @@ final class SymfonyRunnerOutput implements RunnerOutput
         $this->style->writeln($message);
     }
 
+    public function notice(string $message): void
+    {
+        $this->style->getErrorStyle()->writeln('  <fg=green;options=bold>INFO</>  '.$message);
+    }
+
     public function report(string $report, OutputFormat $format): void
     {
         if ($format->isMachineReadable()) {

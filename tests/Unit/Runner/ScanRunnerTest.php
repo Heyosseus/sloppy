@@ -22,9 +22,26 @@ it('says nothing and succeeds when sloppy is disabled', function () use ($fixtur
         ->and($output->messages())->toBe(['info: Sloppy is disabled (sloppy.enabled is false).']);
 });
 
-it('errors when every rule is filtered out', function () use ($fixtures): void {
+it('names the skipped rules when a missing framework is the reason none are enabled', function () use ($fixtures): void {
     $output = new RecordingRunnerOutput;
+    // $fixtures has no composer.json, so the ten Laravel rules are skipped for
+    // a missing framework before --rule even gets a chance to matter.
     $sloppy = new Sloppy(Configuration::fromArray(['paths' => ['Sloppy']], $fixtures));
+
+    $code = (new ScanRunner)->run($sloppy, new ScanOptions(rules: ['SL999']), $output);
+
+    expect($code)->toBe(ExitCode::Error)
+        ->and($output->messages())->toBe([
+            'error: No rules are enabled: 10 rule(s) were skipped for a missing framework '
+            .'(sloppy.framework: auto). Check sloppy.rules and any --rule filter.',
+        ]);
+});
+
+it('errors when every rule is filtered out and none were skipped for a framework', function () use ($fixtures): void {
+    $output = new RecordingRunnerOutput;
+    // Framework pinned explicitly, so nothing is skipped and --rule=SL999 is
+    // the only possible cause of an empty registry.
+    $sloppy = new Sloppy(Configuration::fromArray(['framework' => 'laravel', 'paths' => ['Sloppy']], $fixtures));
 
     $code = (new ScanRunner)->run($sloppy, new ScanOptions(rules: ['SL999']), $output);
 

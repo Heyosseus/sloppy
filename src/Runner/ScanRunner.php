@@ -46,9 +46,7 @@ final readonly class ScanRunner
         }
 
         if ($sloppy->rules()->count() === 0) {
-            $output->error('No rules are enabled. Check sloppy.rules and any --rule filter.');
-
-            return ExitCode::Error;
+            return $this->reportNoRulesEnabled($sloppy, $output);
         }
 
         $files = $sloppy->fileMap();
@@ -78,6 +76,28 @@ final readonly class ScanRunner
         return $threshold instanceof Severity && $reported->hasAtOrAbove($threshold)
             ? ExitCode::FindingsAboveThreshold
             : ExitCode::Success;
+    }
+
+    /**
+     * Since Phase 1, "zero rules" can mean the project's own rules were all
+     * gated by a missing framework rather than misconfiguration, and the
+     * generic advice sends a non-Laravel user chasing a filter and a config
+     * key that are both already correct.
+     */
+    private function reportNoRulesEnabled(Sloppy $sloppy, RunnerOutput $output): ExitCode
+    {
+        $skipped = $sloppy->rules()->skipped();
+
+        $output->error($skipped === []
+            ? 'No rules are enabled. Check sloppy.rules and any --rule filter.'
+            : sprintf(
+                'No rules are enabled: %d rule(s) were skipped for a missing framework (sloppy.framework: %s). '
+                .'Check sloppy.rules and any --rule filter.',
+                count($skipped),
+                $sloppy->configuration->framework(),
+            ));
+
+        return ExitCode::Error;
     }
 
     private function analyse(Sloppy $sloppy, int $fileCount, ScanOptions $options, RunnerOutput $output): AnalysisResult
@@ -115,7 +135,7 @@ final readonly class ScanRunner
         $partition = $sloppy->baselines()->partition($result->findings, $baseline);
 
         if ($partition['baselined'] !== []) {
-            $output->info(sprintf(
+            $output->notice(sprintf(
                 '%d existing finding(s) hidden by %s.',
                 count($partition['baselined']),
                 basename($sloppy->configuration->baselinePath()),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Console\Commands;
 
+use Heyosseus\Sloppy\Support\StringListOption;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 
@@ -52,21 +53,6 @@ abstract class SloppyCommandBase extends Command
      */
     protected function stringListOption(string $name): array
     {
-        $value = $this->option($name);
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $items = [];
-
-        /** @var mixed $item */
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $items[] = trim($item);
-            }
-        }
-
-        return $items;
+        return StringListOption::from($this->option($name));
     }
 }

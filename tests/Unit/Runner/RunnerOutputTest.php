@@ -12,12 +12,14 @@ it('records every message kind with its label', function (): void {
     $output->info('fine');
     $output->warn('careful');
     $output->line('plain');
+    $output->notice('hidden from the report');
 
     expect($output->messages())->toBe([
         'error: broke',
         'info: fine',
         'warn: careful',
         'line: plain',
+        'notice: hidden from the report',
     ]);
 });
 

@@ -24,6 +24,16 @@ interface RunnerOutput
     public function line(string $message): void;
 
     /**
+     * A message for the human that must never enter the report stream.
+     *
+     * Anything written to stdout alongside a machine-readable report makes that
+     * report unparseable, and silently dropping the message instead would hide
+     * information the reader needs. Both adapters therefore route this to
+     * stderr, where a terminal still shows it and a pipe does not see it.
+     */
+    public function notice(string $message): void;
+
+    /**
      * Write a finished report.
      *
      * Console reports go out a line at a time so long runs stream; machine

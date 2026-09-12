@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Ast\BlockSignature;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 
@@ -167,4 +168,68 @@ it('skips anonymous classes, which have no name to index', function (): void {
     ]);
 
     expect(array_keys($index->classes()))->toBe(['App\A']);
+});
+
+it('indexes every method body as a block signature, sorted by token count', function (): void {
+    $index = indexOf([
+        'app/Big.php' => <<<'PHP'
+        class Big
+        {
+            public function run(array $rows): array
+            {
+                $out = [];
+                foreach ($rows as $row) {
+                    $out[] = $this->map($row);
+                }
+                $total = count($out);
+                $label = 'done';
+                return [$label, $total, $out];
+            }
+        }
+        PHP,
+        'app/Small.php' => <<<'PHP'
+        class Small
+        {
+            public function run(): int
+            {
+                return 1;
+            }
+        }
+        PHP,
+    ]);
+
+    $signatures = $index->blockSignatures();
+    $counts = array_map(static fn (BlockSignature $s): int => $s->tokenCount, $signatures);
+    $sorted = $counts;
+    sort($sorted);
+
+    expect($signatures)->toHaveCount(2)
+        ->and($counts)->toBe($sorted)
+        ->and($signatures[0]->block->className)->toBe('Small')
+        ->and($signatures[1]->block->className)->toBe('Big');
+});
+
+it('gives a block signature a frequency map that sums to its token count', function (): void {
+    $index = indexOf(['app/A.php' => 'class A { public function run($x) { return $x + 1; } }']);
+
+    $signature = $index->blockSignatures()[0];
+
+    expect(array_sum($signature->frequencies))->toBe($signature->tokenCount)
+        ->and($signature->tokenList())->toHaveCount($signature->tokenCount)
+        ->and($signature->hash)->toBe($index->blockSignatures()[0]->hash);
+});
+
+it('agrees with blocksMatching about which bodies share a hash', function (): void {
+    // SL104 and SL111 must never disagree about identity. Same index, same
+    // hashes, reached two different ways.
+    $body = 'public function run($rows) { $out = []; foreach ($rows as $r) { $out[] = $r->id; } return $out; }';
+    $index = indexOf([
+        'app/A.php' => 'class A { '.$body.' }',
+        'app/B.php' => 'class B { '.$body.' }',
+    ]);
+
+    $signatures = $index->blockSignatures();
+
+    expect($signatures[0]->hash)->toBe($signatures[1]->hash)
+        ->and($index->blocksMatching($signatures[0]->hash))->toHaveCount(2);
 });
