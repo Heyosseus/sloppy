@@ -27,6 +27,9 @@ use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Param;
 use PhpParser\Node\Scalar;
+use PhpParser\Node\Scalar\Float_;
+use PhpParser\Node\Scalar\Int_;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Case_;
 use PhpParser\Node\Stmt\Catch_;
@@ -882,13 +885,27 @@ final class NodeHelper
         return hash('sha256', self::structure($node));
     }
 
+    /**
+     * Both views of a node at once: the token stream, and the values masking
+     * removed from it.
+     *
+     * One traversal, because the two lists are compared positionally and an
+     * ordering disagreement between them would read as a divergence in the
+     * code rather than a bug in this class.
+     */
+    public static function signature(Node $node): NodeSignature
+    {
+        $tokens = [];
+        $masked = [];
+
+        self::describe($node, $tokens, $masked);
+
+        return new NodeSignature($tokens, $masked);
+    }
+
     public static function structure(Node $node): string
     {
-        $parts = [];
-
-        self::describe($node, $parts);
-
-        return implode('', $parts);
+        return implode('', self::signature($node)->tokens);
     }
 
     // -----------------------------------------------------------------
@@ -897,8 +914,9 @@ final class NodeHelper
 
     /**
      * @param  list<string>  $parts
+     * @param  list<string>  $masked
      */
-    private static function describe(Node $node, array &$parts): void
+    private static function describe(Node $node, array &$parts, array &$masked): void
     {
         $parts[] = match (true) {
             $node instanceof Variable => 'V',
@@ -908,22 +926,29 @@ final class NodeHelper
             default => self::baseName($node::class),
         };
 
+        if ($node instanceof Variable && is_string($node->name)) {
+            $masked[] = 'var:'.$node->name;
+        } elseif ($node instanceof Scalar) {
+            $masked[] = 'lit:'.self::scalarValue($node);
+        }
+
         $parts[] = '(';
 
-        $masked = self::MASKED_SUBNODES[$node::class] ?? [];
+        $maskedSubnodes = self::MASKED_SUBNODES[$node::class] ?? [];
 
         foreach ($node->getSubNodeNames() as $name) {
-            if (in_array($name, $masked, true)) {
+            /** @var mixed $value */
+            $value = $node->{$name};
+
+            if (in_array($name, $maskedSubnodes, true)) {
                 $parts[] = 'C';
+                $masked[] = 'class:'.($value instanceof Name ? self::baseName($value->toString()) : '?');
 
                 continue;
             }
 
-            /** @var mixed $value */
-            $value = $node->{$name};
-
             if ($value instanceof Node) {
-                self::describe($value, $parts);
+                self::describe($value, $parts, $masked);
 
                 continue;
             }
@@ -932,13 +957,29 @@ final class NodeHelper
                 /** @var mixed $item */
                 foreach ($value as $item) {
                     if ($item instanceof Node) {
-                        self::describe($item, $parts);
+                        self::describe($item, $parts, $masked);
                     }
                 }
             }
         }
 
         $parts[] = ')';
+    }
+
+    /**
+     * A literal's value as text, for comparing two blocks that hash the same.
+     *
+     * Interpolated strings and magic constants fall back to their node name:
+     * their value is not a constant, so there is nothing to compare.
+     */
+    private static function scalarValue(Scalar $scalar): string
+    {
+        return match (true) {
+            $scalar instanceof String_ => $scalar->value,
+            $scalar instanceof Int_ => (string) $scalar->value,
+            $scalar instanceof Float_ => (string) $scalar->value,
+            default => self::baseName($scalar::class),
+        };
     }
 
     private static function walkDepths(Node $node, int $depth, ?Node &$deepest, int &$best): void

@@ -34,7 +34,7 @@ final class DiffCliCommand extends CliCommandBase
         $runnerOutput = $this->runnerOutput($input, $output);
 
         try {
-            $sloppy = $this->sloppy($input);
+            $sloppy = $this->sloppy($input, $runnerOutput);
             $base = $input->getArgument('base');
 
             $options = new DiffOptions(

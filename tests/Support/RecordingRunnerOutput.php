@@ -44,6 +44,11 @@ final class RecordingRunnerOutput implements RunnerOutput
         $this->messages[] = 'line: '.$message;
     }
 
+    public function notice(string $message): void
+    {
+        $this->messages[] = 'notice: '.$message;
+    }
+
     public function report(string $report, OutputFormat $format): void
     {
         $this->reports[] = [$format->value, $report];

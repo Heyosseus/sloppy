@@ -46,13 +46,13 @@ final class NeverFiresRule extends BaseRule
     }
 }
 
-it('ships twenty-three rules with unique ids', function (): void {
+it('ships twenty-four rules with unique ids', function (): void {
     $registry = RuleRegistry::withDefaults();
     $ids = $registry->ids();
 
-    expect($ids)->toHaveCount(23)
-        ->and(array_unique($ids))->toHaveCount(23)
-        ->and($registry->count())->toBe(23);
+    expect($ids)->toHaveCount(24)
+        ->and(array_unique($ids))->toHaveCount(24)
+        ->and($registry->count())->toBe(24);
 });
 
 it('gives every rule an id, name, description, explanation and category', function (): void {
@@ -81,7 +81,7 @@ it('drops rules the configuration disables', function (): void {
 
     expect($registry->ids())->not->toContain('SL109')
         ->not->toContain('SL110')
-        ->and($registry->count())->toBe(21);
+        ->and($registry->count())->toBe(22);
 });
 
 it('applies per-rule options', function (): void {
@@ -99,7 +99,7 @@ it('registers custom rules from configuration', function (): void {
         'custom_rules' => [NeverFiresRule::class],
     ], '/project'));
 
-    expect($registry->count())->toBe(24)
+    expect($registry->count())->toBe(25)
         ->and($registry->get('APP001'))->toBeInstanceOf(NeverFiresRule::class);
 });
 
@@ -117,6 +117,19 @@ it('narrows to specific rule ids, case insensitively', function (): void {
 
     expect($registry->ids())->toBe(['SL101', 'SL203'])
         ->and(RuleRegistry::withDefaults()->only([])->count())->toBe(0);
+});
+
+it('keeps the skipped list when narrowing to specific rule ids', function (): void {
+    $project = tempProject(['composer.json' => '{"require":{"nikic/php-parser":"^5.3"}}']);
+    $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project))->only(['SL101']);
+
+    expect($registry->ids())->toBe(['SL101'])
+        ->and($registry->skipped())->toBe([
+            'SL201', 'SL202', 'SL203', 'SL204', 'SL205',
+            'SL206', 'SL207', 'SL208', 'SL209', 'SL210',
+        ]);
+
+    removeTree($project);
 });
 
 it('can be built from an explicit list', function (): void {
@@ -147,8 +160,10 @@ it('skips the laravel rules in a project that is not laravel, and names them', f
 
     expect($registry->ids())->not->toContain('SL203')
         ->and($registry->ids())->toContain('SL101')
-        ->and($registry->skipped())->toContain('SL203')
-        ->and($registry->skipped())->toHaveCount(10);
+        ->and($registry->skipped())->toBe([
+            'SL201', 'SL202', 'SL203', 'SL204', 'SL205',
+            'SL206', 'SL207', 'SL208', 'SL209', 'SL210',
+        ]);
 
     removeTree($project);
 });
@@ -157,7 +172,7 @@ it('runs every rule in a laravel project', function (): void {
     $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
     $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project));
 
-    expect($registry->count())->toBe(23)
+    expect($registry->count())->toBe(24)
         ->and($registry->skipped())->toBe([]);
 
     removeTree($project);

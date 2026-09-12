@@ -20,6 +20,7 @@ use Heyosseus\Sloppy\Rules\Laravel\ModelDoingTooMuchRule;
 use Heyosseus\Sloppy\Rules\Laravel\PossibleNPlusOneRule;
 use Heyosseus\Sloppy\Rules\Laravel\QueryInsideLoopRule;
 use Heyosseus\Sloppy\Rules\Laravel\SuspiciousModelAllRule;
+use Heyosseus\Sloppy\Rules\Php\CopyPasteDriftRule;
 use Heyosseus\Sloppy\Rules\Php\DeadPrivateMethodRule;
 use Heyosseus\Sloppy\Rules\Php\DefensiveProgrammingNoiseRule;
 use Heyosseus\Sloppy\Rules\Php\DuplicateLogicRule;
@@ -64,6 +65,7 @@ final readonly class RuleRegistry
             RedundantConditionRule::class,
             NarrativeCommentRule::class,
             DefensiveProgrammingNoiseRule::class,
+            CopyPasteDriftRule::class,
 
             BusinessLogicInControllerRule::class,
             InlineValidationRule::class,
@@ -149,7 +151,7 @@ final readonly class RuleRegistry
         return new self(array_values(array_filter(
             $this->rules,
             static fn (Rule $rule): bool => in_array(mb_strtoupper($rule->id()), $wanted, true),
-        )));
+        )), $this->skipped);
     }
 
     /**

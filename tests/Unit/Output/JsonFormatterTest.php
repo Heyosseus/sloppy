@@ -22,7 +22,7 @@ function decodedReport(AnalysisResult $result): array
 it('emits the documented top-level contract', function (): void {
     $report = decodedReport(AnalysisResult::create([finding()], ['app/A.php'], 1000, new ScoreCalculator));
 
-    expect($report)->toHaveKeys(['schema', 'tool', 'score', 'summary', 'findings', 'errors'])
+    expect($report)->toHaveKeys(['schema', 'tool', 'score', 'summary', 'findings', 'errors', 'rules_skipped'])
         ->and($report['schema'])->toBe(JsonFormatter::SCHEMA)
         ->and($report['tool'])->toBe('sloppy');
 });

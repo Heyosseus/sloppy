@@ -15,7 +15,7 @@ it('analyses a framework-free project through the binary', function (): void {
         '--project' => dirname(__DIR__, 2).'/Fixtures/Vanilla',
         '--format' => 'json',
         '--fail-on' => 'never',
-    ]);
+    ], ['capture_stderr_separately' => true]);
 
     /**
      * @var array{

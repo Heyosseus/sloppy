@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Cli;
 
 use Heyosseus\Sloppy\Configuration\ConfigurationLoader;
+use Heyosseus\Sloppy\Runner\RunnerOutput;
 use Heyosseus\Sloppy\Sloppy;
+use Heyosseus\Sloppy\Support\StringListOption;
 use InvalidArgumentException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,12 +31,22 @@ abstract class CliCommandBase extends Command
             ->addOption('rule', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run only these rule IDs, e.g. --rule=SL101');
     }
 
-    protected function sloppy(InputInterface $input): Sloppy
+    /**
+     * Which project is being analysed and where its configuration came from
+     * are both invisible unless we say so -- a scan that covered the wrong
+     * tree looks identical to one that covered the right one. `notice()`
+     * carries this rather than `info()` so it never lands ahead of a
+     * machine-readable report.
+     */
+    protected function sloppy(InputInterface $input, RunnerOutput $output): Sloppy
     {
         $root = (new ProjectLocator)->locate($this->stringOption($input, 'project'), (string) getcwd());
         $loader = new ConfigurationLoader($root);
+        $configuration = $loader->load($this->stringOption($input, 'config'));
 
-        return new Sloppy($loader->load($this->stringOption($input, 'config')));
+        $output->notice(sprintf('Project root: %s (config: %s).', $root, $loader->source()));
+
+        return new Sloppy($configuration);
     }
 
     protected function runnerOutput(InputInterface $input, OutputInterface $output): SymfonyRunnerOutput
@@ -69,21 +81,6 @@ abstract class CliCommandBase extends Command
      */
     protected function stringListOption(InputInterface $input, string $name): array
     {
-        $value = $input->getOption($name);
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $items = [];
-
-        /** @var mixed $item */
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $items[] = trim($item);
-            }
-        }
-
-        return $items;
+        return StringListOption::from($input->getOption($name));
     }
 }

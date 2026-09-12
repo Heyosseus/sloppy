@@ -26,12 +26,14 @@ final readonly class ProjectIndex
      * @param  array<string, list<string>>  $implementations  Interface FQN => implementing class FQNs.
      * @param  array<string, list<string>>  $usages  Referenced FQN => relative paths that use it.
      * @param  array<string, list<DuplicateBlock>>  $duplicateBlocks  Structural hash => occurrences.
+     * @param  list<BlockSignature>  $blockSignatures  Ascending by token count; see blockSignatures().
      */
     public function __construct(
         private array $classes = [],
         private array $implementations = [],
         private array $usages = [],
         private array $duplicateBlocks = [],
+        private array $blockSignatures = [],
     ) {}
 
     /**
@@ -50,6 +52,9 @@ final readonly class ProjectIndex
 
         /** @var array<string, list<DuplicateBlock>> $duplicates */
         $duplicates = [];
+
+        /** @var list<BlockSignature> $signatures */
+        $signatures = [];
 
         foreach ($files as $file) {
             $declared = [];
@@ -81,7 +86,7 @@ final readonly class ProjectIndex
                     $implementations[$parent][] = $fqn;
                 }
 
-                self::collectDuplicates($classLike, $file, $fqn, $duplicates);
+                self::collectDuplicates($classLike, $file, $fqn, $duplicates, $signatures);
             }
 
             foreach (NodeHelper::find($file->ast, Name::class) as $name) {
@@ -103,6 +108,14 @@ final readonly class ProjectIndex
             }
         }
 
+        // Ascending token count, with a total tie-break so the window SL111
+        // walks is the same on every machine and every run.
+        usort($signatures, static fn (BlockSignature $a, BlockSignature $b): int => [
+            $a->tokenCount, $a->block->relativePath, $a->block->line,
+        ] <=> [
+            $b->tokenCount, $b->block->relativePath, $b->block->line,
+        ]);
+
         return new self(
             classes: $classes,
             implementations: array_map(
@@ -114,6 +127,7 @@ final readonly class ProjectIndex
                 $usages,
             ),
             duplicateBlocks: $duplicates,
+            blockSignatures: $signatures,
         );
     }
 
@@ -176,6 +190,21 @@ final readonly class ProjectIndex
     }
 
     /**
+     * Every indexed method body, ascending by token count.
+     *
+     * The order is the point: SL111 compares a body only against bodies whose
+     * token counts are within its edit budget, which is a sliding window over
+     * this list rather than a scan of all pairs. On a 1,075-file application
+     * that is 9,526 comparisons instead of 152,076.
+     *
+     * @return list<BlockSignature>
+     */
+    public function blockSignatures(): array
+    {
+        return $this->blockSignatures;
+    }
+
+    /**
      * Structural hash of a method body, ignoring local variable names and
      * literal values but keeping control flow and the names of things called.
      *
@@ -223,15 +252,30 @@ final readonly class ProjectIndex
 
     /**
      * @param  array<string, list<DuplicateBlock>>  $duplicates
+     * @param  list<BlockSignature>  $signatures
      */
-    private static function collectDuplicates(ClassLike $classLike, ParsedFile $file, string $fqn, array &$duplicates): void
-    {
+    private static function collectDuplicates(
+        ClassLike $classLike,
+        ParsedFile $file,
+        string $fqn,
+        array &$duplicates,
+        array &$signatures,
+    ): void {
         foreach (NodeHelper::methods($classLike) as $method) {
             if ($method->stmts === null || $method->stmts === []) {
                 continue;
             }
 
-            $duplicates[self::blockHash($method)][] = new DuplicateBlock(
+            $tokens = [];
+            $masked = [];
+
+            foreach ($method->stmts as $statement) {
+                $signature = NodeHelper::signature($statement);
+                $tokens = [...$tokens, ...$signature->tokens];
+                $masked = [...$masked, ...$signature->maskedValues];
+            }
+
+            $block = new DuplicateBlock(
                 relativePath: $file->relativePath,
                 className: NodeHelper::baseName($fqn),
                 methodName: $method->name->toString(),
@@ -239,6 +283,14 @@ final readonly class ProjectIndex
                 endLine: $method->getEndLine(),
                 statementCount: NodeHelper::countStatements($method),
             );
+
+            // Equal to blockHash(): concatenating each statement's joined
+            // token string is the same as joining the full concatenation, so
+            // this must never be allowed to drift from blockHash() above.
+            $hash = hash('sha256', implode('', $tokens));
+
+            $duplicates[$hash][] = $block;
+            $signatures[] = BlockSignature::create($block, $hash, $tokens, $masked);
         }
     }
 

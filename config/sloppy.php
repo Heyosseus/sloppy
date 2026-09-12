@@ -237,6 +237,47 @@ return [
             // Defensive Programming Noise.
         ],
 
+        'SL111' => [
+            // Copy-Paste Drift. Bodies shorter than this are too small for
+            // near-identity to mean anything -- the same floor SL104 uses.
+            'min_statements' => 8,
+
+            // How many token edits apart two bodies may be and still count as
+            // siblings. This is a cost knob, not a precision knob: swept on a
+            // 73,737-line application with the ratio held open, the findings
+            // kept at ratio 0.08 were 4 at k=16, 5 at k=24, and 6 from k=28
+            // onward -- unchanged at k=32, 40, 56 and 80 -- while the time grew
+            // from 0.12s at k=24 to 95.92s at k=80. 28 is where precision
+            // saturates, and it costs 0.28s. 24 misses one genuine finding: two
+            // OTP methods in one service, 28 tokens and 3.37% apart.
+            'max_token_distance' => 28,
+
+            // The precision knob. On that same corpus every genuine divergence
+            // sat at 5.61% or below and the one false positive was a 103-token
+            // body at 23.3%; raising this to 0.12 admits two more pairs that are
+            // plausible but weaker. False positives are this package's primary
+            // risk, so the default stays tight and the comment says what
+            // loosening it buys.
+            'max_divergence_ratio' => 0.08,
+
+            // A hard ceiling on how many band-limited comparisons one run may
+            // perform. It counts only the comparisons that reach the matrix --
+            // the expensive ones -- and not the candidate pairs rejected before
+            // it by the length, hash and token-frequency gates. That
+            // distinction is the whole point: on a 73,737-line application
+            // 11,063 pairs arrive at those gates and only 348 get past, so a
+            // ceiling measured in arrivals rather than survivors is 32x tighter
+            // than it looks. Set to 5,000 this never binds on real code (348
+            // needed, 0.29s) but does bound a corpus of same-length near-clones,
+            // where the frequency gate cannot reject anything: 600 such bodies
+            // would otherwise make 179,700 comparisons and take 318s, and are
+            // capped to 8.8s. Wall-clock for a capped run scales with body
+            // length -- roughly 1.4 ms per comparison at 186 tokens and 4 ms at
+            // 500 -- so the ceiling is a count, not a number of seconds. A run
+            // that hits it says so in every finding it emits.
+            'max_comparisons' => 5000,
+        ],
+
         // ---- Laravel ---------------------------------------------------
 
         'SL201' => [

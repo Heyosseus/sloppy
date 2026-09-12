@@ -117,8 +117,9 @@ final class DuplicateLogicRule extends BaseRule
                         $this->describe($others),
                     ),
                     suggestion: 'If the two really do the same work, keep one and call it from both places. If they '
-                        .'differ only in the values they use, a single method taking those values as parameters '
-                        .'usually replaces both.',
+                        .'differ only in the values they use, check those values against each other first -- SL111 '
+                        .'reports the ones that look like an unfinished copy -- and parameterise only once you are '
+                        .'satisfied every difference is deliberate.',
                     confidence: $this->confidenceFrom(70, [
                         $statements >= $minStatements * 2,
                         $crossFile,

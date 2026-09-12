@@ -6,6 +6,134 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-12
+
+Copy-paste drift: the space between "identical" and "different" that
+structural duplication detection cannot see.
+
+### Added
+
+- **`SL111` Copy-Paste Drift.** Rector, PHPStan, SonarQube and Mago each
+  report either identical code or different code; copy-paste bugs live in
+  between — five handlers copied from one another with a guard added to four
+  of them and forgotten in the fifth. `SL111` finds two kinds of near-miss
+  among a class's own methods, both bounded by the same edit-distance search
+  `SL104` already indexes:
+  - **Shape drift** — two bodies whose token streams sit within a bounded
+    Levenshtein distance of each other but are not identical, the way a
+    missing `if` guard or a flipped comparison looks.
+  - **Masked drift** — bodies that hash *identically* under `SL104`'s
+    structural hash (which masks literals and constructed class names) but
+    disagree at exactly one masked position where every other sibling agrees
+    — `new StripeGateway()` in four copies and `new PaypalGateway()` in a
+    fifth is invisible to hashing and is exactly what this path is for.
+
+  Every finding names both bodies, the token distance, and where the two
+  streams first part company, and rises in confidence with the size of the
+  agreeing family: two near-identical methods are as likely to be
+  independent as copied, four agreeing and a fifth diverging is an argument.
+  The rule never claims the majority is correct, only that it is more likely
+  to be — confirming which copy is right is left to the reader.
+
+- **`sloppy.rules.SL111`**, three options: `min_statements` (default `8`,
+  the same floor `SL104` uses — bodies shorter than this are too small for
+  near-identity to mean anything), `max_token_distance` (default `28`) and
+  `max_divergence_ratio` (default `0.08`). Swept on a 1,075-file,
+  73,737-line Laravel application at an 8-statement floor: of 552 eligible
+  bodies and 9,526 window comparisons at a budget of 24, 14 pairs survived,
+  8 of them exact duplicates that are `SL104`'s to report. Of the rest, 3
+  sat at 0.5–1.2% divergence, 2 at 1.9–5.6%, and one 103-token pair at
+  23.3% was the only false positive found — which is why the ratio default
+  stays at a tight 0.08 rather than the 0.12 that would additionally admit
+  two weaker, plausible-but-unconvincing pairs. Widening the budget past 28
+  bought nothing on that corpus (unchanged at 32, 40, 56 and 80, up to
+  95.92s at 80) except at 28 itself, which surfaces one more genuine pair a
+  budget of 24 misses — two OTP methods 28 tokens and 3.37% apart — for
+  0.28s. At the shipped defaults the same application produced exactly six
+  findings with no truncation in 0.29s: two payment-refund actions 11
+  tokens apart, three slug helpers 1 token apart, `Product` and
+  `Category::resolveRouteBindingQuery` 3 tokens apart, two auth listeners 18
+  apart, and the two OTP methods 28 apart.
+
+- **`max_comparisons`** (default `5,000`), a hard ceiling on how many
+  band-limited comparisons one search may perform, counted only from
+  comparisons that reach the edit-distance matrix — the expensive step —
+  and never from the candidate pairs the length, hash and token-frequency
+  gates reject first. That distinction matters by a factor of 32: on the
+  measured application, 11,063 candidate pairs reach those gates and only
+  348 get past them to the matrix, so a ceiling counted honestly never binds
+  on code that looks like that (348 needed of 5,000, 0.29s), while it does
+  bound the pathological case those gates cannot help with — a corpus of
+  many equal-length near-clones, where the frequency gate rejects nothing.
+  600 such bodies would otherwise run 179,700 comparisons; capped, the same
+  search stops in a fraction of a second. A search that hits the ceiling
+  says so: every finding it still emits that run carries
+  `"search_truncated": true` in its metrics, because this package's position
+  is that analysis the user silently lost is worse than analysis they were
+  told about.
+
+### Changed
+
+- **Progress and status messages now go to stderr, not stdout.** A new
+  `notice()` channel on the runner output port carries anything written for the
+  reader rather than for the report, and both the Artisan and standalone
+  surfaces route it to standard error. Console output looks the same; what
+  changes is that redirecting stdout now gives you the report and nothing else.
+
+- **`sloppy scan` names the project root and configuration source on every
+  run.** The standalone binary discovers its root by walking up for a
+  `composer.json` and its configuration from either a config file or the PSR-4
+  autoload entries, and a reader whose scan covered the wrong tree previously
+  had no way to see that. Printed through `notice()`, so it never touches a
+  machine-readable report.
+
+### Fixed
+
+- **`--format=json` was not machine-readable when a baseline existed.** The
+  "N existing finding(s) hidden by ..." notice was written to stdout ahead of
+  the JSON document, so `sloppy scan --format=json | jq` failed to parse on any
+  project with a baseline file. Reproduced on a 1,075-file application, where
+  14 hidden findings produced 14 bytes of prose in front of the report. The
+  notice now goes to stderr. This was present since `0.1.0`, where the same
+  message was written through Laravel's console components for the same reason.
+
+- **`--rule` silently hid framework-skipped rules.** `RuleRegistry::only()`
+  built its narrowed registry without carrying the skipped list forward, so
+  `sloppy scan --rule=SL101` on a project with no Laravel reported nothing
+  about the ten `SL2xx` rules that had been left out — the exact silence the
+  `0.2.0` skipped-rule reporting exists to prevent.
+
+- **"No rules are enabled" blamed the wrong thing.** It sent the reader to
+  check `sloppy.rules` and their `--rule` filter even when both were fine and
+  the real cause was every rule having been framework-gated away. It now says
+  how many rules were skipped and which `sloppy.framework` setting did it.
+
+- **`SL104`'s suggestion advised parameterising a bug into permanence.** Two
+  bodies that hash identically may differ only in the values they use
+  because one of them is *wrong*, not because they are a deliberate
+  variation — and the old suggestion ("a single method taking those values
+  as parameters usually replaces both") did not distinguish the two. It now
+  reads: "If the two really do the same work, keep one and call it from
+  both places. If they differ only in the values they use, check those
+  values against each other first — `SL111` reports the ones that look like
+  an unfinished copy — and parameterise only once you are satisfied every
+  difference is deliberate."
+
+### Known limitations
+
+- **Copy-paste drift is a heuristic about probability, not proof.** A body
+  that agrees with three siblings and disagrees with a fourth is more likely
+  to be the odd one out than the other way round; it is not certain, and
+  `SL111` never reports it as certain. Confirming which copy is right is a
+  reading task `SL111` hands to the reader, not one it does for them.
+- **The comparison ceiling can truncate a search.** `max_comparisons` bounds
+  wall-clock time against a corpus of many same-length near-clones —
+  precisely the shape ordinary applications do not have and generated or
+  heavily templated code sometimes does. A run that hits it did not see
+  every pair, and says so: a truncated search's findings carry
+  `"search_truncated": true` in their metrics rather than reporting a
+  quietly incomplete result as a complete one.
+
 ## [0.2.0] — 2026-09-12
 
 Sloppy stops being a Laravel-only tool.
@@ -197,6 +325,7 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/heyosseus/sloppy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/heyosseus/sloppy/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/heyosseus/sloppy/releases/tag/v0.1.0

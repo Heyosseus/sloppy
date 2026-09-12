@@ -33,7 +33,7 @@ final class ScanCliCommand extends CliCommandBase
         $runnerOutput = $this->runnerOutput($input, $output);
 
         try {
-            $sloppy = $this->sloppy($input);
+            $sloppy = $this->sloppy($input, $runnerOutput);
             $options = new ScanOptions(
                 paths: $this->stringListOption($input, 'path'),
                 format: OutputFormat::parse($this->stringOption($input, 'format') ?? 'console'),

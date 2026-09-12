@@ -7,7 +7,11 @@ namespace Heyosseus\Sloppy\Console;
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Runner\RunnerOutput;
 use Illuminate\Console\Command;
+use Illuminate\Console\OutputStyle;
+use Illuminate\Console\View\Components\Factory;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -40,6 +44,23 @@ final class LaravelRunnerOutput implements RunnerOutput
     public function line(string $message): void
     {
         $this->command->getOutput()->writeln($message);
+    }
+
+    /**
+     * Laravel has no `outputComponents()->info()` equivalent for stderr: the
+     * factory Artisan builds is bound to stdout at construction. This builds
+     * the same kind of factory over the error output instead, so the "INFO"
+     * component renders identically there.
+     *
+     * The input given to that `OutputStyle` is never used: it exists only to
+     * satisfy the constructor, since a notice never asks a question.
+     */
+    public function notice(string $message): void
+    {
+        $raw = $this->command->getOutput()->getOutput();
+        $errorOutput = $raw instanceof ConsoleOutputInterface ? $raw->getErrorOutput() : $raw;
+
+        (new Factory(new OutputStyle(new ArrayInput([]), $errorOutput)))->info($message);
     }
 
     public function report(string $report, OutputFormat $format): void
