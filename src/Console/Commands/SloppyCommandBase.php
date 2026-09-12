@@ -5,34 +5,17 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Console\Commands;
 
 use Illuminate\Console\Command;
-use Symfony\Component\Console\Output\OutputInterface;
+use InvalidArgumentException;
 
 /**
- * Shared plumbing for the sloppy commands: type-safe option reading and report
- * writing.
+ * Type-safe option reading for the Artisan surface.
+ *
+ * Everything these commands used to do beyond reading options now lives in a
+ * runner, so this surface and the standalone binary run the same code and
+ * cannot drift apart.
  */
 abstract class SloppyCommandBase extends Command
 {
-    /**
-     * Write a formatted report.
-     *
-     * Console reports go out a line at a time so long runs stream rather than
-     * appearing all at once. JSON goes out raw, because a finding quoting
-     * `<p>` from the analysed code must not be mistaken for console markup.
-     */
-    protected function writeReport(string $report, string $format): void
-    {
-        if ($format === 'json') {
-            $this->output->write($report, false, OutputInterface::OUTPUT_RAW);
-
-            return;
-        }
-
-        foreach (explode("\n", rtrim($report, "\n")) as $line) {
-            $this->output->writeln($line);
-        }
-    }
-
     protected function boolOption(string $name): bool
     {
         return $this->option($name) === true;
@@ -43,5 +26,47 @@ abstract class SloppyCommandBase extends Command
         $value = $this->option($name);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : $default;
+    }
+
+    /**
+     * Null rather than zero when the option was not given, because zero is a
+     * meaningful confidence floor and must stay distinguishable from silence.
+     */
+    protected function intOption(string $name): ?int
+    {
+        $value = $this->option($name);
+
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        if (! is_numeric($value)) {
+            throw new InvalidArgumentException(sprintf('--%s must be a number.', $name));
+        }
+
+        return (int) $value;
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function stringListOption(string $name): array
+    {
+        $value = $this->option($name);
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $items = [];
+
+        /** @var mixed $item */
+        foreach ($value as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $items[] = trim($item);
+            }
+        }
+
+        return $items;
     }
 }

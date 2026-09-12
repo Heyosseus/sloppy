@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Baseline\BaselineManager;
-use Heyosseus\Sloppy\Console\ExitCode;
+use Heyosseus\Sloppy\Runner\ExitCode;
 
 it('records the current findings and then keeps them quiet', function (): void {
     $root = project(['app/OrderController.php' => SWALLOWING_CONTROLLER], ['fail_on' => 'high']);
