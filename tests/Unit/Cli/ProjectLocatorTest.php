@@ -39,22 +39,37 @@ it('walks up from the working directory to find the project root', function (): 
 });
 
 it('refuses a directory that is not a project', function (): void {
-    // tempProject() nests under the OS temp directory. On a machine whose
-    // home directory happens to hold an unrelated project's composer.json
-    // above that temp directory, walking up from a tempProject() root would
-    // find that composer.json instead of failing, which would make this
-    // test depend on what else lives on the developer's machine. Anchoring
-    // the orphan directly under the filesystem root sidesteps that: nothing
-    // this package ships or requires puts a composer.json there.
-    $root = sys_get_temp_dir();
+    $orphan = tempProject(['src/A.php' => '<?php']);
 
-    while (($parent = dirname($root)) !== $root) {
-        $root = $parent;
+    // The refusal is only reachable when nothing above the orphan holds a
+    // composer.json, and that depends on the machine: a developer's home
+    // directory may contain one, while CI's temp directory has no such
+    // ancestor. So check, and skip with the offending path named rather than
+    // pretend. An earlier version of this test anchored the fixture at the
+    // filesystem root to dodge the problem, which CI cannot even create --
+    // `mkdir(): Permission denied`.
+    $ancestor = dirname($orphan);
+
+    // The same number of levels ProjectLocator itself walks, so the skip
+    // condition matches the behaviour under test rather than being stricter.
+    for ($depth = 0; $depth < 12; $depth++) {
+        if (is_file($ancestor.'/composer.json')) {
+            removeTree($orphan);
+
+            $this->markTestSkipped(sprintf(
+                'An unrelated %s/composer.json sits above the temp directory, so the walk-up cannot fail here.',
+                str_replace('\\', '/', $ancestor),
+            ));
+        }
+
+        $parent = dirname($ancestor);
+
+        if ($parent === $ancestor) {
+            break;
+        }
+
+        $ancestor = $parent;
     }
-
-    $orphan = str_replace('\\', '/', $root).'/sloppy-orphan-'.bin2hex(random_bytes(6));
-    mkdir($orphan.'/src', 0o777, true);
-    file_put_contents($orphan.'/src/A.php', '<?php');
 
     expect(fn (): string => (new ProjectLocator)->locate(null, $orphan))
         ->toThrow(RuntimeException::class, 'No composer.json found');
