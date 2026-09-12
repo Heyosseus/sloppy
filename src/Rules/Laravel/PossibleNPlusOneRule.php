@@ -9,7 +9,7 @@ use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
@@ -32,7 +32,7 @@ use PhpParser\Node\Stmt\Foreach_;
  * for eager loading on the expression the loop iterates and steps back when it
  * finds it. When it cannot tell, it says so and reports lower confidence.
  */
-final class PossibleNPlusOneRule extends BaseRule
+final class PossibleNPlusOneRule extends LaravelRule
 {
     /**
      * Methods that only a query builder has, so finding one in the expression

@@ -82,6 +82,12 @@ it('surfaces files it could not analyse', function (): void {
         ->toContain('Syntax error, unexpected EOF');
 });
 
+it('names the rules it skipped', function (): void {
+    $result = AnalysisResult::create([], ['app/A.php'], 500, new ScoreCalculator, skippedRules: ['SL201', 'SL203']);
+
+    expect((new ConsoleFormatter)->format($result))->toContain('2 rule(s) skipped: SL201, SL203');
+});
+
 it('counts one finding in the singular', function (): void {
     $one = (new ConsoleFormatter)->format(AnalysisResult::create([finding()], ['app/A.php'], 1000, new ScoreCalculator));
     $two = (new ConsoleFormatter)->format(AnalysisResult::create(

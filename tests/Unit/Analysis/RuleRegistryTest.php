@@ -75,6 +75,7 @@ it('finds a rule by id', function (): void {
 
 it('drops rules the configuration disables', function (): void {
     $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([
+        'framework' => 'laravel',
         'rules' => ['SL109' => ['enabled' => false], 'SL110' => ['enabled' => false]],
     ], '/project'));
 
@@ -94,6 +95,7 @@ it('applies per-rule options', function (): void {
 
 it('registers custom rules from configuration', function (): void {
     $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([
+        'framework' => 'laravel',
         'custom_rules' => [NeverFiresRule::class],
     ], '/project'));
 
@@ -137,4 +139,26 @@ it('has an entry in the shipped config for every shipped rule', function (): voi
 
     // And nothing in the config refers to a rule that no longer exists.
     expect(array_diff(array_keys($rules), RuleRegistry::withDefaults()->ids()))->toBe([]);
+});
+
+it('skips the laravel rules in a project that is not laravel, and names them', function (): void {
+    $project = tempProject(['composer.json' => '{"require":{"nikic/php-parser":"^5.3"}}']);
+    $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project));
+
+    expect($registry->ids())->not->toContain('SL203')
+        ->and($registry->ids())->toContain('SL101')
+        ->and($registry->skipped())->toContain('SL203')
+        ->and($registry->skipped())->toHaveCount(10);
+
+    removeTree($project);
+});
+
+it('runs every rule in a laravel project', function (): void {
+    $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
+    $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project));
+
+    expect($registry->count())->toBe(23)
+        ->and($registry->skipped())->toBe([]);
+
+    removeTree($project);
 });

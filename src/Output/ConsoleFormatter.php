@@ -150,6 +150,15 @@ final readonly class ConsoleFormatter implements Formatter
      */
     private function join(array $lines, AnalysisResult $result): string
     {
+        if ($result->skippedRules !== []) {
+            $lines[] = '';
+            $lines[] = sprintf(
+                '  <fg=gray>%d rule(s) skipped: %s. Set sloppy.framework to override.</>',
+                count($result->skippedRules),
+                implode(', ', $result->skippedRules),
+            );
+        }
+
         if ($result->errors !== []) {
             $lines[] = '';
             $lines[] = '  <fg=yellow>Could not be analysed:</>';

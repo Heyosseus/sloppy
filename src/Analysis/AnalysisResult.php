@@ -19,6 +19,7 @@ final readonly class AnalysisResult
      * @param  list<Finding>  $findings
      * @param  list<string>  $analyzedFiles  Relative paths, sorted.
      * @param  array<string, string>  $errors  Keyed by what failed: a relative path for a parse error, or "SL101 in app/Foo.php" for a rule that threw.
+     * @param  list<string>  $skippedRules  IDs left out because the analysed project does not use their framework.
      */
     public function __construct(
         public array $findings,
@@ -26,12 +27,14 @@ final readonly class AnalysisResult
         public int $analyzedLines,
         public Score $score,
         public array $errors = [],
+        public array $skippedRules = [],
     ) {}
 
     /**
      * @param  list<Finding>  $findings
      * @param  list<string>  $analyzedFiles
      * @param  array<string, string>  $errors
+     * @param  list<string>  $skippedRules
      */
     public static function create(
         array $findings,
@@ -39,6 +42,7 @@ final readonly class AnalysisResult
         int $analyzedLines,
         ScoreCalculator $calculator,
         array $errors = [],
+        array $skippedRules = [],
     ): self {
         $sorted = self::sort($findings);
 
@@ -48,6 +52,7 @@ final readonly class AnalysisResult
             analyzedLines: $analyzedLines,
             score: $calculator->calculate($sorted, $analyzedLines),
             errors: $errors,
+            skippedRules: $skippedRules,
         );
     }
 
@@ -65,6 +70,7 @@ final readonly class AnalysisResult
             analyzedLines: $this->analyzedLines,
             calculator: $calculator,
             errors: $this->errors,
+            skippedRules: $this->skippedRules,
         );
     }
 
@@ -163,6 +169,7 @@ final readonly class AnalysisResult
                 $this->findings,
             ),
             'errors' => $this->errors,
+            'rules_skipped' => $this->skippedRules,
         ];
     }
 }

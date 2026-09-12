@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Expr\BinaryOp\Div;
 use PhpParser\Node\Expr\BinaryOp\Minus;
 use PhpParser\Node\Expr\BinaryOp\Mul;
@@ -28,7 +28,7 @@ use PhpParser\Node\Stmt\ClassMethod;
  * application -- several writes, money arithmetic, a transaction, outbound
  * calls and heavy branching all in one place.
  */
-final class BusinessLogicInControllerRule extends BaseRule
+final class BusinessLogicInControllerRule extends LaravelRule
 {
     public function id(): string
     {

@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\New_;
@@ -24,7 +24,7 @@ use PhpParser\Node\Stmt\ClassMethod;
  * a third party, or hosting a multi-step workflow -- work that runs whenever
  * the model is touched and cannot be tested without it.
  */
-final class ModelDoingTooMuchRule extends BaseRule
+final class ModelDoingTooMuchRule extends LaravelRule
 {
     public function id(): string
     {

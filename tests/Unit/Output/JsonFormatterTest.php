@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Configuration\ScoreConfiguration;
 use Heyosseus\Sloppy\Output\JsonFormatter;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 
@@ -93,4 +94,20 @@ it('reports the score and summary numbers', function (): void {
     ])
         ->and($report['summary']['by_severity'])->toMatchArray(['high' => 1, 'low' => 1])
         ->and($report['score'])->toHaveKeys(['value', 'band', 'label', 'penalty', 'penalty_density']);
+});
+
+it('names the rules it skipped', function (): void {
+    $result = new AnalysisResult(
+        findings: [],
+        analyzedFiles: ['app/A.php'],
+        analyzedLines: 10,
+        score: (new ScoreCalculator(new ScoreConfiguration))->calculate([], 10),
+        errors: [],
+        skippedRules: ['SL201', 'SL203'],
+    );
+
+    /** @var array{rules_skipped: list<string>} $decoded */
+    $decoded = json_decode((new JsonFormatter)->format($result), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($decoded['rules_skipped'])->toBe(['SL201', 'SL203']);
 });

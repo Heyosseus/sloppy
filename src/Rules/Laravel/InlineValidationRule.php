@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\MethodCall;
@@ -23,7 +23,7 @@ use PhpParser\Node\Scalar\String_;
  * something: a name, reuse, authorisation in the same place, and a controller
  * that fits on a screen.
  */
-final class InlineValidationRule extends BaseRule
+final class InlineValidationRule extends LaravelRule
 {
     public function id(): string
     {

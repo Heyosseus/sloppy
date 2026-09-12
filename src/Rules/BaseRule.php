@@ -49,6 +49,20 @@ abstract class BaseRule implements Rule
 
     abstract protected function defaultSeverity(): Severity;
 
+    /**
+     * The framework this rule needs present before it means anything, or null
+     * when it applies to any PHP.
+     *
+     * `SL203` reading an eager-load off a loop is a statement about Eloquent;
+     * in a vanilla project it would be noise. Rules declare what they need and
+     * the registry leaves them out when it is absent -- visibly, never
+     * silently.
+     */
+    public function requiredFramework(): ?string
+    {
+        return null;
+    }
+
     protected function intOption(string $key, int $default): int
     {
         $value = $this->options[$key] ?? null;

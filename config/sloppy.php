@@ -18,6 +18,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Framework
+    |--------------------------------------------------------------------------
+    |
+    | Which framework's rules apply. On "auto" this is read from your
+    | composer.json, so a Laravel project gets the SL2xx rules and a vanilla
+    | PHP project does not. Set it to "laravel" to force them on, or "none" to
+    | run only the framework-independent rules.
+    |
+    | Supported: "auto", "laravel", "none"
+    |
+    */
+
+    'framework' => 'auto',
+
+    /*
+    |--------------------------------------------------------------------------
     | What to analyse
     |--------------------------------------------------------------------------
     |

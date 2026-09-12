@@ -8,7 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
-use Heyosseus\Sloppy\Rules\BaseRule;
+use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Stmt\ClassMethod;
 
 /**
@@ -18,7 +18,7 @@ use PhpParser\Node\Stmt\ClassMethod;
  * supposed to happen, so a few collaborators are expected. The threshold is
  * higher and confidence climbs more slowly.
  */
-final class ExcessiveServiceDependenciesRule extends BaseRule
+final class ExcessiveServiceDependenciesRule extends LaravelRule
 {
     public function id(): string
     {

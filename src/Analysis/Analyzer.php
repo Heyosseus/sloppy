@@ -120,6 +120,7 @@ final readonly class Analyzer
             analyzedLines: $lines,
             calculator: $this->calculator,
             errors: $errors,
+            skippedRules: $this->registry->skipped(),
         );
     }
 
