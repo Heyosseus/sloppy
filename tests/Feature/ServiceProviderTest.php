@@ -51,12 +51,13 @@ it('resolves the same instances on repeat lookups', function (): void {
         ->and(app(Configuration::class))->toBe(app(Configuration::class));
 });
 
-it('registers all three commands', function (): void {
+it('registers all four commands', function (): void {
     $commands = array_keys(app(Illuminate\Contracts\Console\Kernel::class)->all());
 
     expect($commands)->toContain('sloppy')
         ->toContain('sloppy:diff')
-        ->toContain('sloppy:baseline');
+        ->toContain('sloppy:baseline')
+        ->toContain('sloppy:review');
 });
 
 it('exposes a working analyzer, finder and score calculator', function (): void {

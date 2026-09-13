@@ -19,6 +19,21 @@ function decodedReport(AnalysisResult $result): array
     return $decoded;
 }
 
+it('regression: constructs and formats without an explicit RiskCalculator, matching how ScanRunner and every default use it', function (): void {
+    // The constructor's default `$risk = new RiskCalculator` needs
+    // `RiskCalculator` and the `instanceof Finding` check inside withRisk()
+    // needs `Finding`, both resolved from this file's own Output namespace
+    // without a `use` import. Missing either one crashes any construction
+    // that does not pass `risk` explicitly, and the type declared without the
+    // import also rejects the real Scoring\RiskCalculator instance that
+    // ScanRunner (production's only caller) explicitly passes in.
+    $result = AnalysisResult::create([finding()], ['app/A.php'], 1000, new ScoreCalculator);
+
+    expect(fn (): string => (new JsonFormatter)->format($result))->not->toThrow(Throwable::class)
+        ->and(fn (): string => (new JsonFormatter(explainRisk: true, risk: new Heyosseus\Sloppy\Scoring\RiskCalculator))->format($result))
+        ->not->toThrow(Throwable::class);
+});
+
 it('emits the documented top-level contract', function (): void {
     $report = decodedReport(AnalysisResult::create([finding()], ['app/A.php'], 1000, new ScoreCalculator));
 
@@ -94,6 +109,50 @@ it('reports the score and summary numbers', function (): void {
     ])
         ->and($report['summary']['by_severity'])->toMatchArray(['high' => 1, 'low' => 1])
         ->and($report['score'])->toHaveKeys(['value', 'band', 'label', 'penalty', 'penalty_density']);
+});
+
+it('gives every finding a risk value', function (): void {
+    $report = decodedReport(AnalysisResult::create(
+        [finding(confidence: 76, severity: Severity::High, metrics: ['blast_radius' => 1])],
+        ['app/A.php'],
+        1000,
+        new ScoreCalculator,
+    ));
+
+    expect($report['findings'][0]['risk'])->toBe(9.89)
+        ->and($report['findings'][0])->not->toHaveKey('risk_factors')
+        ->and($report['findings'][0])->not->toHaveKey('risk_arithmetic');
+});
+
+it('adds risk_factors and risk_arithmetic only under --explain-risk', function (): void {
+    $result = AnalysisResult::create(
+        [finding(confidence: 76, severity: Severity::High, metrics: ['blast_radius' => 1])],
+        ['app/A.php'],
+        1000,
+        new ScoreCalculator,
+    );
+
+    $plain = json_decode((new JsonFormatter)->format($result), true, flags: JSON_THROW_ON_ERROR);
+    $explained = json_decode((new JsonFormatter(explainRisk: true))->format($result), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($plain['findings'][0])->not->toHaveKey('risk_factors')
+        ->and($explained['findings'][0]['risk_arithmetic'])->toBe(
+            '10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) = 9.89',
+        )
+        ->and($explained['findings'][0]['risk_factors'])->toMatchArray([
+            'value' => 9.89,
+            'severity_weight' => 10.0,
+            'novelty_label' => 'novelty unknown',
+            'proximity_label' => 'whole file',
+            'blast_radius' => 1,
+        ]);
+});
+
+it('keeps the top-level contract unchanged when there are no findings to risk-score', function (): void {
+    $report = decodedReport(AnalysisResult::create([], ['app/A.php'], 1000, new ScoreCalculator));
+
+    expect($report)->toHaveKeys(['schema', 'tool', 'score', 'summary', 'findings', 'errors', 'rules_skipped'])
+        ->and($report['findings'])->toBe([]);
 });
 
 it('names the rules it skipped', function (): void {

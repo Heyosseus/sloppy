@@ -15,12 +15,13 @@ function tester(): ApplicationTester
     return new ApplicationTester($application);
 }
 
-it('registers the three commands with scan as the default', function (): void {
+it('registers the four commands with scan as the default', function (): void {
     $application = new SloppyApplication('test');
 
     expect($application->has('scan'))->toBeTrue()
         ->and($application->has('diff'))->toBeTrue()
-        ->and($application->has('baseline'))->toBeTrue();
+        ->and($application->has('baseline'))->toBeTrue()
+        ->and($application->has('review'))->toBeTrue();
 });
 
 it('scans a vanilla project and skips the laravel rules', function (): void {
@@ -167,6 +168,32 @@ it('reports a finding introduced in the working tree as new through the diff com
         ->and($decoded['summary']['new'])->toBe(1)
         ->and($decoded['new'])->toHaveCount(1)
         ->and($decoded['new'][0])->toMatchArray(['rule' => 'SL101', 'file' => 'app/Bad.php']);
+
+    $repository->remove();
+});
+
+it('presents a change as a risk-ordered reading order through the review command', function (): void {
+    if (! TempRepository::gitIsAvailable()) {
+        $this->markTestSkipped('git is not available on this machine.');
+    }
+
+    $repository = TempRepository::create();
+    $repository->write('app/Fine.php', "<?php\n\nclass Fine\n{\n}\n")->commit('first commit');
+    // Uncommitted, so DiffRunner (working tree vs HEAD) sees it as new.
+    $repository->write('app/Bad.php', godMethodSource());
+
+    $tester = tester();
+    $code = $tester->run([
+        'command' => 'review',
+        '--project' => $repository->path,
+    ], ['capture_stderr_separately' => true]);
+
+    // Same exit code semantics as `diff`: the shipped config's fail_on=high
+    // still governs pass/fail, review only changes the presentation.
+    expect($code)->toBe(1)
+        ->and($tester->getDisplay())->toContain('Sloppy review')
+        ->toContain('Read in this order')
+        ->toContain('SL101');
 
     $repository->remove();
 });

@@ -88,6 +88,23 @@ it('names the rules it skipped', function (): void {
     expect((new ConsoleFormatter)->format($result))->toContain('2 rule(s) skipped: SL201, SL203');
 });
 
+it('withholds the risk arithmetic unless asked, and prints it under --explain-risk', function (): void {
+    $result = AnalysisResult::create(
+        [finding(confidence: 76, severity: Severity::High, metrics: ['blast_radius' => 1])],
+        ['app/A.php'],
+        1000,
+        new ScoreCalculator,
+    );
+
+    $plain = (new ConsoleFormatter)->format($result);
+    $explained = (new ConsoleFormatter(explainRisk: true))->format($result);
+
+    expect($plain)->not->toContain('risk  ')
+        ->and($explained)->toContain(
+            'risk  10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) = 9.89',
+        );
+});
+
 it('counts one finding in the singular', function (): void {
     $one = (new ConsoleFormatter)->format(AnalysisResult::create([finding()], ['app/A.php'], 1000, new ScoreCalculator));
     $two = (new ConsoleFormatter)->format(AnalysisResult::create(

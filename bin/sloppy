@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Cli\SloppyApplication;
+use Heyosseus\Sloppy\Sloppy;
 
 foreach ([
     // Installed as a dependency of the analysed project.
@@ -24,4 +25,4 @@ if (! class_exists(SloppyApplication::class)) {
     exit(2);
 }
 
-exit((new SloppyApplication('0.2.0'))->run());
+exit((new SloppyApplication(Sloppy::VERSION))->run());

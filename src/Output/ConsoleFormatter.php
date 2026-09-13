@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Contracts\Formatter;
+use Heyosseus\Sloppy\Scoring\RiskCalculator;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 
 /**
@@ -25,6 +26,8 @@ final readonly class ConsoleFormatter implements Formatter
     public function __construct(
         private bool $explain = false,
         private ?Severity $failOn = null,
+        private bool $explainRisk = false,
+        private RiskCalculator $risk = new RiskCalculator,
     ) {}
 
     public function format(AnalysisResult $result): string
@@ -109,6 +112,14 @@ final readonly class ConsoleFormatter implements Formatter
 
         foreach ($this->wrap($finding->suggestion, 84) as $index => $line) {
             $lines[] = ($index === 0 ? '         <fg=cyan>→ </>' : '           ').OutputFormatter::escape($line);
+        }
+
+        if ($this->explainRisk) {
+            // The whole point of printing the arithmetic is that the reader
+            // can check it. A derived number that cannot show its own working
+            // is indistinguishable from one that was invented.
+            $lines[] = '         <fg=gray>risk  '
+                .OutputFormatter::escape($this->risk->for($finding)->explain()).'</>';
         }
 
         return $lines;

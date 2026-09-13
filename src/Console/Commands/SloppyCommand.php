@@ -24,11 +24,12 @@ final class SloppyCommand extends SloppyCommandBase
 {
     protected $signature = 'sloppy
         {--path=* : Analyse these paths instead of the configured ones}
-        {--format=console : console or json}
+        {--format=console : console, json, sarif, markdown or github}
         {--fail-on= : Lowest severity that fails the command, or "never"}
         {--min-confidence= : Drop findings below this confidence (0-100)}
         {--rule=* : Run only these rule IDs, e.g. --rule=SL101}
         {--explain : Include each rule\'s "why this matters" text}
+        {--explain-risk : Show the arithmetic behind each risk value}
         {--no-baseline : Report every finding, including baselined ones}';
 
     protected $description = 'Analyse the application for AI-slop code patterns';
@@ -48,6 +49,7 @@ final class SloppyCommand extends SloppyCommandBase
                 rules: $this->stringListOption('rule'),
                 explain: $this->boolOption('explain'),
                 noBaseline: $this->boolOption('no-baseline'),
+                explainRisk: $this->boolOption('explain-risk'),
             );
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());

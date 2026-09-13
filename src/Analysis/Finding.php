@@ -59,6 +59,33 @@ final readonly class Finding
     }
 
     /**
+     * The same finding with extra measurements attached.
+     *
+     * Used by post-analysis passes that know something a rule cannot: reach
+     * across the project, proximity to a change. Existing keys win, so a rule
+     * that measured something itself is never overwritten by a pass guessing
+     * at the same thing.
+     *
+     * @param  array<string, string|int|float|bool>  $extra
+     */
+    public function withMetrics(array $extra): self
+    {
+        return new self(
+            ruleId: $this->ruleId,
+            ruleName: $this->ruleName,
+            category: $this->category,
+            severity: $this->severity,
+            confidence: $this->confidence,
+            location: $this->location,
+            message: $this->message,
+            explanation: $this->explanation,
+            suggestion: $this->suggestion,
+            fingerprint: $this->fingerprint,
+            metrics: $this->metrics + $extra,
+        );
+    }
+
+    /**
      * Penalty this finding contributes before codebase-size normalisation.
      *
      * A finding we are half sure about counts half as much.

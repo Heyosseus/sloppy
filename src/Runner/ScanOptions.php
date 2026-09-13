@@ -23,6 +23,7 @@ final readonly class ScanOptions implements RunnerOptions
         public array $rules = [],
         public bool $explain = false,
         public bool $noBaseline = false,
+        public bool $explainRisk = false,
     ) {}
 
     /** @return list<string> */
