@@ -27,6 +27,8 @@ final readonly class DiffOptions implements RunnerOptions
         public ?int $minConfidence = null,
         public array $rules = [],
         public bool $explain = false,
+        public bool $explainRisk = false,
+        public bool $review = false,
     ) {}
 
     /** @return list<string> */

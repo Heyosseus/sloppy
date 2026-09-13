@@ -21,6 +21,7 @@ final class SloppyApplication extends Application
         $this->addCommands([
             new ScanCliCommand,
             new DiffCliCommand,
+            new ReviewCliCommand,
             new BaselineCliCommand,
         ]);
 

@@ -78,7 +78,9 @@ Requirements: **PHP 8.3+**. Laravel 12 or 13 for the Artisan commands and the
 - [Does it just complain about everything?](#does-it-just-complain-about-everything)
 - [Slop score](#slop-score) · [Severity and confidence](#severity-and-confidence)
 - [Rules](#rules) · [Configuration](#configuration) · [Custom rules](#custom-rules)
-- [JSON output](#json-output) · [Exit codes](#exit-codes) · [CI](#ci)
+- [What to read first](#what-to-read-first) · [Risk](#risk)
+- [JSON output](#json-output) · [Editors and code scanning](#editors-and-code-scanning)
+- [Exit codes](#exit-codes) · [CI](#ci)
 - [What Sloppy is not](#what-sloppy-is-not) · [False positives](#false-positives)
 
 ## Scan a project
@@ -169,6 +171,109 @@ were genuine, and they were fixed.
 The other half of the answer is `tests/Fixtures/Good`: deliberately ordinary
 Laravel code, with a test asserting that all 24 rules report **zero** findings
 on it at a score of 100.
+
+## What to read first
+
+`sloppy:diff` answers *did this change make it worse?* `sloppy:review` answers
+the question you have immediately afterwards: **of everything this change
+touched, what deserves reading?**
+
+```bash
+vendor/bin/sloppy review origin/main
+php artisan sloppy:review origin/main
+```
+
+```
+  Sloppy review
+
+  161 file(s) changed, 12,198 lines  ·  score 5 → 12 (+7)
+
+  Read in this order
+    1. app/Actions/Product/CloneProductToTenantAction.php   risk 70.5
+         new SL111 Copy-Paste Drift  (76%, risk 9.9, in hunk)
+         new SL102 God Class  (73%, risk 9.5, in hunk)
+         new SL111 Copy-Paste Drift  (68%, risk 8.8, in hunk)
+         new SL204 Query Inside Loop  (84%, risk 4.4, in hunk)
+         and 9 more in this file, 2 x SL104, 7 x SL204
+    2. app/Filament/Imports/B2bCatalogImporter.php   risk 48.0
+         new SL102 God Class  (91%, risk 11.8, in hunk)
+         new SL101 God Method  (76%, risk 9.9, in hunk)
+
+  Skim
+    4 file(s), risk under 5
+      app/Support/TenantFrontend.php  risk 3.4
+
+  No attention needed
+    132 file(s) changed with no findings
+
+  Resolved by this change
+    3 finding(s) no longer reported
+      2 x SL101 God Method
+      1 x SL204 Query Inside Loop
+```
+
+Three tiers, so you know where to stop. Same analysis, same score and the same
+exit code as `sloppy:diff` — only the presentation differs, so adopting the
+reading order changes no build outcome.
+
+**`in hunk` is the part no other tool can do.** A god method your change
+*created* and a god method it merely stood next to are not the same finding.
+Telling them apart needs the diff's hunks at rule time, and nothing else in
+this space has them.
+
+## Risk
+
+Risk and the slop score answer different questions, and conflating them leads a
+team to chase the wrong one.
+
+| | Slop score | Risk |
+| --- | --- | --- |
+| Question | How is this codebase? | What should I read next? |
+| Normalised | Yes, by size | No, absolute |
+| Aware of your change | No | Yes |
+| Moves a baseline | Yes | Never |
+
+```
+risk = severity_weight × (confidence / 100) × novelty × proximity × reach
+
+reach     = 1 + log10(1 + blast_radius) × reach_weight
+novelty   = new 1.0 | inherited 0.25
+proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
+```
+
+**Reach is logarithmic on purpose.** A class with two hundred callers is not
+two hundred times more urgent than one with a single caller; the tenth caller
+costs less new attention than the first. One usage yields 1.30, ten yields
+2.04, a hundred yields 3.00 — a 2.3× spread across two orders of magnitude,
+which is roughly the spread a reviewer actually feels.
+
+**A file's risk is the raw sum of its findings, not their density.** A file
+with twelve findings should be read before a file with one, even if it is
+longer. Density is the right measure for quality and the score already provides
+it; total is the right measure for attention.
+
+Every weight lives under `sloppy.risk` and every one is documented in
+`config/sloppy.php`. Set `reach_weight` to `0.0` to rank on severity and
+confidence alone.
+
+### Show me the arithmetic
+
+Add `--explain-risk` to any command and every derived number prints its own
+working:
+
+```bash
+vendor/bin/sloppy scan --explain-risk
+```
+
+```
+    108  HIGH     SL102  God Class  (91% confidence)
+         NodeHelper spans 1021 lines with 59 methods…
+         → Group the members that change together…
+         risk  10.0 (high) × 0.91 (confidence) × 1.00 (novelty unknown) × 1.00 (whole file) × 2.45 (27 usages) = 22.27
+```
+
+A tool that weights findings owes you its weights. A number you can watch it
+derive is not a magic number.
 
 ## Slop score
 
@@ -394,6 +499,67 @@ Diff mode returns the same envelope with `mode: "diff"`, a `base`, a
 `changed_files` list, `score.base` / `score.current` / `score.delta`, and
 findings split into `new`, `existing` and `resolved`.
 
+## Editors and code scanning
+
+Sloppy speaks three formats that put findings where you already look, so it
+does not need a dashboard of its own.
+
+| Format | Goes to |
+| --- | --- |
+| `--format=sarif` | GitHub code scanning, VS Code, JetBrains IDEs |
+| `--format=github` | Inline annotations on a pull-request diff |
+| `--format=markdown` | A pull-request comment body |
+
+### SARIF
+
+```bash
+vendor/bin/sloppy scan --format=sarif > sloppy.sarif
+```
+
+SARIF 2.1.0 is what code-scanning tooling already reads, which is the answer
+to *why not SonarQube* without running a server. Findings appear in the
+Security tab, and in your editor's problems panel, from one file.
+
+GitHub deduplicates findings across runs using `partialFingerprints`, and
+Sloppy's finding identity is exactly the right shape for it: a stable hash of
+rule, file and a rule-supplied fingerprint that **excludes the line number**,
+so adding an import at the top of a file does not resurrect every finding
+beneath it or re-notify you about all of them.
+
+```yaml
+      - name: Analyse
+        run: vendor/bin/sloppy scan --format=sarif --fail-on=never > sloppy.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sloppy.sarif
+```
+
+`--fail-on=never` is deliberate there: let the upload happen, and let code
+scanning decide what blocks a merge.
+
+### Inline annotations
+
+```yaml
+      - name: Annotate the diff
+        run: vendor/bin/sloppy scan --format=github
+```
+
+No redirection — the workflow commands are meant to be *seen* by the runner on
+standard output, which is why `github` is the one machine-readable format you
+do not pipe to a file.
+
+### A pull-request comment
+
+```yaml
+      - name: Comment
+        run: |
+          vendor/bin/sloppy review origin/${{ github.base_ref }}             --format=markdown > review.md
+          gh pr comment ${{ github.event.number }} --body-file review.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Exit codes
 
 | Code | Meaning |
@@ -431,7 +597,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
 
       - name: Review the change
-        run: php artisan sloppy:diff origin/${{ github.base_ref }}
+        run: php artisan sloppy:review origin/${{ github.base_ref }}
 ```
 
 For a whole-project gate on `main`, commit a baseline and run `php artisan

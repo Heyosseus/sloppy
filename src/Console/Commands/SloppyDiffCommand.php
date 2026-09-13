@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Console\Commands;
 
 use Heyosseus\Sloppy\Console\LaravelRunnerOutput;
-use Heyosseus\Sloppy\Output\OutputFormat;
-use Heyosseus\Sloppy\Runner\DiffOptions;
 use Heyosseus\Sloppy\Runner\DiffRunner;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
@@ -21,7 +19,7 @@ use Throwable;
  *
  * Reading options is all this class does; {@see DiffRunner} owns the rest.
  */
-final class SloppyDiffCommand extends SloppyCommandBase
+final class SloppyDiffCommand extends SloppyDiffLikeCommand
 {
     protected $signature = 'sloppy:diff
         {base=HEAD : Revision to compare the working tree against, e.g. HEAD~1 or main}
@@ -39,18 +37,7 @@ final class SloppyDiffCommand extends SloppyCommandBase
         $output = new LaravelRunnerOutput($this);
 
         try {
-            $base = $this->argument('base');
-            $failOn = $this->stringOption('fail-on');
-
-            $options = new DiffOptions(
-                base: is_string($base) && trim($base) !== '' ? trim($base) : 'HEAD',
-                paths: $this->stringListOption('path'),
-                format: OutputFormat::parse($this->stringOption('format', 'console')),
-                failOn: $failOn === '' ? null : $failOn,
-                minConfidence: $this->intOption('min-confidence'),
-                rules: $this->stringListOption('rule'),
-                explain: $this->boolOption('explain'),
-            );
+            $options = $this->diffOptionsFrom(explain: $this->boolOption('explain'));
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 

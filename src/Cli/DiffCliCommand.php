@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Cli;
 
-use Heyosseus\Sloppy\Output\OutputFormat;
-use Heyosseus\Sloppy\Runner\DiffOptions;
-use Heyosseus\Sloppy\Runner\DiffRunner;
-use Heyosseus\Sloppy\Runner\ExitCode;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Throwable;
 
 #[AsCommand(name: 'diff', description: 'Report the findings a change introduced, relative to a git revision')]
 final class DiffCliCommand extends CliCommandBase
@@ -31,27 +26,6 @@ final class DiffCliCommand extends CliCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $runnerOutput = $this->runnerOutput($input, $output);
-
-        try {
-            $sloppy = $this->sloppy($input, $runnerOutput);
-            $base = $input->getArgument('base');
-
-            $options = new DiffOptions(
-                base: is_string($base) && trim($base) !== '' ? trim($base) : 'HEAD',
-                paths: $this->stringListOption($input, 'path'),
-                format: OutputFormat::parse($this->stringOption($input, 'format') ?? 'console'),
-                failOn: $this->stringOption($input, 'fail-on'),
-                minConfidence: $this->intOption($input, 'min-confidence'),
-                rules: $this->stringListOption($input, 'rule'),
-                explain: $input->getOption('explain') === true,
-            );
-        } catch (Throwable $exception) {
-            $runnerOutput->error($exception->getMessage());
-
-            return ExitCode::Error->value;
-        }
-
-        return (new DiffRunner)->run($sloppy, $options, $runnerOutput)->value;
+        return $this->runDiff($input, $output, explain: $input->getOption('explain') === true);
     }
 }

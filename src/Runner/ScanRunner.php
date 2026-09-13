@@ -7,9 +7,13 @@ namespace Heyosseus\Sloppy\Runner;
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Baseline\Baseline;
+use Heyosseus\Sloppy\Contracts\Formatter;
 use Heyosseus\Sloppy\Output\ConsoleFormatter;
+use Heyosseus\Sloppy\Output\GithubFormatter;
 use Heyosseus\Sloppy\Output\JsonFormatter;
+use Heyosseus\Sloppy\Output\MarkdownFormatter;
 use Heyosseus\Sloppy\Output\OutputFormat;
+use Heyosseus\Sloppy\Output\SarifFormatter;
 use Heyosseus\Sloppy\Sloppy;
 use Throwable;
 
@@ -71,7 +75,7 @@ final readonly class ScanRunner
         $reported = $this->applyBaseline($sloppy, $result, $baseline, $output);
         $threshold = $configuration->failOn();
 
-        $output->report($this->render($reported, $options, $threshold), $options->format);
+        $output->report($this->render($reported, $options, $threshold, $sloppy), $options->format);
 
         return $threshold instanceof Severity && $reported->hasAtOrAbove($threshold)
             ? ExitCode::FindingsAboveThreshold
@@ -145,12 +149,26 @@ final readonly class ScanRunner
         return $result->withFindings($partition['new'], $sloppy->scores());
     }
 
-    private function render(AnalysisResult $result, ScanOptions $options, ?Severity $threshold): string
+    private function render(AnalysisResult $result, ScanOptions $options, ?Severity $threshold, Sloppy $sloppy): string
     {
-        $formatter = $options->format === OutputFormat::Json
-            ? new JsonFormatter
-            : new ConsoleFormatter(explain: $options->explain, failOn: $threshold);
+        return $this->formatter($options, $threshold, $sloppy)->format($result);
+    }
 
-        return $formatter->format($result);
+    private function formatter(ScanOptions $options, ?Severity $threshold, Sloppy $sloppy): Formatter
+    {
+        $risk = $sloppy->risks();
+
+        return match ($options->format) {
+            OutputFormat::Json => new JsonFormatter(explainRisk: $options->explainRisk, risk: $risk),
+            OutputFormat::Sarif => new SarifFormatter(Sloppy::VERSION),
+            OutputFormat::Github => new GithubFormatter,
+            OutputFormat::Markdown => new MarkdownFormatter(risk: $risk, explainRisk: $options->explainRisk),
+            OutputFormat::Console => new ConsoleFormatter(
+                explain: $options->explain,
+                failOn: $threshold,
+                explainRisk: $options->explainRisk,
+                risk: $risk,
+            ),
+        };
     }
 }

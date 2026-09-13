@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Console\Commands\SloppyBaselineCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyDiffCommand;
+use Heyosseus\Sloppy\Console\Commands\SloppyReviewCommand;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\ServiceProvider;
 use Override;
@@ -53,6 +54,7 @@ final class SloppyServiceProvider extends ServiceProvider
         $this->commands([
             SloppyCommand::class,
             SloppyDiffCommand::class,
+            SloppyReviewCommand::class,
             SloppyBaselineCommand::class,
         ]);
     }

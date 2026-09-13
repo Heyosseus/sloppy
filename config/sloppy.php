@@ -154,6 +154,51 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Risk
+    |--------------------------------------------------------------------------
+    |
+    | Risk answers a different question from the slop score. The score measures
+    | quality: density-normalised, baseline-compatible, about the codebase.
+    | Risk measures attention: absolute, change-aware, about what a reviewer
+    | should read next. Nothing here moves a score or a baseline entry.
+    |
+    |   risk = severity_weight x (confidence / 100) x novelty x proximity x reach
+    |
+    |   reach     = 1 + log10(1 + blast_radius) x reach_weight
+    |   novelty   = new 1.0 | inherited 0.25
+    |   proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
+    |
+    | Run any command with --explain-risk to see the arithmetic for every
+    | finding, including the intermediate values. A number you can watch the
+    | tool derive is not a magic number.
+    |
+    */
+
+    'risk' => [
+        // Severity weights default to the score's, so the two measures agree
+        // about which findings are serious and disagree only about what they
+        // then do with that.
+        'severity_weights' => [
+            'critical' => 20.0,
+            'high' => 10.0,
+            'medium' => 4.0,
+            'low' => 1.5,
+            'info' => 0.5,
+        ],
+
+        // How much the blast radius -- how many files reach the code a finding
+        // sits in -- is allowed to matter. Reach is logarithmic because a class
+        // with two hundred callers is not two hundred times more urgent than
+        // one with a single caller; the tenth caller costs less new attention
+        // than the first. At 1.0, one usage yields 1.30, ten yields 2.04 and a
+        // hundred yields 3.00 -- a 2.3x spread across two orders of magnitude,
+        // which is roughly the spread a reviewer actually feels. Set it to 0.0
+        // to rank on severity and confidence alone.
+        'reach_weight' => 1.0,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rules
     |--------------------------------------------------------------------------
     |

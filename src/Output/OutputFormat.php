@@ -17,6 +17,9 @@ enum OutputFormat: string
 {
     case Console = 'console';
     case Json = 'json';
+    case Sarif = 'sarif';
+    case Markdown = 'markdown';
+    case Github = 'github';
 
     public static function parse(string $value): self
     {
@@ -37,9 +40,26 @@ enum OutputFormat: string
     /**
      * Whether the report must be written raw, because it is parsed rather than
      * read.
+     *
+     * Markdown is included: it is written for a pull-request comment body, and
+     * console markup or a progress bar mixed into it would be published
+     * verbatim into that comment.
      */
     public function isMachineReadable(): bool
     {
         return $this !== self::Console;
+    }
+
+    /**
+     * Whether this format expects to be redirected to a file rather than read
+     * in a terminal.
+     *
+     * `github` is the exception among the machine-readable formats: its
+     * workflow commands are meant to be *seen* by the Actions runner on
+     * standard output, so telling a user to redirect it would break it.
+     */
+    public function expectsRedirection(): bool
+    {
+        return $this === self::Json || $this === self::Sarif;
     }
 }

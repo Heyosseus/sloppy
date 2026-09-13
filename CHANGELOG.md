@@ -6,6 +6,135 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-13
+
+Attention: what to read first, and where to read it.
+
+Sloppy could already tell you what was wrong. It could not tell you what to
+look at, and it could only tell you in its own terminal. Both of those change
+here.
+
+### Added
+
+- **A risk model, and `--explain-risk` to show its arithmetic.** Risk answers a
+  different question from the slop score. The score measures quality --
+  density-normalised, baseline-compatible, about the codebase. Risk measures
+  attention -- absolute, change-aware, about the reader's next ten minutes:
+
+      risk = severity_weight x (confidence / 100) x novelty x proximity x reach
+
+  Nothing here moves a score or a baseline entry. Every factor is configurable
+  under a new `sloppy.risk` key, every default is defended in the config file,
+  and `--explain-risk` prints the whole derivation for every finding:
+
+      10.0 (high) x 0.91 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 2.45 (27 usages) = 22.27
+
+  The criticism this answers is a fair one: a tool that weights findings owes
+  the reader its weights. A number you can watch the tool derive is not a magic
+  number.
+
+- **Blast radius.** How many files reach the code a finding sits in, resolved
+  from the finding's own location through the project index and added to every
+  finding's metrics. No rule had to be changed for this: the class declaration
+  enclosing a reported line is what callers depend on, which is true for all
+  twenty-four rules without any of them saying so. Reach is **logarithmic** --
+  a class with two hundred callers is not two hundred times more urgent than
+  one with a single caller, and the tenth caller costs less new attention than
+  the first. A finding whose subject cannot be resolved gets **no**
+  `blast_radius` at all, because zero would read as "nothing uses this", which
+  is a claim rather than a measurement.
+
+- **`sloppy review [base]`** (`php artisan sloppy:review`). `sloppy:diff`
+  answers "did this change make it worse?". This answers the question a
+  reviewer has immediately afterwards: of everything the change touched, what
+  deserves reading? Findings are ranked by risk and the changed files fall into
+  three tiers, so a reviewer knows where to stop:
+
+      161 file(s) changed, 12,198 lines  ·  score 5 → 12 (+7)
+
+      Read in this order
+        1. app/Actions/Product/CloneProductToTenantAction.php   risk 70.5
+             new SL111 Copy-Paste Drift  (76%, risk 9.9, in hunk)
+             new SL102 God Class  (73%, risk 9.5, in hunk)
+             and 9 more in this file, 2 x SL104, 7 x SL204
+      Skim
+        4 file(s), risk under 5
+      No attention needed
+        132 file(s) changed with no findings
+      Resolved by this change
+        3 finding(s) no longer reported
+
+  Same analysis, same score, same exit code as `sloppy:diff` -- only the
+  presentation differs, so adopting the reading order changes no build outcome.
+
+  **`in hunk` is the part nothing else can do.** A god method a change created
+  and a god method it merely stood next to are not the same finding, and no
+  other tool can distinguish them because no other tool has the diff's hunks in
+  hand at rule time. Proximity weights the first at 1.0 and the second at 0.3.
+
+- **`--format=sarif`** -- SARIF 2.1.0, and the answer to "why not SonarQube"
+  without running a dashboard. Findings land in GitHub code scanning, VS Code
+  and the JetBrains IDEs for the cost of one serialiser: no server, no
+  database, no second tool to keep alive. The hard half was already built --
+  GitHub deduplicates findings across runs using `partialFingerprints`, and it
+  wants exactly what `Finding::identity()` already is, a stable hash of rule,
+  file and fingerprint that deliberately excludes the line number.
+
+- **`--format=github`** -- GitHub Actions workflow commands, so findings appear
+  beside the lines they are about in the review the author is already looking
+  at. A report in a CI log is a report nobody reads.
+
+- **`--format=markdown`** -- a pull-request comment body. On `scan` it is
+  risk-ordered with five findings above the fold and the rest inside a
+  collapsed block; on `review` it is the same three-tier reading order,
+  rendered as markdown rather than for a terminal. Short enough to read in the
+  timeline, complete enough to be the only comment needed.
+
+  The review renderer branches on decoration alone -- headings, emphasis and
+  code spans -- so the tier logic exists once. A second formatter duplicating
+  that structure is precisely what `SL111` would report about it.
+
+- **`risk` on every finding in JSON output**, plus `risk_factors` and
+  `risk_arithmetic` under `--explain-risk`. Additive within schema 1, which the
+  contract permits: a consumer reading the documented keys is unaffected, and
+  one that wants to rank findings no longer has to reimplement the model.
+
+### Changed
+
+- `--format` now accepts `console`, `json`, `sarif`, `markdown` and `github`.
+  An unknown value still exits `2` naming the value.
+- The shared option-reading and run logic behind `diff` and `review` moved into
+  a base class on each surface. `SL111` reported the two command pairs as
+  near-duplicates of each other, which they were; the rule found this in code
+  written minutes earlier, and the fix was the one the rule suggested.
+
+### Fixed
+
+- **`sloppy --version` reported `0.2.0` throughout the `0.3.0` release.** The
+  binary carried its own hardcoded copy of the version, and the SARIF report
+  identified the tool as `dev` regardless. Both now read one constant,
+  `Sloppy::VERSION`, so the number a user sees, the number a SARIF consumer
+  records and the number in this file cannot disagree again.
+
+### Known limitations
+
+- **Risk ranks; it does not prove.** Every factor is a measurement, but the
+  product is a reading order rather than a verdict, and a finding low in the
+  order is not a finding the tool has cleared. Risk exists because a list of
+  twenty-four findings in no particular order gets read top to bottom or not at
+  all -- not because the first one is always the one that matters most.
+
+- **Blast radius counts static references inside the analysed paths.** A class
+  reached only through a container binding, a string class name, a route file
+  or a view outside the configured paths is counted as unreached, so reach can
+  understate. It never invents the other direction: an unresolvable subject is
+  reported as unmeasured rather than as zero.
+
+- **Novelty and proximity are only available where a diff is.** `scan` has
+  neither, so both default to 1.0 and risk there is severity, confidence and
+  reach alone. The full model needs `review` or `diff`.
+
+
 ## [0.3.0] — 2026-09-12
 
 Copy-paste drift: the space between "identical" and "different" that
@@ -325,7 +454,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/heyosseus/sloppy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/heyosseus/sloppy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/heyosseus/sloppy/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/heyosseus/sloppy/releases/tag/v0.1.0

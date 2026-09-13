@@ -112,6 +112,15 @@ final readonly class Configuration
     }
 
     /**
+     * Weights for the attention model, which is a separate question from the
+     * score and so a separate configuration key.
+     */
+    public function risk(): RiskConfiguration
+    {
+        return RiskConfiguration::fromArray($this->values->arrayValue('risk'));
+    }
+
+    /**
      * Which framework's rules apply: an explicit name, or `auto` to read the
      * answer off the project's `composer.json`.
      */

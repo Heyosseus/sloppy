@@ -114,6 +114,11 @@ final readonly class Analyzer
 
         sort($analyzed);
 
+        // Reach is a property of a finding's position in the project, which no
+        // rule can see from the one file it was handed. Measured once here,
+        // after every rule has run and while the index is still in hand.
+        $findings = (new BlastRadiusEnricher($index))->enrich($findings);
+
         return AnalysisResult::create(
             findings: $findings,
             analyzedFiles: $analyzed,

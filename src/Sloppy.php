@@ -13,6 +13,7 @@ use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Git\DiffAnalyzer;
 use Heyosseus\Sloppy\Git\DiffReport;
 use Heyosseus\Sloppy\Git\Git;
+use Heyosseus\Sloppy\Scoring\RiskCalculator;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use Heyosseus\Sloppy\Support\FileFinder;
 
@@ -26,6 +27,16 @@ use Heyosseus\Sloppy\Support\FileFinder;
  */
 final readonly class Sloppy
 {
+    /**
+     * The one place the package's version is written down.
+     *
+     * `bin/sloppy` previously carried its own copy and reported `0.2.0`
+     * throughout the `0.3.0` release, while the SARIF report identified the
+     * tool as `dev`. A version string duplicated across surfaces is a version
+     * string that disagrees with itself.
+     */
+    public const string VERSION = '0.4.0';
+
     public function __construct(
         public Configuration $configuration,
         private ?RuleRegistry $registry = null,
@@ -59,6 +70,11 @@ final readonly class Sloppy
     public function scores(): ScoreCalculator
     {
         return new ScoreCalculator($this->configuration->score());
+    }
+
+    public function risks(): RiskCalculator
+    {
+        return new RiskCalculator($this->configuration->risk());
     }
 
     public function analyzer(): Analyzer

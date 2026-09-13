@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Output\DiffConsoleFormatter;
 use Heyosseus\Sloppy\Output\DiffJsonFormatter;
 use Heyosseus\Sloppy\Output\OutputFormat;
+use Heyosseus\Sloppy\Output\ReviewFormatter;
 use Heyosseus\Sloppy\Sloppy;
 use Throwable;
 
@@ -66,9 +67,19 @@ final readonly class DiffRunner
             return ExitCode::Error;
         }
 
-        $formatter = $options->format === OutputFormat::Json
-            ? new DiffJsonFormatter
-            : new DiffConsoleFormatter(explain: $options->explain, failOn: $threshold);
+        // Review mode reorders the same report by risk instead of listing it
+        // by file. It stays a presentation choice on purpose: the analysis, the
+        // score and the exit code are identical, so a team can adopt the
+        // reading order without adopting a different pass/fail rule.
+        $formatter = match (true) {
+            $options->format === OutputFormat::Json => new DiffJsonFormatter,
+            $options->review => new ReviewFormatter(
+                risk: $sloppy->risks(),
+                explainRisk: $options->explainRisk,
+                markdown: $options->format === OutputFormat::Markdown,
+            ),
+            default => new DiffConsoleFormatter(explain: $options->explain, failOn: $threshold),
+        };
 
         $output->report($formatter->format($report), $options->format);
 

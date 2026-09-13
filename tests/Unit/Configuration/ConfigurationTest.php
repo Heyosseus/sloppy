@@ -113,6 +113,20 @@ it('reads score configuration', function (): void {
         ->and($score->penaltyMultiplier)->toBe(2.0);
 });
 
+it('reads risk configuration, a separate question from the score', function (): void {
+    $risk = config_(['risk' => ['reach_weight' => 2.0, 'severity_weights' => ['high' => 50.0]]])->risk();
+
+    expect($risk->reachWeight())->toBe(2.0)
+        ->and($risk->weightFor(Severity::High))->toBe(50.0);
+});
+
+it('defaults risk configuration when none is given', function (): void {
+    $risk = config_()->risk();
+
+    expect($risk->reachFor(null))->toBe(1.0)
+        ->and($risk->reachWeight())->toBe(1.0);
+});
+
 it('defaults the framework to auto and reads it from composer.json', function (): void {
     $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
     $config = Configuration::fromArray([], $project);
