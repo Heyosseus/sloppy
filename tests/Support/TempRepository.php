@@ -105,32 +105,6 @@ final readonly class TempRepository
 
     public function remove(): void
     {
-        self::removeTree($this->path);
-    }
-
-    private static function removeTree(string $path): void
-    {
-        if (! is_dir($path)) {
-            return;
-        }
-
-        foreach (scandir($path) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-
-            $full = $path.'/'.$entry;
-
-            if (is_dir($full)) {
-                self::removeTree($full);
-
-                continue;
-            }
-
-            @chmod($full, 0o666);
-            @unlink($full);
-        }
-
-        @rmdir($path);
+        TempTree::remove($this->path);
     }
 }

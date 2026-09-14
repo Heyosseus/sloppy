@@ -425,4 +425,23 @@ return [
         // App\Sloppy\NoFacadesInDomainRule::class,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Health snapshot
+    |--------------------------------------------------------------------------
+    |
+    | `sloppy:health`, the Filament widget and a NativePHP menu bar all read
+    | the same cached snapshot, because analysing a project takes seconds and a
+    | dashboard has milliseconds. Keep it warm with a scheduled
+    | `sloppy:health --fresh`; the surfaces refresh it themselves when it goes
+    | stale, and `ttl` is how long "fresh" means here.
+    |
+    */
+
+    'health' => [
+        'cache' => '.sloppy-health.json',
+        'ttl' => 900,
+        'top' => 5,
+    ],
+
 ];

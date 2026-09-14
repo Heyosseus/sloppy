@@ -22,13 +22,16 @@ coverage floor, so it cannot run without a coverage driver.
 | Pint | `pint --test` |
 | PHPStan | `phpstan analyse` (level 8) |
 | Type coverage | `pest --type-coverage --min=100` |
-| Line coverage | `pest --coverage --min=95` |
+| Line coverage | `pest --coverage --min=100` |
 
-All five must pass. Type coverage is absolute: every parameter, return and
-property is typed. Line coverage has a floor rather than a ceiling because a
-handful of defensive branches — an unwritable file, a malformed config value —
-are worth keeping and not worth contriving a test for. If a line is genuinely
-unreachable, delete it rather than finding a way to exclude it.
+All five must pass, and both coverage gates are absolute: every parameter,
+return and property is typed, and every line of `src` is executed by the suite.
+A defensive branch that is hard to reach — an unwritable file, a malformed
+config value, a git command that cannot start — is reachable: point the code at
+a directory that is a file, or register a stream wrapper that refuses to open
+(see `tests/Support/UnreadableStream.php`). A branch that is genuinely
+unreachable is dead code: fold it into the condition beside it or delete it,
+rather than finding a way to exclude it from the count.
 
 Individual gates run on their own: `composer test:lint`, `composer test:types`,
 and so on. `composer lint` and `composer refacto` apply the fixes rather than

@@ -431,11 +431,11 @@ final class NodeHelper
             return false;
         }
 
-        $printed = self::typeToString($type);
-
-        if ($printed === null) {
-            return false;
-        }
+        // A parser only ever gives a parameter a type it can print, so the
+        // null case is folded into the loop below rather than guarded for
+        // separately: with nothing printed there is nothing to compare, and
+        // the answer is the same "no".
+        $printed = self::typeToString($type) ?? '';
 
         $scalars = ['int', 'float', 'string', 'bool', 'array', 'mixed', 'callable', 'iterable', 'object', 'null', 'false', 'true'];
 
@@ -797,26 +797,6 @@ final class NodeHelper
         }
 
         return false;
-    }
-
-    /**
-     * Whether a static call targets one of the given facades, matched on the
-     * short class name so both `Http::` and `\Illuminate\Support\Facades\Http::`
-     * are recognised.
-     *
-     * @param  list<string>  $facades
-     */
-    public static function isFacadeCall(StaticCall $call, array $facades): bool
-    {
-        $class = self::staticCallClass($call);
-
-        if ($class === null) {
-            return false;
-        }
-
-        $short = self::baseName($class);
-
-        return in_array($short, $facades, true);
     }
 
     public static function baseName(string $fqn): string

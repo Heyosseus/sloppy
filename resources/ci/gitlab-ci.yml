@@ -1,0 +1,54 @@
+# Sloppy for GitLab CI.
+#
+# Include it and the findings appear in the merge request's Code Quality
+# widget and beside the changed lines, the same way GitLab shows any other
+# code quality report:
+#
+#     include:
+#       - remote: 'https://raw.githubusercontent.com/heyosseus/sloppy/main/resources/ci/gitlab-ci.yml'
+#
+# Override anything through variables:
+#
+#     variables:
+#       SLOPPY_FAIL_ON: critical
+#       SLOPPY_PATHS: "--path=app --path=src"
+#
+# The report covers the whole project on purpose. GitLab works out which
+# findings a merge request introduced by comparing the report against the
+# target branch's, so handing it a diff would break the comparison it is
+# already doing for you.
+
+variables:
+  SLOPPY_IMAGE: php:8.3-cli
+  SLOPPY_VERSION: ^0.5
+  SLOPPY_FAIL_ON: high
+  SLOPPY_PATHS: ''
+  SLOPPY_REPORT: gl-code-quality-report.json
+
+sloppy:
+  stage: test
+  image: $SLOPPY_IMAGE
+  needs: []
+  allow_failure: true
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git unzip libzip-dev > /dev/null
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - |
+      if [ -x vendor/bin/sloppy ]; then
+        echo "SLOPPY_BIN=vendor/bin/sloppy" > sloppy.env
+      else
+        composer global require "heyosseus/sloppy:$SLOPPY_VERSION" --no-interaction --no-progress
+        echo "SLOPPY_BIN=$(composer global config home)/vendor/bin/sloppy" > sloppy.env
+      fi
+  script:
+    - . ./sloppy.env
+    - $SLOPPY_BIN ci --format=gitlab --report="$SLOPPY_REPORT" --fail-on="$SLOPPY_FAIL_ON" $SLOPPY_PATHS
+  artifacts:
+    when: always
+    reports:
+      codequality: $SLOPPY_REPORT
+    paths:
+      - $SLOPPY_REPORT
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

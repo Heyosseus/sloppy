@@ -1,0 +1,62 @@
+name: sloppy
+
+# Sloppy reviewing Sloppy, through the action this repository publishes.
+#
+# The package's own suite already runs the analyser over `src` (see
+# tests/Feature/SelfCheckTest.php). What this adds is the other half: proof
+# that the shipped action.yml works from a workflow, on a real pull request,
+# before anyone else depends on it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    name: Review the change
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      # Composer links the bin of every *dependency* into vendor/bin, never
+      # the root package's own -- so in this repository, and only in this
+      # repository, the path the action looks for does not exist. Without
+      # this the action falls through to installing the published release,
+      # which means a pull request would be reviewed by the last version
+      # rather than by the code it changes: exactly the thing this workflow
+      # exists to catch.
+      - name: Point the action at this checkout
+        run: |
+          mkdir -p vendor/bin
+          ln -sf ../../bin/sloppy vendor/bin/sloppy
+          chmod +x bin/sloppy
+
+      - name: Sloppy
+        id: sloppy
+        uses: ./
+        with:
+          paths: src
+          fail-on: high
+          # Unused here, because the step above guarantees a local binary.
+          # It is set so this file stays an honest example of the action.
+          version: '^0.5'
+
+      - name: Report
+        if: always()
+        run: |
+          echo "Mode:  ${{ steps.sloppy.outputs.mode }}"
+          echo "Score: ${{ steps.sloppy.outputs.score }} (${{ steps.sloppy.outputs.score-delta }})"
+          echo "New:   ${{ steps.sloppy.outputs.new-findings }}"
+          echo "State: ${{ steps.sloppy.outputs.status }}"

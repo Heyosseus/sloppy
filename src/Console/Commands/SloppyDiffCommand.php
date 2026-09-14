@@ -8,7 +8,6 @@ use Heyosseus\Sloppy\Console\LaravelRunnerOutput;
 use Heyosseus\Sloppy\Runner\DiffRunner;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
-use Throwable;
 
 /**
  * `php artisan sloppy:diff` -- review what a change introduced.
@@ -34,16 +33,10 @@ final class SloppyDiffCommand extends SloppyDiffLikeCommand
 
     public function handle(Sloppy $sloppy): int
     {
-        $output = new LaravelRunnerOutput($this);
-
-        try {
-            $options = $this->diffOptionsFrom(explain: $this->boolOption('explain'));
-        } catch (Throwable $exception) {
-            $output->error($exception->getMessage());
-
-            return ExitCode::Error->value;
-        }
-
-        return (new DiffRunner)->run($sloppy, $options, $output)->value;
+        return $this->runWith(fn (LaravelRunnerOutput $output): ExitCode => (new DiffRunner)->run(
+            $sloppy,
+            $this->diffOptionsFrom(explain: $this->boolOption('explain')),
+            $output,
+        ));
     }
 }

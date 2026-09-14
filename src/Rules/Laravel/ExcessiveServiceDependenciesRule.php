@@ -63,17 +63,17 @@ final class ExcessiveServiceDependenciesRule extends LaravelRule
             }
 
             $count = NodeHelper::countDependencies($classLike);
-
-            if ($count <= $max) {
-                continue;
-            }
-
-            $name = NodeHelper::shortName($classLike);
             $constructor = NodeHelper::constructor($classLike);
 
-            if ($name === null || ! $constructor instanceof ClassMethod) {
+            // Dependencies are counted from constructor parameters, so a class
+            // over the limit has a constructor by definition -- and a class
+            // only counts as a service because of its name, so it has one of
+            // those too.
+            if ($count <= $max || ! $constructor instanceof ClassMethod) {
                 continue;
             }
+
+            $name = NodeHelper::shortName($classLike) ?? '';
 
             yield $this->report(
                 context: $context,

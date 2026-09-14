@@ -42,20 +42,31 @@
         "rector/rector": "^2.0"
     },
     "bin": [
-        "bin/sloppy"
+        "bin/sloppy",
+        "bin/sloppy-mcp"
     ],
     "suggest": {
-        "illuminate/console": "Required for the php artisan sloppy commands. Not needed for the standalone bin/sloppy binary."
+        "illuminate/console": "Required for the php artisan sloppy commands. Not needed for the standalone bin/sloppy binary.",
+        "rector/rector": "Required by sloppy fix, which hands the fixable findings to Rector.",
+        "laravel/pint": "Used by sloppy fix to format the files Rector rewrote.",
+        "filament/filament": "Required for the Filament panel plugin and health widget.",
+        "pestphp/pest": "Required for the expectCleanSloppyDiff() test expectation."
     },
     "autoload": {
         "psr-4": {
             "Heyosseus\\Sloppy\\": "src/"
-        }
+        },
+        "files": [
+            "pest/Expectations.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
             "Heyosseus\\Sloppy\\Tests\\": "tests/"
-        }
+        },
+        "classmap": [
+            "tests/Stubs"
+        ]
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
@@ -81,7 +92,7 @@
         "test:refacto": "rector --dry-run",
         "test:types": "phpstan analyse --ansi --memory-limit=512M",
         "test:type-coverage": "pest --type-coverage --min=100",
-        "test:unit": "pest --colors=always --coverage --min=95",
+        "test:unit": "pest --colors=always --coverage --min=100",
         "test": [
             "@test:refacto",
             "@test:lint",

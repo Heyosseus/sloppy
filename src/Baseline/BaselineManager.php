@@ -44,7 +44,9 @@ final readonly class BaselineManager
             return null;
         }
 
-        $contents = file_get_contents($path);
+        // Suppressed so the failure is reported in this package's words
+        // rather than as a PHP warning followed by a second, vaguer error.
+        $contents = @file_get_contents($path);
 
         if ($contents === false) {
             throw new RuntimeException(sprintf('Baseline file [%s] could not be read.', $path));
@@ -75,11 +77,11 @@ final readonly class BaselineManager
 
         $directory = dirname($path);
 
-        if (! is_dir($directory) && ! mkdir($directory, 0o755, true) && ! is_dir($directory)) {
+        if (! is_dir($directory) && ! @mkdir($directory, 0o755, true) && ! is_dir($directory)) {
             throw new RuntimeException(sprintf('Baseline directory [%s] could not be created.', $directory));
         }
 
-        if (file_put_contents($path, $encoded."\n") === false) {
+        if (@file_put_contents($path, $encoded."\n") === false) {
             throw new RuntimeException(sprintf('Baseline file [%s] could not be written.', $path));
         }
     }

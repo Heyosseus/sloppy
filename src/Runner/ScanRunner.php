@@ -6,14 +6,7 @@ namespace Heyosseus\Sloppy\Runner;
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Severity;
-use Heyosseus\Sloppy\Baseline\Baseline;
-use Heyosseus\Sloppy\Contracts\Formatter;
-use Heyosseus\Sloppy\Output\ConsoleFormatter;
-use Heyosseus\Sloppy\Output\GithubFormatter;
-use Heyosseus\Sloppy\Output\JsonFormatter;
-use Heyosseus\Sloppy\Output\MarkdownFormatter;
-use Heyosseus\Sloppy\Output\OutputFormat;
-use Heyosseus\Sloppy\Output\SarifFormatter;
+use Heyosseus\Sloppy\Output\FormatterFactory;
 use Heyosseus\Sloppy\Sloppy;
 use Throwable;
 
@@ -63,16 +56,13 @@ final readonly class ScanRunner
 
         try {
             $result = $this->analyse($sloppy, count($files), $options, $output);
-            $baseline = $options->noBaseline
-                ? null
-                : $sloppy->baselines()->load($configuration->baselinePath());
+            $reported = (new BaselineFilter)->apply($sloppy, $result, $output, ! $options->noBaseline);
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 
             return ExitCode::Error;
         }
 
-        $reported = $this->applyBaseline($sloppy, $result, $baseline, $output);
         $threshold = $configuration->failOn();
 
         $output->report($this->render($reported, $options, $threshold, $sloppy), $options->format);
@@ -122,53 +112,15 @@ final readonly class ScanRunner
         return $result;
     }
 
-    /**
-     * Remove findings the baseline already accepts, and say how many were
-     * hidden so the number is never a surprise.
-     */
-    private function applyBaseline(
-        Sloppy $sloppy,
-        AnalysisResult $result,
-        ?Baseline $baseline,
-        RunnerOutput $output,
-    ): AnalysisResult {
-        if (! $baseline instanceof Baseline) {
-            return $result;
-        }
-
-        $partition = $sloppy->baselines()->partition($result->findings, $baseline);
-
-        if ($partition['baselined'] !== []) {
-            $output->notice(sprintf(
-                '%d existing finding(s) hidden by %s.',
-                count($partition['baselined']),
-                basename($sloppy->configuration->baselinePath()),
-            ));
-        }
-
-        return $result->withFindings($partition['new'], $sloppy->scores());
-    }
-
     private function render(AnalysisResult $result, ScanOptions $options, ?Severity $threshold, Sloppy $sloppy): string
     {
-        return $this->formatter($options, $threshold, $sloppy)->format($result);
-    }
+        $factory = new FormatterFactory(
+            sloppy: $sloppy,
+            explain: $options->explain,
+            explainRisk: $options->explainRisk,
+            failOn: $threshold,
+        );
 
-    private function formatter(ScanOptions $options, ?Severity $threshold, Sloppy $sloppy): Formatter
-    {
-        $risk = $sloppy->risks();
-
-        return match ($options->format) {
-            OutputFormat::Json => new JsonFormatter(explainRisk: $options->explainRisk, risk: $risk),
-            OutputFormat::Sarif => new SarifFormatter(Sloppy::VERSION),
-            OutputFormat::Github => new GithubFormatter,
-            OutputFormat::Markdown => new MarkdownFormatter(risk: $risk, explainRisk: $options->explainRisk),
-            OutputFormat::Console => new ConsoleFormatter(
-                explain: $options->explain,
-                failOn: $threshold,
-                explainRisk: $options->explainRisk,
-                risk: $risk,
-            ),
-        };
+        return $factory->for($options->format)->format($result);
     }
 }

@@ -72,12 +72,11 @@ final class SingleUseAbstractionRule extends BaseRule
                 continue;
             }
 
-            $fqn = NodeHelper::className($classLike);
-            $name = NodeHelper::shortName($classLike);
-
-            if ($fqn === null || $name === null) {
-                continue;
-            }
+            // An interface or an abstract class always has a name -- only a
+            // `new class` expression does not, and that is neither -- so the
+            // empty fallback below simply finds no summary.
+            $fqn = NodeHelper::className($classLike) ?? '';
+            $name = NodeHelper::shortName($classLike) ?? '';
 
             $summary = $context->index->class($fqn);
 

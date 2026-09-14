@@ -117,11 +117,31 @@ abstract class CliCommandBase extends Command
     }
 
     /**
+     * The shape every command shares: locate the project, read the options,
+     * run a runner, and turn anything thrown on the way into exit code 2 with
+     * a message rather than a stack trace.
+     *
+     * @param  callable(Sloppy, RunnerOutput): ExitCode  $run
+     */
+    protected function runWith(InputInterface $input, OutputInterface $output, callable $run): int
+    {
+        $runnerOutput = $this->runnerOutput($input, $output);
+
+        try {
+            return $run($this->sloppy($input, $runnerOutput), $runnerOutput)->value;
+        } catch (Throwable $exception) {
+            $runnerOutput->error($exception->getMessage());
+
+            return ExitCode::Error->value;
+        }
+    }
+
+    /**
      * `diff` and `review` are the same run of {@see DiffRunner} against the
      * same options, presented two ways -- this is the whole of both commands.
      * Living here rather than duplicated in each keeps them from drifting
-     * apart the way {@see Heyosseus\Sloppy\Rules\Php\CopyPasteDriftRule} warns
-     * a maintained copy eventually does.
+     * apart the way {@see \Heyosseus\Sloppy\Rules\Php\CopyPasteDriftRule}
+     * warns a maintained duplicate eventually does.
      */
     protected function runDiff(
         InputInterface $input,
@@ -130,17 +150,14 @@ abstract class CliCommandBase extends Command
         bool $explainRisk = false,
         bool $review = false,
     ): int {
-        $runnerOutput = $this->runnerOutput($input, $output);
-
-        try {
-            $sloppy = $this->sloppy($input, $runnerOutput);
-            $options = $this->diffOptionsFrom($input, explain: $explain, explainRisk: $explainRisk, review: $review);
-        } catch (Throwable $exception) {
-            $runnerOutput->error($exception->getMessage());
-
-            return ExitCode::Error->value;
-        }
-
-        return (new DiffRunner)->run($sloppy, $options, $runnerOutput)->value;
+        return $this->runWith(
+            $input,
+            $output,
+            fn (Sloppy $sloppy, RunnerOutput $runnerOutput): ExitCode => (new DiffRunner)->run(
+                $sloppy,
+                $this->diffOptionsFrom($input, explain: $explain, explainRisk: $explainRisk, review: $review),
+                $runnerOutput,
+            ),
+        );
     }
 }

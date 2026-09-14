@@ -57,6 +57,14 @@ final readonly class Git
      */
     public function attempt(array $args): ?string
     {
+        // A project directory that is not there cannot be asked anything, and
+        // the process would refuse to start rather than fail: checking first
+        // turns a stack trace out of a path typo into the same "no answer"
+        // every caller of this method already handles.
+        if (! is_dir($this->workingDirectory)) {
+            return null;
+        }
+
         $process = new Process(['git', ...$args], $this->workingDirectory, timeout: $this->timeout);
         $process->run();
 
@@ -132,17 +140,14 @@ final readonly class Git
         foreach ($relativePaths as $path) {
             $break = strpos($output, "\n", $offset);
 
-            if ($break === false) {
-                $contents[$path] = null;
-
-                continue;
-            }
-
-            $header = explode(' ', trim(substr($output, $offset, $break - $offset)));
-            $offset = $break + 1;
+            // No line left to read means git answered fewer requests than were
+            // made, which is the same answer as a malformed header: we do not
+            // know what this file held at that revision.
+            $header = $break === false ? [] : explode(' ', trim(substr($output, $offset, $break - $offset)));
+            $offset = $break === false ? $offset : $break + 1;
             $size = end($header);
 
-            if (count($header) < 3 || ! ctype_digit($size)) {
+            if (count($header) < 3 || ! is_string($size) || ! ctype_digit($size)) {
                 $contents[$path] = null;
 
                 continue;
@@ -200,11 +205,7 @@ final readonly class Git
         $hunks = [];
 
         foreach (explode("\n", $diff) as $line) {
-            if (! str_starts_with($line, '@@')) {
-                continue;
-            }
-
-            if (preg_match('/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/', $line, $matches) !== 1) {
+            if (! str_starts_with($line, '@@') || preg_match('/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/', $line, $matches) !== 1) {
                 continue;
             }
 
@@ -339,11 +340,7 @@ final readonly class Git
                 continue;
             }
 
-            if ($path === null || ! str_starts_with($line, '@@')) {
-                continue;
-            }
-
-            if (preg_match('/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/', $line, $matches) !== 1) {
+            if ($path === null || ! str_starts_with($line, '@@') || preg_match('/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/', $line, $matches) !== 1) {
                 continue;
             }
 

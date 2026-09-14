@@ -27,6 +27,18 @@ final readonly class FrameworkDetector
             'illuminate/database',
             'illuminate/contracts',
         ],
+        // Neither of these gates a rule. They are here because the
+        // integrations ask: a NativePHP app has no CI log to report into and
+        // a Filament project has a dashboard worth putting the score on.
+        'nativephp' => [
+            'nativephp/electron',
+            'nativephp/laravel',
+            'nativephp/mobile',
+        ],
+        'filament' => [
+            'filament/filament',
+            'filament/widgets',
+        ],
     ];
 
     private ComposerJson $composer;

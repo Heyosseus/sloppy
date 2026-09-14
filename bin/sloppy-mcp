@@ -1,0 +1,40 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Heyosseus\Sloppy\Mcp\McpServer;
+use Heyosseus\Sloppy\Mcp\StdioTransport;
+
+foreach ([
+    // Installed as a dependency of the analysed project.
+    __DIR__.'/../../../autoload.php',
+    // Running from a clone of the package itself.
+    __DIR__.'/../vendor/autoload.php',
+] as $autoload) {
+    if (is_file($autoload)) {
+        require $autoload;
+
+        break;
+    }
+}
+
+if (! class_exists(McpServer::class)) {
+    fwrite(STDERR, "Composer autoloader not found. Run `composer install` first.\n");
+
+    exit(2);
+}
+
+// Standard output belongs to the protocol from here on: a warning printed into
+// the stream is an unparseable message to the client and the end of the
+// session. Diagnostics go to standard error, which the client shows in its log.
+ini_set('display_errors', 'stderr');
+
+$project = $argv[1] ?? getcwd();
+
+(new StdioTransport(McpServer::default(is_string($project) ? $project : (string) getcwd())))->serve(
+    new SplFileObject('php://stdin'),
+    new SplFileObject('php://stdout', 'w'),
+);
+
+exit(0);

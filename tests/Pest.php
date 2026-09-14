@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Location;
@@ -10,7 +11,9 @@ use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Contracts\Rule;
+use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use Heyosseus\Sloppy\Tests\Support\RuleTester;
+use Heyosseus\Sloppy\Tests\Support\TempTree;
 use Heyosseus\Sloppy\Tests\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -71,6 +74,29 @@ function finding(
 }
 
 /**
+ * A finished run, for the tests about what happens to one: snapshots,
+ * dashboards, Code Quality reports, generated Rector configs.
+ *
+ * @param  list<Finding>  $findings
+ * @param  list<string>  $files
+ * @param  list<string>  $skippedRules
+ */
+function analysisResult(
+    array $findings = [],
+    array $files = ['app/Order.php'],
+    int $lines = 500,
+    array $skippedRules = [],
+): AnalysisResult {
+    return AnalysisResult::create(
+        findings: $findings,
+        analyzedFiles: $files,
+        analyzedLines: $lines,
+        calculator: new ScoreCalculator,
+        skippedRules: $skippedRules,
+    );
+}
+
+/**
  * Run one rule over a snippet.
  *
  * @return list<Finding>
@@ -122,21 +148,7 @@ function tempProject(array $files = []): string
 
 function removeTree(string $path): void
 {
-    if (! is_dir($path)) {
-        return;
-    }
-
-    foreach (scandir($path) ?: [] as $entry) {
-        if ($entry === '.' || $entry === '..') {
-            continue;
-        }
-
-        $full = $path.'/'.$entry;
-
-        is_dir($full) ? removeTree($full) : unlink($full);
-    }
-
-    rmdir($path);
+    TempTree::remove($path);
 }
 
 /**

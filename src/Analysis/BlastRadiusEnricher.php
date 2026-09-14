@@ -129,15 +129,11 @@ final readonly class BlastRadiusEnricher
     }
 
     /**
-     * A `lineSpan` of zero means the span was not recorded, in which case the
-     * declaration line alone is all there is to match on.
+     * A span is at least one line -- a class declared and closed on the same
+     * line spans that line -- so the range covers the single-line case too.
      */
     private function contains(ClassSummary $summary, int $line): bool
     {
-        if ($summary->lineSpan <= 0) {
-            return $line === $summary->line;
-        }
-
         return $line >= $summary->line && $line <= $summary->line + $summary->lineSpan;
     }
 }

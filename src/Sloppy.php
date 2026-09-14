@@ -35,7 +35,7 @@ final readonly class Sloppy
      * tool as `dev`. A version string duplicated across surfaces is a version
      * string that disagrees with itself.
      */
-    public const string VERSION = '0.4.0';
+    public const string VERSION = '0.5.0';
 
     public function __construct(
         public Configuration $configuration,

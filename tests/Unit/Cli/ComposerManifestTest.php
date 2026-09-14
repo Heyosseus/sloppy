@@ -16,6 +16,12 @@ it('requires symfony/console at runtime and keeps illuminate dev-only', function
         ->and($manifest['require'])->not->toHaveKey('illuminate/support')
         ->and($manifest['require'])->not->toHaveKey('illuminate/contracts')
         ->and($manifest['require-dev'])->toHaveKey('illuminate/console')
-        ->and($manifest['bin'])->toBe(['bin/sloppy'])
-        ->and($manifest['suggest'])->toHaveKey('illuminate/console');
+        ->and($manifest['bin'])->toBe(['bin/sloppy', 'bin/sloppy-mcp'])
+        ->and($manifest['suggest'])->toHaveKey('illuminate/console')
+        // Rector, Pint and Filament are integrations, not dependencies: a
+        // project that wants none of them must still install cleanly.
+        ->and($manifest['require'])->not->toHaveKey('rector/rector')
+        ->and($manifest['require'])->not->toHaveKey('laravel/pint')
+        ->and($manifest['require'])->not->toHaveKey('filament/filament')
+        ->and($manifest['require'])->not->toHaveKey('phpunit/phpunit');
 });

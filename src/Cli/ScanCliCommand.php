@@ -6,13 +6,14 @@ namespace Heyosseus\Sloppy\Cli;
 
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Runner\ExitCode;
+use Heyosseus\Sloppy\Runner\RunnerOutput;
 use Heyosseus\Sloppy\Runner\ScanOptions;
 use Heyosseus\Sloppy\Runner\ScanRunner;
+use Heyosseus\Sloppy\Sloppy;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Throwable;
 
 #[AsCommand(name: 'scan', description: 'Analyse a project for AI-slop code patterns')]
 final class ScanCliCommand extends CliCommandBase
@@ -31,26 +32,15 @@ final class ScanCliCommand extends CliCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $runnerOutput = $this->runnerOutput($input, $output);
-
-        try {
-            $sloppy = $this->sloppy($input, $runnerOutput);
-            $options = new ScanOptions(
-                paths: $this->stringListOption($input, 'path'),
-                format: OutputFormat::parse($this->stringOption($input, 'format') ?? 'console'),
-                failOn: $this->stringOption($input, 'fail-on'),
-                minConfidence: $this->intOption($input, 'min-confidence'),
-                rules: $this->stringListOption($input, 'rule'),
-                explain: $input->getOption('explain') === true,
-                noBaseline: $input->getOption('no-baseline') === true,
-                explainRisk: $input->getOption('explain-risk') === true,
-            );
-        } catch (Throwable $exception) {
-            $runnerOutput->error($exception->getMessage());
-
-            return ExitCode::Error->value;
-        }
-
-        return (new ScanRunner)->run($sloppy, $options, $runnerOutput)->value;
+        return $this->runWith($input, $output, fn (Sloppy $sloppy, RunnerOutput $runnerOutput): ExitCode => (new ScanRunner)->run($sloppy, new ScanOptions(
+            paths: $this->stringListOption($input, 'path'),
+            format: OutputFormat::parse($this->stringOption($input, 'format') ?? 'console'),
+            failOn: $this->stringOption($input, 'fail-on'),
+            minConfidence: $this->intOption($input, 'min-confidence'),
+            rules: $this->stringListOption($input, 'rule'),
+            explain: $input->getOption('explain') === true,
+            noBaseline: $input->getOption('no-baseline') === true,
+            explainRisk: $input->getOption('explain-risk') === true,
+        ), $runnerOutput));
     }
 }

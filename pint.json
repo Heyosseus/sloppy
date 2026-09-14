@@ -17,6 +17,7 @@
         "void_return": true
     },
     "exclude": [
-        "tests/Fixtures"
+        "tests/Fixtures",
+        "tests/Stubs"
     ]
 }

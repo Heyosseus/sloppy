@@ -81,7 +81,7 @@ final class RuleTester
      */
     public static function fixture(string $relativePath): string
     {
-        $path = dirname(__DIR__).'/Fixtures/'.ltrim($relativePath, '/');
+        $path = __DIR__.'/../Fixtures/'.ltrim($relativePath, '/');
         $contents = file_get_contents($path);
 
         if ($contents === false) {
@@ -98,7 +98,7 @@ final class RuleTester
      */
     public static function fixtureDirectory(string $directory): array
     {
-        $paths = glob(dirname(__DIR__).'/Fixtures/'.trim($directory, '/').'/*.php');
+        $paths = glob(__DIR__.'/../Fixtures/'.trim($directory, '/').'/*.php');
         $files = [];
 
         foreach ($paths === false ? [] : $paths as $path) {
