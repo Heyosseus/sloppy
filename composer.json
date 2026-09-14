@@ -1,14 +1,22 @@
 {
     "name": "heyosseus/sloppy",
-    "description": "Static analysis that detects AI-slop code patterns -- god methods, abstraction inflation, N+1 risks and other technical debt. Runs on any PHP project, with extra rules for Laravel.",
+    "description": "Static analysis for the debt AI coding agents leave behind, on any PHP project: 24 rules, git-diff review, a Rector and Pint fix pass, Pest expectations, CI annotations, agent rulesets and an MCP server. Extra rules and dashboards for Laravel. Deterministic, local, no LLM.",
     "keywords": [
-        "laravel",
         "php",
         "static-analysis",
         "code-quality",
         "ai",
         "slop",
-        "technical-debt"
+        "technical-debt",
+        "laravel",
+        "mcp",
+        "rector",
+        "pest",
+        "pint",
+        "filament",
+        "ai-agents",
+        "code-review",
+        "ci"
     ],
     "license": "MIT",
     "homepage": "https://github.com/heyosseus/sloppy",

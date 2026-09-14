@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-09-14
+
+### Fixed
+
+- **A scan of a large project no longer takes minutes.** `SL111` searches the
+  whole project for drifting bodies, and that search is a property of the
+  project rather than of the file being reported on -- but rules are handed
+  one file at a time, so the search was being redone for every file and its
+  result thrown away for all but one. On a 1,075-file application that was
+  0.28s of work repeated 1,075 times: the rule alone took 5m57s, and a full
+  scan around a quarter of an hour. The corpus is now searched once per
+  project and handed to each file pre-sorted, which takes the same rule to
+  6.6s and the full scan to 18.4s, reporting exactly the same findings.
+
+  Nothing about what `SL111` reports has changed: same pairs, same family
+  sizes, same truncation point, same order. If you turned the rule off to get
+  your scan back, turn it on again.
+
 ## [0.5.0] — 2026-09-14
 
 Automation: run everywhere, fix what can be fixed, and teach the agents.
@@ -543,7 +561,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/heyosseus/sloppy/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/heyosseus/sloppy/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/heyosseus/sloppy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/heyosseus/sloppy/compare/v0.2.0...v0.3.0
