@@ -28,6 +28,7 @@ final class SloppyApplication extends Application
             new HealthCliCommand,
             new RulesCliCommand,
             new McpCliCommand,
+            new GuideCliCommand,
         ]);
 
         // A bare `sloppy` scans, matching `php artisan sloppy`.

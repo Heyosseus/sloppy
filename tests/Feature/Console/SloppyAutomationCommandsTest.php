@@ -49,7 +49,8 @@ it('registers every command', function (): void {
         ->toContain('sloppy:fix')
         ->toContain('sloppy:health')
         ->toContain('sloppy:rules')
-        ->toContain('sloppy:mcp');
+        ->toContain('sloppy:mcp')
+        ->toContain('sloppy:help');
 });
 
 it('runs a CI report through artisan', function (): void {
@@ -154,4 +155,11 @@ it('serves the MCP protocol through artisan', function (): void {
     gc_collect_cycles();
 
     removeTree($root);
+});
+
+it('explains every command through artisan', function (): void {
+    $this->artisan('sloppy:help')
+        ->expectsOutputToContain('In a pipeline')
+        ->expectsOutputToContain('php artisan sloppy:rules')
+        ->assertExitCode(ExitCode::Success->value);
 });

@@ -11,6 +11,7 @@ use Heyosseus\Sloppy\Console\Commands\SloppyCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyDiffCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyFixCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyHealthCommand;
+use Heyosseus\Sloppy\Console\Commands\SloppyHelpCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyMcpCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyReviewCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyRulesCommand;
@@ -88,6 +89,7 @@ final class SloppyServiceProvider extends ServiceProvider
             SloppyHealthCommand::class,
             SloppyRulesCommand::class,
             SloppyMcpCommand::class,
+            SloppyHelpCommand::class,
         ]);
     }
 }

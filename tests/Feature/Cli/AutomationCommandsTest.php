@@ -48,7 +48,7 @@ function automationProject(array $extra = []): string
 it('registers every command, with scan still the default', function (): void {
     $application = new SloppyApplication('test');
 
-    foreach (['scan', 'diff', 'review', 'baseline', 'ci', 'fix', 'health', 'rules', 'mcp'] as $name) {
+    foreach (['scan', 'diff', 'review', 'baseline', 'ci', 'fix', 'health', 'rules', 'mcp', 'guide'] as $name) {
         expect($application->has($name))->toBeTrue(sprintf('The %s command is missing.', $name));
     }
 
@@ -219,4 +219,17 @@ it('reports a project directory that is not there', function (): void {
 
     expect($code)->toBe(ExitCode::Error->value)
         ->and(output($tester))->toContain('does not exist');
+});
+
+it('explains every command without locating a project first', function (): void {
+    $tester = automationTester();
+
+    $exit = $tester->run(['command' => 'guide'], ['capture_stderr_separately' => true]);
+
+    expect($exit)->toBe(ExitCode::Success->value)
+        ->and(output($tester))->toContain('Every day')
+        ->and(output($tester))->toContain('php artisan sloppy:ci')
+        // No project root notice, because no project was located: `guide` is
+        // the command someone runs before there is a project to analyse.
+        ->and(output($tester))->not->toContain('Project root:');
 });
