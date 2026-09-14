@@ -60,35 +60,22 @@ final readonly class JsonFormatter implements Formatter
             return $report;
         }
 
-        $byIdentity = [];
-
-        foreach ($result->findings as $finding) {
-            $byIdentity[$finding->identity()] = $finding;
-        }
-
-        /** @var list<array<string, mixed>> $findings */
-        $findings = is_array($report['findings'] ?? null) ? $report['findings'] : [];
         $decorated = [];
 
-        foreach ($findings as $finding) {
-            $identity = $finding['identity'] ?? null;
-            $source = is_string($identity) ? ($byIdentity[$identity] ?? null) : null;
-
-            if (! $source instanceof Finding) {
-                $decorated[] = $finding;
-
-                continue;
-            }
-
-            $risk = $this->risk->for($source);
-            $finding['risk'] = round($risk->value, 2);
+        // The findings are decorated from the result rather than matched back
+        // against the rendered rows: the two lists are the same list in the
+        // same order, and a lookup between them would only be able to fail.
+        foreach ($result->findings as $finding) {
+            $risk = $this->risk->for($finding);
+            $row = $finding->toArray();
+            $row['risk'] = round($risk->value, 2);
 
             if ($this->explainRisk) {
-                $finding['risk_factors'] = $risk->toArray();
-                $finding['risk_arithmetic'] = $risk->explain();
+                $row['risk_factors'] = $risk->toArray();
+                $row['risk_arithmetic'] = $risk->explain();
             }
 
-            $decorated[] = $finding;
+            $decorated[] = $row;
         }
 
         $report['findings'] = $decorated;

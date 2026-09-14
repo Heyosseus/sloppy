@@ -20,6 +20,8 @@ enum OutputFormat: string
     case Sarif = 'sarif';
     case Markdown = 'markdown';
     case Github = 'github';
+    case Gitlab = 'gitlab';
+    case Rector = 'rector';
 
     public static function parse(string $value): self
     {
@@ -60,6 +62,6 @@ enum OutputFormat: string
      */
     public function expectsRedirection(): bool
     {
-        return $this === self::Json || $this === self::Sarif;
+        return in_array($this, [self::Json, self::Sarif, self::Gitlab, self::Rector], true);
     }
 }
