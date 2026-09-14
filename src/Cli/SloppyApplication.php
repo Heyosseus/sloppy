@@ -23,6 +23,11 @@ final class SloppyApplication extends Application
             new DiffCliCommand,
             new ReviewCliCommand,
             new BaselineCliCommand,
+            new CiCliCommand,
+            new FixCliCommand,
+            new HealthCliCommand,
+            new RulesCliCommand,
+            new McpCliCommand,
         ]);
 
         // A bare `sloppy` scans, matching `php artisan sloppy`.
