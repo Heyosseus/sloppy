@@ -24,9 +24,16 @@
 
 Sloppy reads your PHP with a real parser and reports the shapes that turn into
 maintenance cost: god methods, swallowed exceptions, likely N+1 queries,
-business logic in controllers, abstractions that never earned their keep. It
-ships 24 rules, a git-diff review mode, a baseline for existing projects, and
-JSON output for CI.
+business logic in controllers, abstractions that never earned their keep.
+
+It ships 24 rules, a git-diff review mode and a baseline for existing
+projects; a CI command that reads your pipeline instead of asking you to
+describe it, with an official GitHub Action and a GitLab template; an
+automated fix pass that hands the mechanical findings to Rector and the
+formatting to Pint; a Pest plugin, so new debt fails in the same red-green
+loop as everything else; and, for the agents writing the code, a generated
+ruleset for `CLAUDE.md` and its equivalents plus an MCP server they can check
+their own work against.
 
 Every screenshot on this page is real output from the command in its caption.
 
@@ -71,16 +78,45 @@ php artisan vendor:publish --tag=sloppy-config
 Requirements: **PHP 8.3+**. Laravel 12 or 13 for the Artisan commands and the
 `SL2xx` rules; everything else runs anywhere.
 
+## Which command do I want?
+
+```bash
+php artisan sloppy:help      # or: vendor/bin/sloppy guide
+```
+
+Ten commands, and the moment each one belongs to. Both names run the same
+code, so use whichever your project has.
+
+| Every day | | |
+|---|---|---|
+| `sloppy` | `sloppy scan` | Analyse the project and rank what is worth reading first |
+| `sloppy:diff` | `sloppy diff` | Report what a change introduced, against a git revision |
+| `sloppy:review` | `sloppy review` | The same change, ordered by risk rather than by file |
+| `sloppy:baseline` | `sloppy baseline` | Accept what is already there, so only new findings fail |
+| `sloppy:help` | `sloppy guide` | This list |
+| **In a pipeline** | | |
+| `sloppy:ci` | `sloppy ci` | Analyse a change the way the surrounding CI system reports it |
+| `sloppy:fix` | `sloppy fix` | Hand the fixable findings to Rector, then format with Pint |
+| `sloppy:health` | `sloppy health` | The score and what is dragging it down, from a cached snapshot |
+| **For agents** | | |
+| `sloppy:rules` | `sloppy rules` | Write this project's rules into `CLAUDE.md`, `AGENTS.md` and friends |
+| `sloppy:mcp` | `sloppy mcp` | Serve scan, diff, rules and health over MCP |
+
+For one command's options, `sloppy help <command>` or
+`php artisan sloppy:<command> --help`.
+
 ## Contents
 
-- [Scan a project](#scan-a-project) · [Anatomy of a finding](#anatomy-of-a-finding)
+- [Which command do I want?](#which-command-do-i-want) · [Scan a project](#scan-a-project) · [Anatomy of a finding](#anatomy-of-a-finding)
 - [Review a change](#review-a-change) · [Adopt on an existing codebase](#adopt-on-an-existing-codebase)
 - [Does it just complain about everything?](#does-it-just-complain-about-everything)
 - [Slop score](#slop-score) · [Severity and confidence](#severity-and-confidence)
 - [Rules](#rules) · [Configuration](#configuration) · [Custom rules](#custom-rules)
 - [What to read first](#what-to-read-first) · [Risk](#risk)
 - [JSON output](#json-output) · [Editors and code scanning](#editors-and-code-scanning)
-- [Exit codes](#exit-codes) · [CI](#ci)
+- [Exit codes](#exit-codes) · [CI](#ci) · [GitHub Action](#github-action) · [GitLab CI](#gitlab-ci)
+- [Fix what can be fixed](#fix-what-can-be-fixed) · [What it can fix](#what-it-can-fix-and-what-it-will-not-pretend-to) · [In your test suite](#in-your-test-suite)
+- [Filament and NativePHP](#filament-and-nativephp) · [Rules for coding agents](#rules-for-coding-agents) · [Custom rules for agents](#your-custom-rules-teach-the-agents-too) · [MCP server](#mcp-server)
 - [What Sloppy is not](#what-sloppy-is-not) · [False positives](#false-positives)
 
 ## Scan a project
@@ -574,42 +610,376 @@ which.
 
 ## CI
 
-Gate pull requests on what they introduce, not on what they inherited:
+One command, and it works out the rest:
+
+```bash
+php artisan sloppy:ci        # or: vendor/bin/sloppy ci
+```
+
+`sloppy ci` reads the environment it is running in and does what that
+environment wants:
+
+| Where it runs | What it does |
+| --- | --- |
+| A GitHub pull request | Compares against the target branch and annotates the changed lines |
+| A GitHub push | Analyses the whole project |
+| GitLab | Writes a Code Quality report GitLab renders in the merge request |
+| Anywhere else | Prints the ranked console report |
+
+It also writes the ranked report to the GitHub job summary, and hands the
+numbers back as step outputs so a later step can comment, gate a deploy or
+publish a badge without running anything twice.
+
+Everything is overridable: `--base`, `--format`, `--report=<file>`,
+`--fail-on`, `--scan`, `--no-summary`, `--path`, `--rule`, `--min-confidence`.
+
+## GitHub Action
+
+Three lines of YAML:
+
+```yaml
+- name: Run Sloppy Agent Review
+  uses: heyosseus/sloppy-action@v1
+  with:
+    diff-branch: main
+```
+
+In full, with the parts you might want:
 
 ```yaml
 name: sloppy
 
 on: pull_request
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - id: sloppy
+        uses: heyosseus/sloppy-action@v1
         with:
-          # Diff mode needs the base commit, so a shallow clone is not enough.
-          fetch-depth: 0
+          fail-on: high          # critical, high, medium, low, info or never
+          paths: app src         # optional, space separated
+          report: sloppy.json    # optional machine-readable copy
 
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-
-      - run: composer install --no-interaction --prefer-dist
-
-      - name: Review the change
-        run: php artisan sloppy:review origin/${{ github.base_ref }}
+      - run: echo "Score ${{ steps.sloppy.outputs.score }} (${{ steps.sloppy.outputs.new-findings }} new)"
 ```
 
-For a whole-project gate on `main`, commit a baseline and run `php artisan
-sloppy`. To keep the report as a build artifact:
+The action fetches the base branch itself -- `actions/checkout` clones one
+commit by default, and diff mode needs the branch the pull request targets, or
+it would report inherited findings as if the author had written them.
+
+Inputs: `diff-branch`, `paths`, `rules`, `fail-on`, `min-confidence`, `format`,
+`report`, `scan`, `summary`, `working-directory`, `php-version`, `version`.
+Outputs: `score`, `score-delta`, `findings`, `new-findings`,
+`resolved-findings`, `status`, `mode`.
+
+The action is this repository's own `action.yml`, so
+`uses: heyosseus/sloppy@v1` works too if you prefer not to depend on a second
+repository.
+
+## GitLab CI
+
+Include the shipped template and the findings appear in the merge request's
+Code Quality widget, beside the lines they are about:
 
 ```yaml
-      - run: php artisan sloppy --format=json > sloppy.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sloppy-report
-          path: sloppy.json
+include:
+  - remote: 'https://raw.githubusercontent.com/heyosseus/sloppy/main/resources/ci/gitlab-ci.yml'
+
+variables:
+  SLOPPY_FAIL_ON: high
 ```
+
+The report covers the whole project on purpose: GitLab works out which findings
+a merge request introduced by comparing the report against the target branch's,
+and handing it a diff would break the comparison it is already doing for you.
+
+## Fix what can be fixed
+
+Sloppy does not rewrite your code. Rector and Pint already do that well, and
+what Sloppy knows that they do not is *which* of their rules this project
+currently needs:
+
+```bash
+php artisan sloppy:fix --dry-run     # show what would change
+php artisan sloppy:fix               # rewrite, then format
+```
+
+It generates a Rector configuration scoped to the files that actually have
+findings, runs it, formats the rewritten files with Pint, and then tells you
+what is left:
+
+```
+  12 of 31 finding(s) have an automated fix. Wrote rector-sloppy.php.
+  rector finished.
+  pint finished.
+  19 finding(s) need a person: SL101 x4, SL102 x1, SL104 x9, SL111 x5.
+  Findings 31 -> 19. Score 68/100 -> 84/100.
+```
+
+Scoping matters: the generated configuration lists only the files that have
+findings, so a fix pass on a large project does not rewrite the whole of
+`app/` to prove a point about six files.
+
+### What it can fix, and what it will not pretend to
+
+Six rules map onto Rector rules that genuinely fix them:
+
+| Rule | Fixed by |
+| --- | --- |
+| `SL103` Excessive Nesting | `ChangeNestedIfsToEarlyReturn`, `ChangeNestedForeachIfsToEarlyContinue`, `CombineIf` |
+| `SL105` Dead Private Method | `RemoveUnusedPrivateMethod` |
+| `SL106` Unused Constructor Dependency | `RemoveUnusedConstructorParam`, `RemoveUnusedPromotedProperty`, `RemoveUnusedPrivateProperty` |
+| `SL107` Swallowed Exception | `ThrowWithPreviousException`, `RemoveDeadTryCatch` |
+| `SL108` Redundant Condition | `RemoveAlwaysTrueIfCondition`, `RemoveAlwaysElse`, `SimplifyIfReturnBool` |
+| `SL110` Defensive Programming Noise | `SimplifyIfNotNullReturn`, `RemoveAlwaysTrueIfCondition` |
+
+Rector's `...Rector` class suffix is omitted above for width; the generated
+configuration names each class in full.
+
+The rest are left alone on purpose, and the report says why at the point you
+would have asked:
+
+| Rule | Why no tool fixes it |
+| --- | --- |
+| `SL101` God Method | splitting a long method is a design decision, not a rewrite |
+| `SL102` God Class | which responsibility leaves the class is a design decision |
+| `SL104` Duplicate Logic | the shared code has to be named before it can be extracted |
+| `SL109` Narrative Comment | deleting a comment automatically risks deleting the one that mattered |
+| `SL111` Copy-Paste Drift | only you know whether the drift between the copies was deliberate |
+
+No automated rewrite splits a god method into the three methods it wanted to
+be, and one that tried would produce three worse ones. A fix command that
+claimed otherwise would cost you more time than it saved.
+
+### Running it your way
+
+| Flag | What it does |
+| --- | --- |
+| `--dry-run` | Write nothing; print what would change |
+| `--rule=SL107` | Fix only these rules, repeatable |
+| `--no-rector` | Write the configuration and stop, for review before it runs |
+| `--no-pint` | Skip the formatting pass, if your project formats another way |
+| `--keep-config` | Leave `rector-sloppy.php` on disk instead of deleting it |
+| `--rector-config=` | Name the generated file something else |
+| `--path=app/Domain` | Fix only these paths, repeatable |
+| `--min-confidence=80` | Ignore findings the analyser is less sure about |
+
+Neither tool is a dependency of this package. Without them you still get the
+configuration and a message naming the one to install -- Sloppy's own job is
+knowing which of their rules this project currently needs, and that answer is
+useful whether or not you let it run them. To generate the configuration
+alone, without an analysis pass around it:
+
+```bash
+vendor/bin/sloppy --format=rector > rector-sloppy.php
+```
+
+## In your test suite
+
+Sloppy ships a Pest plugin, so new debt fails in the same red-green loop as
+everything else about the code. There is nothing to register: the expectations
+are autoloaded with the package, and exist as soon as `composer require
+--dev heyosseus/sloppy` has run.
+
+```php
+it('has zero AI slop on the current branch', function (): void {
+    expectCleanSloppyDiff('main');
+});
+
+it('keeps the whole of app/Domain clean', function (): void {
+    expectCleanSloppyScan(paths: ['app/Domain']);
+});
+
+it('does not let the score slip', function (): void {
+    expectSloppyScoreAtLeast(80);
+});
+```
+
+Failures name the file, the line and the rule:
+
+```
+This change introduced 1 finding(s) against main:
+  app/Services/Billing.php:41  SL101 God Method (high) -- Billing::charge() spans 96 lines ...
+```
+
+All three take the same narrowing arguments, so a test can be as specific as
+the rule it is protecting:
+
+| Expectation | Fails when | Returns |
+| --- | --- | --- |
+| `expectCleanSloppyDiff($base)` | the working tree introduced findings against `$base` | `DiffReport` |
+| `expectCleanSloppyScan()` | the analysed paths contain findings at all | `AnalysisResult` |
+| `expectSloppyScoreAtLeast($min)` | the slop score has fallen below a floor | `AnalysisResult` |
+
+```php
+expectCleanSloppyScan(
+    failOn: 'high',
+    paths: ['app/Domain'],
+    rules: ['SL101', 'SL107'],
+    minConfidence: 80,
+);
+```
+
+Each expectation returns the report it built, so a test can go further:
+
+```php
+$report = expectCleanSloppyDiff('main', failOn: 'critical');
+
+expect($report->resolved)->not->toBeEmpty();
+```
+
+A note on where to put the gate. `expectCleanSloppyDiff('main')` and
+`sloppy ci` ask the same question of the same analyser, so pick the one whose
+feedback arrives when you can still act on it: the expectation fails on the
+machine that wrote the code, seconds after it was written, while the pipeline
+fails after the push. Teams that want both usually keep the test narrow -- one
+package, one threshold -- and let CI cover the whole project.
+
+## Filament and NativePHP
+
+Both read the same cached health snapshot, so a dashboard never waits for an
+analysis:
+
+```php
+// A Filament panel
+use Heyosseus\Sloppy\Integrations\Filament\SloppyPlugin;
+
+$panel->plugin(SloppyPlugin::make());
+```
+
+```php
+// A NativePHP menu bar
+use Heyosseus\Sloppy\Integrations\NativePhp\DesktopHealth;
+
+MenuBar::create()->label(app(DesktopHealth::class)->menuLabel());   // "! 72/100"
+```
+
+Keep the snapshot warm from the scheduler, and every surface stays current:
+
+```php
+Schedule::command('sloppy:health --fresh')->hourly();
+```
+
+The same snapshot is available as JSON for anything else:
+
+```bash
+php artisan sloppy:health --json
+```
+
+Filament is not a dependency of this package. Neither is NativePHP: the desktop
+integration hands you strings, and your app decides what to do with them.
+
+## Rules for coding agents
+
+The cheapest finding is the one that never gets written. `sloppy:rules` writes
+this project's rules where the agents already look, before they write anything:
+
+```bash
+php artisan sloppy:rules                              # CLAUDE.md
+php artisan sloppy:rules --format=cursor --format=agents
+php artisan sloppy:rules --format=copilot --format=windsurf
+php artisan sloppy:rules --stdout                     # print instead
+```
+
+Each format knows the file its tool reads, so `--output` is only for the
+unusual case:
+
+| `--format=` | Writes |
+| --- | --- |
+| `claude` (default) | `CLAUDE.md` |
+| `cursor` | `.cursorrules` |
+| `agents` | `AGENTS.md` |
+| `copilot` | `.github/copilot-instructions.md` |
+| `windsurf` | `.windsurfrules` |
+| `markdown` | `sloppy-rules.md` |
+| `json` | `sloppy-rules.json` |
+
+The Markdown formats merge into whatever is already there. `json` has no
+marked block to merge into, so it refuses to overwrite an existing file unless
+you pass `--force`.
+
+The file describes *your* configuration -- your paths, your threshold, the
+rules you turned off, the ones skipped because you do not use their framework
+-- and gives each rule a line an agent can act on:
+
+```markdown
+### SL107 Swallowed Exception
+
+- Category: Error handling, severity: high
+- Flags: A catch block that discards the exception ...
+- Why it costs: A swallowed exception turns a bug into a silent wrong answer ...
+- Write it this way instead: Handle the failure or let it travel. If you catch,
+  log the exception as the previous one and rethrow something meaningful --
+  never return null in place of an answer.
+```
+
+Existing files are respected: the generated rules go inside a marked block,
+appended the first time and replaced in place afterwards, with everything
+outside the markers left exactly as your team wrote it. Regenerate it from the
+scheduler or a git hook and your team's own notes survive every run.
+
+### Your custom rules teach the agents too
+
+A custom rule is not a second-class citizen here. When the ruleset is
+generated, a rule with no shipped advice falls back to its own
+`description()`, so whatever that method returns is what lands in `CLAUDE.md`
+in front of the model:
+
+```php
+public function description(): string
+{
+    // This sentence is what the agent reads. Write it as an instruction.
+    return 'Domain classes must not call facades. Inject the dependency '
+        .'through the constructor instead, so the class can be tested '
+        .'without booting the framework.';
+}
+```
+
+Written as a label -- "no facades in domain" -- it tells the agent a rule
+exists. Written as an instruction, it tells the agent what to write instead,
+which is the difference between a rule that gets tripped and a rule that gets
+followed. See [Custom rules](#custom-rules) for the class itself.
+
+## MCP server
+
+Agents that speak the Model Context Protocol can check their own work:
+
+```bash
+vendor/bin/sloppy-mcp          # or: php artisan sloppy:mcp
+```
+
+Register it with your editor or agent, for example in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "sloppy": {
+      "command": "vendor/bin/sloppy-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+Four tools:
+
+| Tool | What it answers |
+| --- | --- |
+| `sloppy_scan` | What is wrong with these files, right now |
+| `sloppy_diff` | What did *this change* introduce, as opposed to inherit |
+| `sloppy_rules` | What does this project flag, and what should I write instead |
+| `sloppy_health` | What shape is this codebase in, before I touch it |
+
+The server's own instructions tell the agent to call `sloppy_diff` before
+reporting a task finished, which is the moment the finding is cheapest to fix.
 
 ## Custom rules
 
@@ -705,6 +1075,21 @@ Rules must be deterministic and side-effect free: no disk writes, no network,
 no clock. A rule that throws is caught, recorded in `errors`, and does not stop
 the run.
 
+### Where a custom rule shows up
+
+Once registered, it is a rule like any other: it scores, it appears in diffs
+and CI reports, it can be baselined, and `sloppy:rules` writes it into the
+agent ruleset -- see [Your custom rules teach the agents
+too](#your-custom-rules-teach-the-agents-too) for why `description()` deserves
+a sentence rather than a label.
+
+One honest exception: `sloppy fix` will not fix it. The mapping from a rule to
+the Rector rules that rewrite it lives in `resources/rector-rules.php` inside
+this package and is not extendable from your project, so a custom rule's
+findings are always reported as needing a person. That is the truthful answer
+rather than a limitation worth hiding -- a fix pass that silently skipped your
+rule while claiming to have run would be worse than one that says so.
+
 ## What Sloppy is not
 
 Sloppy complements the tools you already run; it does not replace any of them.
@@ -752,20 +1137,22 @@ composer test
 ```
 
 That runs, in order: Rector (dry run), Pint, PHPStan at level 8, 100% type
-coverage, then the suite with a 95% line-coverage floor. See
+coverage, then the suite with a 100% line-coverage floor. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-v0.1 is the deterministic analyser. The architecture is built so these can be
-added without reshaping it:
+The deterministic analyser came first, then attention, then the surfaces that
+carry it: a GitHub Action and a GitLab template, `sloppy fix` over Rector and
+Pint, a Pest plugin, Filament and NativePHP, generated rulesets for coding
+agents, and an MCP server.
 
-- Safe automated fixes (redundant conditions, unused imports) via Rector
+Still ahead:
+
+- Inline pull request comments, not only annotations
 - `sloppy:explain` for a longer write-up of one finding
-- GitHub Action and inline PR comments
 - HTML reports
 - Project architecture policies
-- MCP server, so an agent can check its own work before handing it back
 - Optional, explicitly opt-in AI assistance for explaining or fixing hard
   findings
 

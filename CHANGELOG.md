@@ -6,6 +6,95 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-14
+
+Automation: run everywhere, fix what can be fixed, and teach the agents.
+
+Sloppy could tell a person what to read. This release is about the places
+nobody reads: a pipeline, a test suite, a dashboard, and the model writing the
+next file.
+
+### Added
+
+- **`sloppy ci` / `php artisan sloppy:ci`.** One command for a pipeline step,
+  which reads the environment rather than asking you to describe it: on a
+  GitHub pull request it compares against the target branch and annotates the
+  changed lines; on a push it analyses the project; on GitLab it writes a Code
+  Quality report the merge request widget renders; anywhere else it prints the
+  ranked console report. It also fills the GitHub job summary and writes
+  `score`, `score-delta`, `findings`, `new-findings`, `resolved-findings`,
+  `status` and `mode` to `$GITHUB_OUTPUT`.
+
+- **An official GitHub Action**, shipped as this repository's `action.yml`, so
+  adding Sloppy to a pipeline is three lines of YAML. It fetches the base
+  branch itself, because `actions/checkout` clones one commit and diff mode
+  without the target branch reports inherited debt as if the author wrote it.
+
+- **A GitLab CI template** at `resources/ci/gitlab-ci.yml`, includable by URL,
+  producing a `codequality` artifact.
+
+- **`--format=gitlab`**, the Code Climate issue format GitLab reads, with our
+  severities and categories mapped onto the ones it defines.
+
+- **`sloppy fix` / `php artisan sloppy:fix`.** Sloppy does not rewrite code:
+  Rector and Pint already do that well. What Sloppy knows that they do not is
+  which of their rules this project currently needs, so it generates a Rector
+  configuration scoped to the files that actually have findings, runs it,
+  formats the result with Pint, and reports what is left for a person. Neither
+  tool is a dependency; without them you get the configuration and a message
+  naming the one to install. `--format=rector` writes the configuration alone.
+
+- **A Pest plugin**: `expectCleanSloppyDiff('main')`,
+  `expectCleanSloppyScan()` and `expectSloppyScoreAtLeast(80)`. New debt now
+  fails in the same red-green loop as everything else about the code, and the
+  failure names the file, the line and the rule.
+
+- **`sloppy health` / `php artisan sloppy:health`**, and the cached snapshot
+  behind it. Analysing a project takes seconds and a dashboard has
+  milliseconds, so every "how are we doing?" surface reads one cached
+  snapshot, configured under a new `sloppy.health` key.
+
+- **A Filament plugin and widget** (`SloppyPlugin::make()`), rendering the
+  score, the severity breakdown and what to read first. Filament is not a
+  dependency: the classes are only loaded by a panel that asks for them.
+
+- **NativePHP support** through `DesktopHealth`: a menu-bar label, the menu
+  behind it, and a notification for a score that dropped -- strings your app
+  hands to NativePHP, with no NativePHP classes referenced here.
+
+- **`sloppy rules` / `php artisan sloppy:rules`**, which writes this project's
+  rules into `CLAUDE.md`, `.cursorrules`, `AGENTS.md`,
+  `.github/copilot-instructions.md`, `.windsurfrules`, Markdown or JSON. Each
+  rule gets a line an agent can act on, and the file describes the configured
+  run rather than the shipped defaults. Existing files keep everything outside
+  a marked block, so a team's own notes survive.
+
+- **`sloppy guide` / `php artisan sloppy:help`**, which explains what each
+  command is for and when to reach for it, grouped by the moment rather than
+  listed flat, and naming both surfaces for every command so a reader who
+  found one of them can find the other. Symfony's `sloppy help <command>` and
+  Artisan's `--help` still answer the question after that one, which is what
+  the options are. It is named `guide` on the standalone binary because
+  `help` there already belongs to Symfony.
+
+- **An MCP server**: `vendor/bin/sloppy-mcp`, `sloppy mcp` or
+  `php artisan sloppy:mcp`, offering `sloppy_scan`, `sloppy_diff`,
+  `sloppy_rules` and `sloppy_health` over stdio. The server's own instructions
+  tell the agent to check its work before reporting a task finished, which is
+  the moment a finding is cheapest to fix.
+
+### Changed
+
+- `Git::attempt()` answers "no" instead of throwing when the configured project
+  directory does not exist, so a path typo produces a message rather than a
+  stack trace.
+- Baseline read and write failures are reported in this package's words rather
+  than as a PHP warning followed by a vaguer error.
+- The framework detector also recognises NativePHP and Filament, for the
+  integrations that ask.
+- The line-coverage floor is now 100%, and the suite covers every branch the
+  package can reach.
+
 ## [0.4.0] — 2026-09-13
 
 Attention: what to read first, and where to read it.
@@ -454,7 +543,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/heyosseus/sloppy/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/heyosseus/sloppy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/heyosseus/sloppy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/heyosseus/sloppy/compare/v0.1.0...v0.2.0

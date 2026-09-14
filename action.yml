@@ -54,7 +54,7 @@ inputs:
   version:
     description: 'Version of heyosseus/sloppy to install. Ignored when the project already has it as a dependency.'
     required: false
-    default: '^0.4'
+    default: '^0.5'
 
 outputs:
   score:

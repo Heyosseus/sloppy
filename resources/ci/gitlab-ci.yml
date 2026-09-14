@@ -20,7 +20,7 @@
 
 variables:
   SLOPPY_IMAGE: php:8.3-cli
-  SLOPPY_VERSION: ^0.4
+  SLOPPY_VERSION: ^0.5
   SLOPPY_FAIL_ON: high
   SLOPPY_PATHS: ''
   SLOPPY_REPORT: gl-code-quality-report.json
