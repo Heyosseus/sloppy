@@ -1,5 +1,5 @@
 name: 'Sloppy Agent Review'
-description: 'Analyse a pull request for AI-slop code patterns and annotate the diff with what it introduced.'
+description: 'Review a pull request for the debt AI coding agents leave behind: ranked annotations on the changed lines, a score delta, and a job summary.'
 author: 'heyosseus'
 
 branding:

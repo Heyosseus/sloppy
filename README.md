@@ -7,7 +7,10 @@
 
 <p align="center">
   <b>Static analysis for the code-quality patterns AI coding agents leave behind.</b><br>
-  Deterministic, local, framework-agnostic — with extra rules for Laravel. No model, no API key, no network.
+  Runs on any PHP project — 24 rules, plus a Laravel set that knows Eloquent, controllers and queues.
+  Hands the mechanical fixes to Rector and Pint, fails your Pest suite on new debt, annotates the
+  pull request, and teaches the agent through CLAUDE.md and MCP.<br>
+  Deterministic and local — no model, no API key, no network.
 </p>
 
 <p align="center">
