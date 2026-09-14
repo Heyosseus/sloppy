@@ -1,0 +1,49 @@
+name: sloppy
+
+# Sloppy reviewing Sloppy, through the action this repository publishes.
+#
+# The package's own suite already runs the analyser over `src` (see
+# tests/Feature/SelfCheckTest.php). What this adds is the other half: proof
+# that the shipped action.yml works from a workflow, on a real pull request,
+# before anyone else depends on it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    name: Review the change
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Sloppy
+        id: sloppy
+        uses: ./
+        with:
+          paths: src
+          fail-on: high
+          # The binary is already installed by the step above; this pins the
+          # version only for consumers who have not installed the package.
+          version: '^0.4'
+
+      - name: Report
+        if: always()
+        run: |
+          echo "Mode:  ${{ steps.sloppy.outputs.mode }}"
+          echo "Score: ${{ steps.sloppy.outputs.score }} (${{ steps.sloppy.outputs.score-delta }})"
+          echo "New:   ${{ steps.sloppy.outputs.new-findings }}"
+          echo "State: ${{ steps.sloppy.outputs.status }}"

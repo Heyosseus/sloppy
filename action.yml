@@ -1,0 +1,132 @@
+name: 'Sloppy Agent Review'
+description: 'Analyse a pull request for AI-slop code patterns and annotate the diff with what it introduced.'
+author: 'heyosseus'
+
+branding:
+  icon: 'alert-triangle'
+  color: 'purple'
+
+inputs:
+  diff-branch:
+    description: 'Revision to compare against. Defaults to the branch the pull request targets, or a whole-project scan on a push.'
+    required: false
+    default: ''
+  paths:
+    description: 'Space-separated paths to analyse instead of the configured ones.'
+    required: false
+    default: ''
+  rules:
+    description: 'Space-separated rule IDs to run, e.g. "SL101 SL107". Defaults to every enabled rule.'
+    required: false
+    default: ''
+  fail-on:
+    description: 'Lowest severity of NEW finding that fails the step: critical, high, medium, low, info, or never.'
+    required: false
+    default: 'high'
+  min-confidence:
+    description: 'Drop findings below this confidence (0-100).'
+    required: false
+    default: ''
+  format:
+    description: 'Report format. Defaults to github, which annotates the changed lines.'
+    required: false
+    default: 'github'
+  report:
+    description: 'Write the machine-readable report to this file as well.'
+    required: false
+    default: ''
+  scan:
+    description: 'Analyse the whole project instead of comparing against a revision.'
+    required: false
+    default: 'false'
+  summary:
+    description: 'Write the ranked report to the job summary.'
+    required: false
+    default: 'true'
+  working-directory:
+    description: 'Directory to run in, for a monorepo.'
+    required: false
+    default: '.'
+  php-version:
+    description: 'PHP version to set up. Set to "none" to use the PHP already on the runner.'
+    required: false
+    default: '8.3'
+  version:
+    description: 'Version of heyosseus/sloppy to install. Ignored when the project already has it as a dependency.'
+    required: false
+    default: '^0.4'
+
+outputs:
+  score:
+    description: 'The slop score out of 100.'
+    value: ${{ steps.sloppy.outputs.score }}
+  score-delta:
+    description: 'Change in the score against the base revision.'
+    value: ${{ steps.sloppy.outputs.score-delta }}
+  findings:
+    description: 'Total findings reported.'
+    value: ${{ steps.sloppy.outputs.findings }}
+  new-findings:
+    description: 'Findings this change introduced.'
+    value: ${{ steps.sloppy.outputs.new-findings }}
+  resolved-findings:
+    description: 'Findings this change removed.'
+    value: ${{ steps.sloppy.outputs.resolved-findings }}
+  status:
+    description: 'passed or failed, against fail-on.'
+    value: ${{ steps.sloppy.outputs.status }}
+  mode:
+    description: 'diff or scan, depending on whether a base revision resolved.'
+    value: ${{ steps.sloppy.outputs.mode }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up PHP
+      if: inputs.php-version != 'none'
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: mbstring, tokenizer
+        coverage: none
+
+    # Diff mode needs the target branch to exist locally. actions/checkout
+    # fetches one commit by default, so the branch a pull request targets is
+    # usually absent -- and a tool that silently scanned the whole project
+    # instead would report inherited debt as if the author had written it.
+    - name: Fetch the base branch
+      if: github.base_ref != '' && inputs.scan != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: git fetch --no-tags --depth=50 origin "${{ github.base_ref }}" || true
+
+    - name: Install Sloppy
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ -x vendor/bin/sloppy ]; then
+          echo "SLOPPY_BIN=vendor/bin/sloppy" >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        composer global require "heyosseus/sloppy:${{ inputs.version }}" --no-interaction --no-progress
+        echo "SLOPPY_BIN=$(composer global config home)/vendor/bin/sloppy" >> "$GITHUB_ENV"
+
+    - name: Run Sloppy
+      id: sloppy
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        args=()
+        [ -n "${{ inputs.diff-branch }}" ] && args+=("--base=${{ inputs.diff-branch }}")
+        [ -n "${{ inputs.fail-on }}" ] && args+=("--fail-on=${{ inputs.fail-on }}")
+        [ -n "${{ inputs.format }}" ] && args+=("--format=${{ inputs.format }}")
+        [ -n "${{ inputs.report }}" ] && args+=("--report=${{ inputs.report }}")
+        [ -n "${{ inputs.min-confidence }}" ] && args+=("--min-confidence=${{ inputs.min-confidence }}")
+        [ "${{ inputs.scan }}" = "true" ] && args+=("--scan")
+        [ "${{ inputs.summary }}" != "true" ] && args+=("--no-summary")
+
+        for path in ${{ inputs.paths }}; do args+=("--path=$path"); done
+        for rule in ${{ inputs.rules }}; do args+=("--rule=$rule"); done
+
+        "$SLOPPY_BIN" ci "${args[@]}"
