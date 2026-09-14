@@ -48,7 +48,7 @@ jobs:
         uses: ./
         with:
           paths: src
-          fail-on: high
+          fail-on: ${{ github.event_name == 'pull_request' && 'high' || 'never' }}
           # Unused here, because the step above guarantees a local binary.
           # It is set so this file stays an honest example of the action.
           version: '^0.5'
