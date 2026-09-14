@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Git;
 
+use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Scoring\Score;
@@ -65,6 +66,49 @@ final readonly class DiffReport
     public function scoreDelta(): int
     {
         return $this->currentScore->value - $this->baseScore->value;
+    }
+
+    /**
+     * Just what the change introduced, shaped for a {@see Formatter}.
+     *
+     * Diff mode and scan mode answer different questions, but the reports that
+     * render them -- annotations, Code Quality entries, SARIF -- take the
+     * shape of a run. Rather than teach each of those formatters about diffs,
+     * the diff hands them the subset it wants rendered.
+     */
+    public function newResult(): AnalysisResult
+    {
+        return $this->asResult($this->new);
+    }
+
+    /**
+     * Everything present in the changed files now, new and inherited alike,
+     * for a report whose consumer does its own comparison.
+     */
+    public function currentResult(): AnalysisResult
+    {
+        return $this->asResult(AnalysisResult::sort([...$this->new, ...$this->existing]));
+    }
+
+    /**
+     * The score is the run's real one rather than one recomputed from a
+     * subset of findings: a report that invented its own score would disagree
+     * with every other surface describing the same run.
+     *
+     * @param  list<Finding>  $findings
+     */
+    private function asResult(array $findings): AnalysisResult
+    {
+        return new AnalysisResult(
+            findings: $findings,
+            analyzedFiles: array_map(
+                static fn (ChangedFile $file): string => $file->relativePath,
+                $this->changedFiles,
+            ),
+            analyzedLines: $this->changedLineCount(),
+            score: $this->currentScore,
+            errors: $this->errors,
+        );
     }
 
     /**

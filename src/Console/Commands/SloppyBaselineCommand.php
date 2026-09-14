@@ -9,7 +9,6 @@ use Heyosseus\Sloppy\Runner\BaselineOptions;
 use Heyosseus\Sloppy\Runner\BaselineRunner;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
-use Throwable;
 
 /**
  * `php artisan sloppy:baseline` -- accept the current findings so that only
@@ -31,21 +30,11 @@ final class SloppyBaselineCommand extends SloppyCommandBase
 
     public function handle(Sloppy $sloppy): int
     {
-        $output = new LaravelRunnerOutput($this);
-
-        try {
-            $options = new BaselineOptions(
-                paths: $this->stringListOption('path'),
-                minConfidence: $this->intOption('min-confidence'),
-                rules: $this->stringListOption('rule'),
-                force: $this->boolOption('force'),
-            );
-        } catch (Throwable $exception) {
-            $output->error($exception->getMessage());
-
-            return ExitCode::Error->value;
-        }
-
-        return (new BaselineRunner)->run($sloppy, $options, $output)->value;
+        return $this->runWith(fn (LaravelRunnerOutput $output): ExitCode => (new BaselineRunner)->run($sloppy, new BaselineOptions(
+            paths: $this->stringListOption('path'),
+            minConfidence: $this->intOption('min-confidence'),
+            rules: $this->stringListOption('rule'),
+            force: $this->boolOption('force'),
+        ), $output));
     }
 }

@@ -8,7 +8,6 @@ use Heyosseus\Sloppy\Console\LaravelRunnerOutput;
 use Heyosseus\Sloppy\Runner\DiffRunner;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
-use Throwable;
 
 /**
  * `php artisan sloppy:review` -- what to read first.
@@ -38,16 +37,10 @@ final class SloppyReviewCommand extends SloppyDiffLikeCommand
 
     public function handle(Sloppy $sloppy): int
     {
-        $output = new LaravelRunnerOutput($this);
-
-        try {
-            $options = $this->diffOptionsFrom(explainRisk: $this->boolOption('explain-risk'), review: true);
-        } catch (Throwable $exception) {
-            $output->error($exception->getMessage());
-
-            return ExitCode::Error->value;
-        }
-
-        return (new DiffRunner)->run($sloppy, $options, $output)->value;
+        return $this->runWith(fn (LaravelRunnerOutput $output): ExitCode => (new DiffRunner)->run(
+            $sloppy,
+            $this->diffOptionsFrom(explainRisk: $this->boolOption('explain-risk'), review: true),
+            $output,
+        ));
     }
 }

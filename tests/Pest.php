@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Location;
@@ -10,6 +11,7 @@ use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Contracts\Rule;
+use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use Heyosseus\Sloppy\Tests\Support\RuleTester;
 use Heyosseus\Sloppy\Tests\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
@@ -67,6 +69,29 @@ function finding(
         suggestion: 'A suggestion.',
         fingerprint: $fingerprint,
         metrics: $metrics,
+    );
+}
+
+/**
+ * A finished run, for the tests about what happens to one: snapshots,
+ * dashboards, Code Quality reports, generated Rector configs.
+ *
+ * @param  list<Finding>  $findings
+ * @param  list<string>  $files
+ * @param  list<string>  $skippedRules
+ */
+function analysisResult(
+    array $findings = [],
+    array $files = ['app/Order.php'],
+    int $lines = 500,
+    array $skippedRules = [],
+): AnalysisResult {
+    return AnalysisResult::create(
+        findings: $findings,
+        analyzedFiles: $files,
+        analyzedLines: $lines,
+        calculator: new ScoreCalculator,
+        skippedRules: $skippedRules,
     );
 }
 
@@ -133,10 +158,13 @@ function removeTree(string $path): void
 
         $full = $path.'/'.$entry;
 
-        is_dir($full) ? removeTree($full) : unlink($full);
+        is_dir($full) ? removeTree($full) : @unlink($full);
     }
 
-    rmdir($path);
+    // Tolerant on purpose: Windows refuses to delete a file whose handle is
+    // still open, and a test that proved its point should not then fail while
+    // tidying up after itself.
+    @rmdir($path);
 }
 
 /**

@@ -10,7 +10,6 @@ use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Runner\ScanOptions;
 use Heyosseus\Sloppy\Runner\ScanRunner;
 use Heyosseus\Sloppy\Sloppy;
-use Throwable;
 
 /**
  * `php artisan sloppy` -- analyse the configured paths.
@@ -24,7 +23,7 @@ final class SloppyCommand extends SloppyCommandBase
 {
     protected $signature = 'sloppy
         {--path=* : Analyse these paths instead of the configured ones}
-        {--format=console : console, json, sarif, markdown or github}
+        {--format=console : console, json, sarif, markdown, github, gitlab or rector}
         {--fail-on= : Lowest severity that fails the command, or "never"}
         {--min-confidence= : Drop findings below this confidence (0-100)}
         {--rule=* : Run only these rule IDs, e.g. --rule=SL101}
@@ -36,9 +35,7 @@ final class SloppyCommand extends SloppyCommandBase
 
     public function handle(Sloppy $sloppy): int
     {
-        $output = new LaravelRunnerOutput($this);
-
-        try {
+        return $this->runWith(function (LaravelRunnerOutput $output) use ($sloppy): ExitCode {
             $failOn = $this->stringOption('fail-on');
 
             $options = new ScanOptions(
@@ -51,12 +48,8 @@ final class SloppyCommand extends SloppyCommandBase
                 noBaseline: $this->boolOption('no-baseline'),
                 explainRisk: $this->boolOption('explain-risk'),
             );
-        } catch (Throwable $exception) {
-            $output->error($exception->getMessage());
 
-            return ExitCode::Error->value;
-        }
-
-        return (new ScanRunner)->run($sloppy, $options, $output)->value;
+            return (new ScanRunner)->run($sloppy, $options, $output);
+        });
     }
 }
