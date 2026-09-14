@@ -35,13 +35,24 @@ function selfAnalysis(): AnalysisResult
  * enough to clear the rule's thresholds would take five classes, and rules
  * would import three of them to ask three questions. That is the ceremony this
  * package exists to discourage, so the finding stands and this is the record of
- * the decision. Nothing else is accepted.
+ * the decision.
+ *
+ * `ToolRunner` has one implementation and one consumer, which is exactly what
+ * SL303 reports -- and it is advisory for this reason. It is the seam that
+ * makes `sloppy fix` testable: on the other side of it is a real child process
+ * running Rector over the user's code, and a test that did that would be
+ * slower than the suite it lives in and would fail on any machine without
+ * Rector installed. The alternative is not a smaller design; it is an
+ * untested command that rewrites people's code. Nothing else is accepted.
  *
  * @return list<string>
  */
 function acceptedSelfFindings(): array
 {
-    return ['SL102 src/Ast/NodeHelper.php NodeHelper'];
+    return [
+        'SL102 src/Ast/NodeHelper.php NodeHelper',
+        'SL303 src/Integrations/Tooling/ToolRunner.php ToolRunner',
+    ];
 }
 
 it('reports nothing about itself that has not been signed off', function (): void {
