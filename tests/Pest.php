@@ -13,6 +13,7 @@ use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use Heyosseus\Sloppy\Tests\Support\RuleTester;
+use Heyosseus\Sloppy\Tests\Support\TempTree;
 use Heyosseus\Sloppy\Tests\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -147,24 +148,7 @@ function tempProject(array $files = []): string
 
 function removeTree(string $path): void
 {
-    if (! is_dir($path)) {
-        return;
-    }
-
-    foreach (scandir($path) ?: [] as $entry) {
-        if ($entry === '.' || $entry === '..') {
-            continue;
-        }
-
-        $full = $path.'/'.$entry;
-
-        is_dir($full) ? removeTree($full) : @unlink($full);
-    }
-
-    // Tolerant on purpose: Windows refuses to delete a file whose handle is
-    // still open, and a test that proved its point should not then fail while
-    // tidying up after itself.
-    @rmdir($path);
+    TempTree::remove($path);
 }
 
 /**
