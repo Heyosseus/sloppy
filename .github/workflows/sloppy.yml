@@ -30,15 +30,28 @@ jobs:
       - name: Install dependencies
         uses: ramsey/composer-install@v3
 
+      # Composer links the bin of every *dependency* into vendor/bin, never
+      # the root package's own -- so in this repository, and only in this
+      # repository, the path the action looks for does not exist. Without
+      # this the action falls through to installing the published release,
+      # which means a pull request would be reviewed by the last version
+      # rather than by the code it changes: exactly the thing this workflow
+      # exists to catch.
+      - name: Point the action at this checkout
+        run: |
+          mkdir -p vendor/bin
+          ln -sf ../../bin/sloppy vendor/bin/sloppy
+          chmod +x bin/sloppy
+
       - name: Sloppy
         id: sloppy
         uses: ./
         with:
           paths: src
           fail-on: high
-          # The binary is already installed by the step above; this pins the
-          # version only for consumers who have not installed the package.
-          version: '^0.4'
+          # Unused here, because the step above guarantees a local binary.
+          # It is set so this file stays an honest example of the action.
+          version: '^0.5'
 
       - name: Report
         if: always()

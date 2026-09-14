@@ -65,7 +65,9 @@ it('serves the protocol from the standalone binary', function (): void {
         new SplFileObject($project.'/out.jsonl', 'w'),
     );
 
-    $application->add($command);
+    // addCommands() rather than add(): the latter is deprecated in Symfony
+    // 7.4 and gone in 8.0, which Laravel 13 pulls in.
+    $application->addCommands([$command]);
     $tester = new ApplicationTester($application);
 
     $code = $tester->run([
