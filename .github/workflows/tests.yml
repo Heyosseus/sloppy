@@ -123,5 +123,18 @@ jobs:
       - name: PHPStan
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
 
+      # The type-coverage plugin analyses files in forked workers that all
+      # persist into one cache file, .temp/v3.php inside the plugin. Its lock
+      # gives up after 100ms and writes anyway, so on a loaded runner two
+      # workers interleave into that file and the next include of it is a
+      # parse error in vendor, unrelated to this project's code. The plugin's
+      # own flag keeps the analysis in a single process, which only changes
+      # how the files are chunked -- every file is still analysed -- and the
+      # cache buys nothing on a checkout that installs from scratch.
+      #
+      # variables_order is set because $_ENV, which the plugin reads, is not
+      # populated from the environment under the default GPCS.
       - name: Type coverage
-        run: vendor/bin/pest --type-coverage --min=100
+        env:
+          __PEST_PLUGIN_ENV: '1'
+        run: php -d variables_order=EGPCS vendor/bin/pest --type-coverage --min=100
