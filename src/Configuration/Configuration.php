@@ -97,13 +97,18 @@ final readonly class Configuration
      */
     public function baselinePath(): string
     {
-        $path = $this->values->string('baseline', '.sloppy-baseline.json');
+        return $this->absolutePath($this->values->string('baseline', '.sloppy-baseline.json'));
+    }
 
-        if ($this->isAbsolute($path)) {
-            return $path;
-        }
+    /**
+     * A configured path resolved against the project root, unless the project
+     * already gave an absolute one.
+     */
+    public function absolutePath(string $path): string
+    {
+        $isAbsolute = str_starts_with($path, '/') || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1;
 
-        return $this->basePath.'/'.ltrim($path, '/');
+        return $isAbsolute ? $path : $this->basePath.'/'.ltrim($path, '/');
     }
 
     public function score(): ScoreConfiguration
@@ -118,6 +123,14 @@ final readonly class Configuration
     public function risk(): RiskConfiguration
     {
         return RiskConfiguration::fromArray($this->values->arrayValue('risk'));
+    }
+
+    /**
+     * Cache policy for the health snapshot the dashboard-shaped surfaces read.
+     */
+    public function health(): HealthConfiguration
+    {
+        return HealthConfiguration::fromArray($this->values->arrayValue('health'));
     }
 
     /**
@@ -238,11 +251,5 @@ final readonly class Configuration
         $config['min_confidence'] = $confidence;
 
         return new self($config, $this->basePath);
-    }
-
-    private function isAbsolute(string $path): bool
-    {
-        return str_starts_with($path, '/')
-            || (bool) preg_match('/^[A-Za-z]:[\\\\\/]/', $path);
     }
 }

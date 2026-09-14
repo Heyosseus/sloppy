@@ -6,5 +6,11 @@ parameters:
     level: 8
     paths:
         - src
+    # Filament is an optional integration, so it is not installed here. The
+    # stubs carry its real signatures, which is what makes the two classes
+    # under src/Integrations/Filament analysable at all -- and what fails here
+    # first if a future Filament changes them.
+    scanDirectories:
+        - tests/Stubs
     tmpDir: build/phpstan
     treatPhpDocTypesAsCertain: false
