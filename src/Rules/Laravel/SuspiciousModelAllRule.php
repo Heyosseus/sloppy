@@ -9,7 +9,6 @@ use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\LaravelRule;
-use PhpParser\Node;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\MethodCall;
@@ -161,11 +160,10 @@ final class SuspiciousModelAllRule extends LaravelRule
     {
         $variable = $this->assignedVariable($call);
 
+        // A call that is itself the loop expression was already caught as
+        // "inside a loop" before this method was reached, so the only case
+        // left is the variable it was assigned to.
         foreach (NodeHelper::find($method, Foreach_::class) as $loop) {
-            if ($loop->expr === $call) {
-                return true;
-            }
-
             if ($variable !== null && $loop->expr instanceof Variable && $loop->expr->name === $variable) {
                 return true;
             }
@@ -180,11 +178,6 @@ final class SuspiciousModelAllRule extends LaravelRule
     private function assignedVariable(StaticCall $call): ?string
     {
         $parent = $call->getAttribute('parent');
-
-        if (! $parent instanceof Node) {
-            return null;
-        }
-
         $assign = $parent instanceof Assign ? $parent : NodeHelper::closestAncestor($call, Assign::class);
 
         if (! $assign instanceof Assign || ! $this->isRootOf($assign->expr, $call)) {

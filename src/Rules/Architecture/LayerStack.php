@@ -46,14 +46,11 @@ final readonly class LayerStack
         /** @var array<string, list<ClassSummary>> $grouped */
         $grouped = [];
 
+        // `baseNoun()` never strips a name down to nothing -- a class called
+        // exactly `Service` keeps its name -- so every class belongs to some
+        // group, even if that group has one member and forms no stack.
         foreach ($index->classes() as $summary) {
-            $noun = $summary->baseNoun($suffixes);
-
-            if ($noun === '') {
-                continue;
-            }
-
-            $grouped[$noun][] = $summary;
+            $grouped[$summary->baseNoun($suffixes)][] = $summary;
         }
 
         $stacks = [];

@@ -144,15 +144,15 @@ final class UnusedConstructorDependencyRule extends BaseRule
      */
     private function reportableParameterName(Param $param): ?string
     {
+        // The variable checks are part of the same question -- a parameter
+        // this rule can name and judge -- and are folded in rather than
+        // guarded separately, because a parser never produces a parameter
+        // whose name is anything but a plain string.
         if (! NodeHelper::isObjectType($param) || $param->attrGroups !== []) {
             return null;
         }
 
-        if (! $param->var instanceof Variable || ! is_string($param->var->name)) {
-            return null;
-        }
-
-        return $param->var->name;
+        return $param->var instanceof Variable && is_string($param->var->name) ? $param->var->name : null;
     }
 
     /**

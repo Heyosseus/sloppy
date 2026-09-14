@@ -95,9 +95,6 @@ final class NarrativeCommentRule extends BaseRule
         $maxWords = max(2, $this->intOption('max_words', 8));
         $detectSteps = $this->boolOption('detect_step_comments', true);
 
-        /** @var array<int, true> $seen */
-        $seen = [];
-
         foreach (NodeHelper::find($context->ast(), Stmt::class) as $statement) {
             $comments = $statement->getComments();
 
@@ -112,14 +109,10 @@ final class NarrativeCommentRule extends BaseRule
                     continue;
                 }
 
+                // No de-duplication is needed here: the parser attaches each
+                // comment to exactly one statement, so walking every statement
+                // visits every comment once.
                 $line = $comment->getStartLine();
-
-                if (isset($seen[$line])) {
-                    continue;
-                }
-
-                $seen[$line] = true;
-
                 $text = $this->textOf($comment);
 
                 if ($text === null) {
@@ -264,11 +257,9 @@ final class NarrativeCommentRule extends BaseRule
      */
     private function codeWords(AnalysisContext $context, Stmt $statement): array
     {
-        $line = $context->file->lineAt($statement->getStartLine()) ?? '';
-
-        if (trim($line) === '') {
-            $line = NodeHelper::printAny($statement);
-        }
+        // A statement always has a line in the file it was parsed from; the
+        // printed form is the fallback for one built anywhere else.
+        $line = $context->file->lineAt($statement->getStartLine()) ?? NodeHelper::printAny($statement);
 
         $spaced = (string) preg_replace('/([a-z0-9])([A-Z])/', '$1 $2', $line);
         preg_match_all('/[A-Za-z]+/', $spaced, $matches);
