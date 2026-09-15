@@ -55,6 +55,7 @@ class ReportingService
         return ['rows' => $rows, 'total' => $total];
     }
 
+    /** @phpstan-ignore-next-line */
     public function activeCustomerCount(): int
     {
         return \App\Models\Customer::all()->where('active', true)->count();

@@ -18,6 +18,7 @@ enum Category: string
     case Performance = 'performance';
     case Architecture = 'architecture';
     case Dependencies = 'dependencies';
+    case Suppression = 'suppression';
     case Laravel = 'laravel';
 
     public function label(): string
@@ -31,6 +32,7 @@ enum Category: string
             self::Performance => 'Performance',
             self::Architecture => 'Architecture',
             self::Dependencies => 'Dependencies',
+            self::Suppression => 'Suppression',
             self::Laravel => 'Laravel',
         };
     }

@@ -168,11 +168,16 @@ return [
     | Risk measures attention: absolute, change-aware, about what a reviewer
     | should read next. Nothing here moves a score or a baseline entry.
     |
-    |   risk = severity_weight x (confidence / 100) x novelty x proximity x reach
+    |   risk = severity_weight x (confidence / 100) x novelty x proximity
+    |            x reach x exposure
     |
     |   reach     = 1 + log10(1 + blast_radius) x reach_weight
     |   novelty   = new 1.0 | inherited 0.25
     |   proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
+    |   exposure  = 1 + (1 - coverage) x exposure_weight
+    |
+    | Every factor is 1.0 when it cannot be measured, so a project with no
+    | coverage report ranks exactly as it did before exposure existed.
     |
     | Run any command with --explain-risk to see the arithmetic for every
     | finding, including the intermediate values. A number you can watch the
@@ -201,6 +206,22 @@ return [
         // which is roughly the spread a reviewer actually feels. Set it to 0.0
         // to rank on severity and confidence alone.
         'reach_weight' => 1.0,
+
+        // How much a changed file the tests never execute outranks an
+        // identical covered one. At 0.5 an untested file ranks 1.5x -- enough
+        // to lift it past a slightly worse finding in well-tested code, not
+        // enough to let coverage dominate severity. Set it to 0.0 to ignore
+        // coverage entirely.
+        'exposure_weight' => 0.5,
+
+        // A clover or cobertura report. Null checks build/logs/clover.xml,
+        // coverage.xml, build/coverage/clover.xml, coverage/clover.xml and
+        // build/logs/cobertura.xml. It lives here rather than at the top level
+        // because risk is the only thing it feeds: coverage changes the order
+        // findings are read in and never the slop score, because a build
+        // artefact that may be absent or stale must not move a number two
+        // people are expected to compare.
+        'coverage' => null,
     ],
 
     /*
@@ -411,6 +432,36 @@ return [
             'max_methods' => 3,
             'max_usages' => 1,
             'skip_layer_stacks' => true,
+        ],
+
+        // ---- Suppression -----------------------------------------------
+
+        'SL502' => [
+            // Baseline Growth. Other tools' baselines, watched for entries
+            // added by a change -- read from git across two revisions and
+            // never written to. Not Sloppy's own baseline, which is the
+            // `baseline` key above.
+            'files' => [
+                'phpstan-baseline.neon',
+                'psalm-baseline.xml',
+            ],
+        ],
+
+        'SL501' => [
+            // Unexplained Suppression. Which annotations count as silencing an
+            // analyser. Every tool spells this differently and more of them
+            // keep appearing, so add your own here rather than waiting for a
+            // release. The rule fires only when no reason follows the
+            // annotation in the same comment -- a defended suppression is a
+            // reviewed decision, not a finding.
+            'annotations' => [
+                '@phpstan-ignore',
+                '@psalm-suppress',
+                '@mago-expect',
+                '@noinspection',
+                'phpcs:ignore',
+                '@SuppressWarnings',
+            ],
         ],
 
     ],

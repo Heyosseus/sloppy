@@ -101,7 +101,7 @@ it('withholds the risk arithmetic unless asked, and prints it under --explain-ri
 
     expect($plain)->not->toContain('risk  ')
         ->and($explained)->toContain(
-            'risk  10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) = 9.89',
+            'risk  10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) x 1.00 (coverage unknown) = 9.89',
         );
 });
 

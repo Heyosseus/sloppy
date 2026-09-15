@@ -38,6 +38,7 @@ abstract class SloppyDiffLikeCommand extends SloppyCommandBase
             explain: $explain,
             explainRisk: $explainRisk,
             review: $review,
+            coverage: $this->stringOption('coverage') === '' ? null : $this->stringOption('coverage'),
         );
     }
 }

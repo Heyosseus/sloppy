@@ -113,6 +113,7 @@ abstract class CliCommandBase extends Command
             explain: $explain,
             explainRisk: $explainRisk,
             review: $review,
+            coverage: $this->stringOption($input, 'coverage'),
         );
     }
 

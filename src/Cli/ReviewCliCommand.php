@@ -28,6 +28,7 @@ final class ReviewCliCommand extends CliCommandBase
             ->addArgument('base', InputArgument::OPTIONAL, 'Revision to compare the working tree against, e.g. HEAD~1 or main', 'HEAD')
             ->addOption('format', null, InputOption::VALUE_REQUIRED, 'console, json or markdown', 'console')
             ->addOption('fail-on', null, InputOption::VALUE_REQUIRED, 'Lowest severity of NEW finding that fails the command, or "never"')
+            ->addOption('coverage', null, InputOption::VALUE_REQUIRED, 'Path to a clover or cobertura report; findings in untested files rank higher')
             ->addOption('explain-risk', null, InputOption::VALUE_NONE, 'Show the arithmetic behind each risk value');
     }
 

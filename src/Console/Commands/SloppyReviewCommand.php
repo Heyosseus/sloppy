@@ -31,6 +31,7 @@ final class SloppyReviewCommand extends SloppyDiffLikeCommand
         {--fail-on= : Lowest severity of NEW finding that fails the command, or "never"}
         {--min-confidence= : Drop findings below this confidence (0-100)}
         {--rule=* : Run only these rule IDs, e.g. --rule=SL101}
+        {--coverage= : Path to a clover or cobertura report; findings in untested files rank higher}
         {--explain-risk : Show the arithmetic behind each risk value}';
 
     protected $description = 'Rank what a change introduced by risk, in the order worth reading';

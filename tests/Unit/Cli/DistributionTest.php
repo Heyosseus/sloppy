@@ -90,3 +90,14 @@ it('keeps the runtime dependencies small enough to ship in one file', function (
         'symfony/process',
     ]);
 });
+
+it('suggests ext-xml rather than requiring it', function (): void {
+    // Coverage is optional. Requiring an extension for an optional feature
+    // would make the phar refuse to install on a PHP build that never wanted
+    // the feature at all -- and every coverage lookup already returns null
+    // when the extension is missing.
+    $composer = manifest('composer.json');
+
+    expect($composer['suggest'])->toHaveKey('ext-xml')
+        ->and($composer['require'])->not->toHaveKey('ext-xml');
+});

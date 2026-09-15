@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Contracts;
 
 use Heyosseus\Sloppy\Analysis\AnalysisContext;
-use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
-use Heyosseus\Sloppy\Analysis\Severity;
 
 /**
  * One detectable pattern.
@@ -18,39 +16,11 @@ use Heyosseus\Sloppy\Analysis\Severity;
  * elsewhere.
  *
  * Rules must be deterministic and side-effect free: no disk writes, no network,
- * no clock.
+ * no clock. A detector that needs any of those is an evidence source instead,
+ * and everything both kinds have in common lives on {@see Detector}.
  */
-interface Rule
+interface Rule extends Detector
 {
-    /**
-     * Stable identifier, e.g. `SL101`. Used in configuration, baselines and
-     * suppression comments, so it must never change once released.
-     */
-    public function id(): string;
-
-    /**
-     * Short human name, e.g. `God Method`.
-     */
-    public function name(): string;
-
-    /**
-     * One line describing what the rule looks for. Used in documentation.
-     */
-    public function description(): string;
-
-    /**
-     * Why the pattern may be a problem. Shown with every finding, because a
-     * report that only names a smell teaches nobody anything.
-     */
-    public function explanation(): string;
-
-    public function category(): Category;
-
-    /**
-     * Severity applied to this rule's findings, after any user override.
-     */
-    public function severity(): Severity;
-
     /**
      * @return iterable<Finding>
      */

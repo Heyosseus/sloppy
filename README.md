@@ -7,7 +7,7 @@
 
 <p align="center">
   <b>Static analysis for the code-quality patterns AI coding agents leave behind.</b><br>
-  Runs on any PHP project — 24 rules, plus a Laravel set that knows Eloquent, controllers and queues.
+  Runs on any PHP project — 25 rules, plus a Laravel set that knows Eloquent, controllers and queues.
   Hands the mechanical fixes to Rector and Pint, fails your Pest suite on new debt, annotates the
   pull request, and teaches the agent through CLAUDE.md and MCP.<br>
   Deterministic and local — no model, no API key, no network.
@@ -29,7 +29,7 @@ Sloppy reads your PHP with a real parser and reports the shapes that turn into
 maintenance cost: god methods, swallowed exceptions, likely N+1 queries,
 business logic in controllers, abstractions that never earned their keep.
 
-It ships 24 rules, a git-diff review mode and a baseline for existing
+It ships 25 rules, a git-diff review mode and a baseline for existing
 projects; a CI command that reads your pipeline instead of asking you to
 describe it, with an official GitHub Action and a GitLab template; an
 automated fix pass that hands the mechanical findings to Rector and the
@@ -245,7 +245,7 @@ test fails on any *new* finding about Sloppy's own code. Four others it found
 were genuine, and they were fixed.
 
 The other half of the answer is `tests/Fixtures/Good`: deliberately ordinary
-Laravel code, with a test asserting that all 24 rules report **zero** findings
+Laravel code, with a test asserting that all 25 rules report **zero** findings
 on it at a score of 100.
 
 ## What to read first
@@ -310,12 +310,17 @@ team to chase the wrong one.
 | Moves a baseline | Yes | Never |
 
 ```
-risk = severity_weight × (confidence / 100) × novelty × proximity × reach
+risk = severity_weight × (confidence / 100) × novelty × proximity × reach × exposure
 
 reach     = 1 + log10(1 + blast_radius) × reach_weight
 novelty   = new 1.0 | inherited 0.25
 proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
+exposure  = 1 + (1 − coverage) × exposure_weight | 1.0 when no coverage report
 ```
+
+Every factor defaults to 1.0 when it cannot be measured, which is what makes
+the model safe to extend: a project with no coverage report ranks exactly as it
+did before `exposure` existed.
 
 **Reach is logarithmic on purpose.** A class with two hundred callers is not
 two hundred times more urgent than one with a single caller; the tenth caller
@@ -400,7 +405,7 @@ that claims certainty is lying.
 
 ## Rules
 
-24 rules ship. Every one has tests proving both that it fires on the pattern
+25 rules ship. Every one has tests proving both that it fires on the pattern
 and that it stays quiet on ordinary Laravel code.
 
 ### PHP and general
@@ -445,6 +450,82 @@ not a rule against repositories or interfaces.
 | `SL301` | Abstraction Inflation | Medium | Architecture | Concepts wrapped in several layers where at least one layer is trivial, singly implemented or singly used. |
 | `SL302` | Empty Wrapper Class | Medium | Architecture | Classes whose public methods almost all forward their arguments unchanged to a single injected collaborator. |
 | `SL303` | Single-Use Abstraction | Low | Architecture | Small interfaces and abstract classes that have exactly one implementation and at most one calling file. |
+
+### Suppression
+
+An analyser being silenced is not a style question. These two are about the
+moment somebody decided to stop being told about a problem rather than fix it.
+
+| ID | Rule | Severity | Category | What it looks for |
+| --- | --- | --- | --- | --- |
+| `SL501` | Unexplained Suppression | Medium | Suppression | `@phpstan-ignore`, `@psalm-suppress`, `@mago-expect`, `@noinspection`, `phpcs:ignore` or `@SuppressWarnings` written with no reason after it. Not suppression *density*: a defended suppression is a reviewed decision, and flagging those would train people to delete the explanation rather than the ignore. |
+| `SL502` | Baseline Growth | Medium | Suppression | Entries this change added to `phpstan-baseline.neon` or `psalm-baseline.xml`. Diff mode only — "grew" needs two revisions. Compared per source path, so regenerating a baseline reports nothing. |
+
+## Signals from the tools you already run
+
+Sloppy never runs PHPStan, Psalm, Pint or Rector. It reads what they leave
+behind and treats it as evidence about a *change* — which is the one thing
+those tools cannot do for each other, because none of them knows what changed.
+
+Two rules decide where a signal is allowed to go, and together they are why the
+numbers stay comparable:
+
+| | Tracked in git | Not tracked |
+| --- | --- | --- |
+| Example | `phpstan-baseline.neon` | `build/logs/clover.xml` |
+| Same answer on a fresh CI clone? | Yes | No — it exists only after a test run |
+| May move the **score**? | Only if also computable from the tree alone | Never |
+| May move **risk**? | Yes | Yes |
+
+> **The score is a function of the tree alone.** Anything that needs a second
+> revision to compute may be reported and ranked, but never scored.
+
+So `SL501` moves the score — the suppression is sitting there in the file.
+`SL502` does not: it exists only relative to a base revision, and scoring it
+would make `sloppy scan` and `sloppy diff main` report different scores for the
+same working tree. It still counts against `--fail-on`, because a build may
+legitimately refuse a change that silenced three errors.
+
+### Coverage
+
+Point Sloppy at a clover or cobertura report and a changed file your tests
+never execute rises in the reading order:
+
+```bash
+sloppy review main --coverage=build/logs/clover.xml --explain-risk
+```
+
+```
+4.0 (medium) × 0.85 (confidence) × 1.00 (new) × 1.00 (in hunk) × 1.00 (reach unmeasured) × 1.50 (untested) = 5.10
+```
+
+The path can also come from `sloppy.risk.coverage` — it lives in the risk block
+because risk is the only thing it feeds — and with neither set Sloppy checks
+`build/logs/clover.xml`, `coverage.xml`, `build/coverage/clover.xml`,
+`coverage/clover.xml` and `build/logs/cobertura.xml`. Clover and Cobertura are
+told apart by content, because CI configurations name these anything at all.
+
+The baseline files `SL502` watches are a rule option, beside `SL501`'s
+suppression vocabulary:
+
+```php
+'rules' => [
+    'SL502' => ['files' => ['phpstan-baseline.neon', 'psalm-baseline.xml']],
+],
+```
+
+Coverage **never** changes the slop score. A file nobody tested is not a file
+with a defect in it; it is a file where a defect would survive, which is a
+statement about what to read first.
+
+Coverage reports go stale, and a stale one silently reorders a review. Sloppy
+does not guess at that: `sloppy health` and `--explain-risk` print the report's
+path and the date it was written, and leave the judgement to you. A staleness
+heuristic would be a number that cannot show its arithmetic, which is the one
+thing every number in this package can do.
+
+`ext-xml` is suggested, not required. Without it coverage is skipped and
+nothing else changes.
 
 ## Configuration
 
@@ -1216,7 +1297,7 @@ priority the whole rule set is tuned around:
   attributes, reflection, `compact()`, subclasses — anything that could reach a
   member indirectly makes the relevant rule step back rather than guess.
 - **A regression test for silence.** `tests/Fixtures/Good` is ordinary Laravel
-  code, and a test asserts all 24 rules report zero findings on it. If a change
+  code, and a test asserts all 25 rules report zero findings on it. If a change
   to any rule breaks that test, the rule is wrong.
 
 Found a false positive? That is a bug worth reporting, not a threshold to work
@@ -1229,7 +1310,7 @@ composer test
 ```
 
 That runs, in order: Rector (dry run), Pint, PHPStan at level 8, 100% type
-coverage, then the suite with a 100% line-coverage floor. See
+coverage, then the suite with a 99% line-coverage floor. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap

@@ -82,7 +82,10 @@ final readonly class GitlabFormatter implements Formatter
             Category::Performance => 'Performance',
             Category::Readability => 'Clarity',
             Category::DeadCode, Category::Architecture, Category::Dependencies, Category::Laravel => 'Style',
-            Category::ErrorHandling => 'Bug Risk',
+            // A silenced error is still an error, so suppression maps onto risk
+            // rather than style: the point of the family is that the problem is
+            // still there and has merely stopped being counted.
+            Category::ErrorHandling, Category::Suppression => 'Bug Risk',
         };
     }
 

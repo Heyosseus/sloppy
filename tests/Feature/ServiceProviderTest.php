@@ -42,7 +42,7 @@ it('binds the entry point with every rule wired up', function (): void {
     $sloppy = app(Sloppy::class);
 
     expect($sloppy)->toBeInstanceOf(Sloppy::class)
-        ->and($sloppy->rules()->count())->toBe(24)
+        ->and($sloppy->rules()->count())->toBe(25)
         ->and($sloppy->rules()->ids())->toBe(RuleRegistry::withDefaults()->ids());
 });
 
@@ -77,5 +77,5 @@ it('narrows to selected rules without touching the original', function (): void 
     $narrowed = $sloppy->onlyRules(['SL101']);
 
     expect($narrowed->rules()->ids())->toBe(['SL101'])
-        ->and($sloppy->rules()->count())->toBe(24);
+        ->and($sloppy->rules()->count())->toBe(25);
 });

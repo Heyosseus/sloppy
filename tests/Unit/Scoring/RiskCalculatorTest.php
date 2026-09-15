@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Configuration\RiskConfiguration;
+use Heyosseus\Sloppy\Coverage\CoverageMap;
 use Heyosseus\Sloppy\Scoring\RiskCalculator;
 
 it('computes the documented worked example end to end', function (): void {
@@ -16,7 +17,7 @@ it('computes the documented worked example end to end', function (): void {
 
     expect(round($risk->value, 2))->toBe(9.89)
         ->and($risk->explain())->toBe(
-            '10.0 (high) x 0.76 (confidence) x 1.00 (new) x 1.00 (in hunk) x 1.30 (1 usage) = 9.89',
+            '10.0 (high) x 0.76 (confidence) x 1.00 (new) x 1.00 (in hunk) x 1.30 (1 usage) x 1.00 (coverage unknown) = 9.89',
         );
 });
 
@@ -110,4 +111,54 @@ it('ignores a non-integer blast_radius metric rather than trusting a malformed v
 
     expect($risk->blastRadius)->toBeNull()
         ->and($risk->reach)->toBe(1.0);
+});
+
+it('leaves ranking untouched when there is no coverage report', function (): void {
+    // The regression guard on this whole extension. RiskCalculator promises
+    // every factor defaults to 1.0 when it cannot be measured; if that ever
+    // stops being true, every existing ranking silently reshuffles.
+    $findings = [
+        finding(rule: 'SL101', file: 'app/A.php', severity: Severity::High),
+        finding(rule: 'SL102', file: 'app/B.php', severity: Severity::Low),
+        finding(rule: 'SL103', file: 'app/C.php', severity: Severity::Medium),
+    ];
+
+    $values = static fn (RiskCalculator $calculator): array => array_map(
+        static fn (array $row): string => $row['finding']->ruleId.':'.round($row['risk']->value, 6),
+        $calculator->rank($findings),
+    );
+
+    expect($values(new RiskCalculator(new RiskConfiguration, CoverageMap::empty())))
+        ->toBe($values(new RiskCalculator));
+});
+
+it('raises an untested file above an identical tested one', function (): void {
+    $calculator = new RiskCalculator(new RiskConfiguration, new CoverageMap([
+        'app/Tested.php' => 1.0,
+        'app/Untested.php' => 0.0,
+    ]));
+
+    $tested = $calculator->for(finding(rule: 'SL101', file: 'app/Tested.php', severity: Severity::High));
+    $untested = $calculator->for(finding(rule: 'SL101', file: 'app/Untested.php', severity: Severity::High));
+
+    expect($untested->value)->toBeGreaterThan($tested->value)
+        ->and($untested->value / $tested->value)->toBe(1.5)
+        ->and($untested->exposureLabel)->toBe('untested')
+        ->and($tested->exposureLabel)->toBe('fully covered');
+});
+
+it('says so when coverage is unknown', function (): void {
+    $risk = (new RiskCalculator)->for(finding(rule: 'SL101', file: 'app/A.php'));
+
+    expect($risk->exposure)->toBe(1.0)
+        ->and($risk->exposureLabel)->toBe('coverage unknown')
+        ->and($risk->explain())->toContain('coverage unknown');
+});
+
+it('labels a partially covered file with its percentage', function (): void {
+    $risk = (new RiskCalculator(new RiskConfiguration, new CoverageMap(['app/A.php' => 0.62])))
+        ->for(finding(rule: 'SL101', file: 'app/A.php'));
+
+    expect($risk->exposureLabel)->toBe('62% covered')
+        ->and($risk->toArray()['exposure'])->toBe(1.19);
 });
