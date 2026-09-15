@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Git;
 
 use Heyosseus\Sloppy\Analysis\Analyzer;
 use Heyosseus\Sloppy\Analysis\Finding;
+use Heyosseus\Sloppy\Evidence\EvidenceCollector;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use Heyosseus\Sloppy\Support\FileFinder;
 
@@ -28,7 +29,24 @@ final readonly class DiffAnalyzer
         private Analyzer $analyzer,
         private FileFinder $finder,
         private ScoreCalculator $calculator,
+        private ?EvidenceCollector $evidence = null,
     ) {}
+
+    /**
+     * Findings that come from comparing revisions rather than from rules.
+     *
+     * Gathered whether or not any PHP file changed: a commit that only adds
+     * baseline entries is the purest form of what `SL502` looks for, and it is
+     * exactly what the "nothing analysable changed" short circuit below would
+     * otherwise swallow.
+     *
+     * @param  list<ChangedFile>  $changed
+     * @return list<Finding>
+     */
+    private function evidenceFor(string $base, array $changed): array
+    {
+        return $this->evidence?->collect($this->git, $base, $changed) ?? [];
+    }
 
     public function compare(string $base): DiffReport
     {
@@ -44,7 +62,7 @@ final readonly class DiffAnalyzer
         // Nothing analysable changed, so both trees are the same tree. Parsing
         // the project twice to prove it would be the slowest way to say so.
         if ($changed === []) {
-            return $this->unchanged($base);
+            return $this->unchanged($base)->withExtraFindings($this->evidenceFor($base, []));
         }
 
         $changedPaths = array_map(static fn (ChangedFile $file): string => $file->relativePath, $changed);
@@ -85,7 +103,10 @@ final readonly class DiffAnalyzer
 
         $partition = $this->partition($current->findings, $previous->findings);
 
-        return new DiffReport(
+        // Both scores are calculated from rule findings alone, and evidence is
+        // appended afterwards. That order is the guarantee: the score stays a
+        // function of the tree, so a scan and a diff agree about it.
+        return (new DiffReport(
             base: $base,
             changedFiles: $changed,
             new: $partition['new'],
@@ -94,7 +115,7 @@ final readonly class DiffAnalyzer
             currentScore: $this->calculator->calculate($current->findings, $current->analyzedLines),
             baseScore: $this->calculator->calculate($previous->findings, $previous->analyzedLines),
             errors: [...$previous->errors, ...$current->errors],
-        );
+        ))->withExtraFindings($this->evidenceFor($base, $changed));
     }
 
     /**

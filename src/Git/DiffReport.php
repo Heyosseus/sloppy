@@ -36,6 +36,39 @@ final readonly class DiffReport
         public array $errors = [],
     ) {}
 
+    /**
+     * The same report with evidence findings added to `new`.
+     *
+     * Evidence is never scored. `SL502` exists only relative to a base
+     * revision, so letting it into the score would make `sloppy scan` and
+     * `sloppy diff main` disagree about the same working tree. Both scores are
+     * already computed by the time this runs and are carried across untouched
+     * -- which is the whole reason this is a separate step rather than another
+     * argument to the constructor.
+     *
+     * The findings are always new by construction: they describe growth, so
+     * there is nothing at the base revision for them to be inherited from.
+     *
+     * @param  list<Finding>  $findings
+     */
+    public function withExtraFindings(array $findings): self
+    {
+        if ($findings === []) {
+            return $this;
+        }
+
+        return new self(
+            base: $this->base,
+            changedFiles: $this->changedFiles,
+            new: [...$this->new, ...$findings],
+            existing: $this->existing,
+            resolved: $this->resolved,
+            currentScore: $this->currentScore,
+            baseScore: $this->baseScore,
+            errors: $this->errors,
+        );
+    }
+
     public function changedFileCount(): int
     {
         return count($this->changedFiles);

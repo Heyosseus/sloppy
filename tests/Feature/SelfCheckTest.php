@@ -64,6 +64,21 @@ function acceptedSelfFindings(): array
         'SL102 src/Ast/NodeHelper.php NodeHelper',
         'SL303 src/Integrations/Tooling/ToolRunner.php ToolRunner',
         'SL303 src/Watch/EditorLauncher.php EditorLauncher',
+
+        // Same reasoning as the two ports above: an interface with one
+        // implementation, kept because the implementation shells out to git
+        // and the test suite substitutes one that does not. It is also the
+        // documented extension point -- a project adding its own evidence
+        // source implements this and nothing else.
+        //
+        // Note this list does NOT contain SL102 for Configuration. Adding the
+        // coverage and baseline accessors there pushed it past the god-class
+        // threshold, and the fix was to put each setting where it belongs --
+        // coverage under `risk`, which is the only thing it feeds, and SL502's
+        // watched files in its own rule options -- rather than to sign off a
+        // finding this release caused. Accepting that one would have been the
+        // exact move SL501 exists to report.
+        'SL303 src/Contracts/EvidenceSource.php EvidenceSource',
     ];
 }
 
