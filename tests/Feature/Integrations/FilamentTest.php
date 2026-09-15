@@ -89,3 +89,26 @@ it('is resolvable from the container for a NativePHP or Filament application', f
         ->and(app(Heyosseus\Sloppy\Integrations\NativePhp\DesktopHealth::class))
         ->toBeInstanceOf(Heyosseus\Sloppy\Integrations\NativePhp\DesktopHealth::class);
 });
+
+/**
+ * The widget shipped once styled in Tailwind utility classes, which Filament
+ * v4 does not compile for vendor views -- it rendered as an unstyled stack of
+ * text inside a real panel while every content assertion above still passed.
+ * Carrying its own CSS is the fix, so this asserts the fix rather than the
+ * symptom.
+ */
+it('carries its own styles instead of depending on the panel compiling utilities', function (): void {
+    $root = widgetProject(godMethodSource());
+
+    $html = (new SloppyHealthWidget)->render()->render();
+
+    expect($html)->toContain('<style>')
+        ->and($html)->toContain('.fi-wi-sloppy {')
+        ->and($html)->toMatch('/data-band="[a-z_]+"/');
+
+    foreach (['rounded-xl', 'bg-white', 'text-3xl', 'text-gray-500', 'bg-success-50'] as $utility) {
+        expect($html)->not->toContain($utility);
+    }
+
+    removeTree($root);
+});
