@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  phar:
+    runs-on: ubuntu-latest
+    name: Build and attach sloppy.phar
+
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl
+          # Building a phar is the one thing that needs this off. Nothing that
+          # *runs* a phar does.
+          ini-values: phar.readonly=0
+          tools: box
+          coverage: none
+
+      # A phar outlives the checkout it came from, so a binary that misreports
+      # its own version is worse than a missing binary. bin/sloppy once shipped
+      # 0.2.0 throughout the 0.3.0 release; this is why that cannot recur.
+      - name: Check the tag matches Sloppy::VERSION
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(php -r 'require "src/Sloppy.php"; echo Heyosseus\Sloppy\Sloppy::VERSION;')"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag ${TAG} does not match Sloppy::VERSION ${VERSION}." >&2
+            exit 1
+          fi
+          echo "Releasing ${VERSION}."
+
+      # The lowest PHP the package supports, so the phar cannot be compiled
+      # against syntax a supported runtime would refuse to load.
+      - name: Install runtime dependencies only
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress
+
+      # Box's own class-map generator does not see enum declarations, and the
+      # classmap it dumps is authoritative -- so a phar built with it cannot
+      # load Severity, ScoreBand, ExitCode, KeyPress or Symfony's own
+      # AnsiColorMode, and dies on the first command. Composer's generator gets
+      # them right, so it dumps the autoloader and box.json.dist tells Box to
+      # keep it (`dump-autoload: false`) rather than replace it.
+      - name: Dump the autoloader Composer's way
+        run: composer dump-autoload --classmap-authoritative --no-dev --no-interaction
+
+      - name: Compile
+        run: box compile --no-parallel
+
+      - name: Check the phar actually runs
+        run: |
+          php sloppy.phar --version
+          php sloppy.phar rules --help > /dev/null
+
+      - name: Checksum
+        run: sha256sum sloppy.phar > sloppy.phar.sha256
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sloppy.phar
+            sloppy.phar.sha256

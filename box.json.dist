@@ -1,0 +1,36 @@
+{
+    "main": "bin/sloppy",
+    "output": "sloppy.phar",
+    "banner": "Sloppy - static analysis for the debt AI coding agents leave behind.\nhttps://github.com/heyosseus/sloppy",
+    "compression": "GZ",
+    "directories": [
+        "src",
+        "config",
+        "pest"
+    ],
+    "finder": [
+        {
+            "exclude": ["tests", "Tests", "test", "docs", "doc", "examples", "Examples", ".github"],
+            "in": "vendor"
+        }
+    ],
+    "blacklist": [
+        "tests",
+        "docs",
+        "build",
+        ".github",
+        "phpunit.xml.dist",
+        "phpstan.neon.dist",
+        "rector.php",
+        "pint.json",
+        "testbench.yaml",
+        "action.yml"
+    ],
+    "compactors": [
+        "KevinGH\\Box\\Compactor\\Php",
+        "KevinGH\\Box\\Compactor\\Json"
+    ],
+    "dump-autoload": false,
+    "check-requirements": true,
+    "algorithm": "SHA512"
+}
