@@ -16,3 +16,7 @@ Thumbs.db
 .env
 .superpowers/
 /.sloppy/
+
+/sloppy.phar
+/sloppy.phar.sha256
+/box.json

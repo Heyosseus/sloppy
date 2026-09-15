@@ -80,6 +80,13 @@ final readonly class CommandCatalogue
             ),
             new CommandSummary(
                 CommandGroup::Everyday,
+                'watch',
+                'sloppy:watch',
+                'Keep the score on screen, redrawing as files change.',
+                'an agent is writing, and you want to see the cost as it lands.',
+            ),
+            new CommandSummary(
+                CommandGroup::Everyday,
                 'guide',
                 'sloppy:help',
                 'This list: what each command is for, on both surfaces.',

@@ -15,6 +15,7 @@ use Heyosseus\Sloppy\Console\Commands\SloppyHelpCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyMcpCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyReviewCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyRulesCommand;
+use Heyosseus\Sloppy\Console\Commands\SloppyWatchCommand;
 use Heyosseus\Sloppy\Integrations\HealthReporter;
 use Heyosseus\Sloppy\Integrations\NativePhp\DesktopHealth;
 use Illuminate\Contracts\Config\Repository;
@@ -87,6 +88,7 @@ final class SloppyServiceProvider extends ServiceProvider
             SloppyCiCommand::class,
             SloppyFixCommand::class,
             SloppyHealthCommand::class,
+            SloppyWatchCommand::class,
             SloppyRulesCommand::class,
             SloppyMcpCommand::class,
             SloppyHelpCommand::class,

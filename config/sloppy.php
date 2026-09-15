@@ -12,9 +12,15 @@ return [
     | Turn Sloppy off without removing the package. The commands stay
     | registered and exit successfully, which keeps CI green while you decide.
     |
+    | This file is also the defaults the standalone binary and the phar read,
+    | and neither of those has Laravel's `env()` in scope -- so the helper is
+    | used where it exists and skipped where it does not. Outside Laravel
+    | there is no `.env` being loaded for it to read anyway; set `enabled`
+    | directly in a `sloppy.php` at your project root instead.
+    |
     */
 
-    'enabled' => env('SLOPPY_ENABLED', true),
+    'enabled' => function_exists('env') ? env('SLOPPY_ENABLED', true) : true,
 
     /*
     |--------------------------------------------------------------------------

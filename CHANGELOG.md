@@ -6,6 +6,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-15
+
+Watch while you work, and run anywhere.
+
+### Added
+
+- **`sloppy watch` / `php artisan sloppy:watch`** — the score, the breakdown
+  and what to read first, left on screen and redrawn as files change. Put it
+  beside the agent writing the code and the cost of a change shows up while the
+  change is still being made, rather than the next time somebody remembers to
+  run a command.
+
+  A tick is not an approximation. It re-parses only the file that moved and
+  then runs every rule over the whole project, so its numbers are identical to
+  `sloppy scan` of the same tree — reporting on fewer files would be faster and
+  would make `SL303` and the duplication rules quietly wrong. Watching is done
+  by polling modification time and length, so no extension is needed and it
+  behaves the same everywhere; `r` re-reads the tree for the rare edit that
+  changes neither.
+
+  `↑↓` moves through the findings, `↵` opens the selected one at its line in
+  `$VISUAL` or `$EDITOR`, and `q` leaves with the terminal exactly as it was
+  found. Where a terminal cannot give up a single keypress — PHP has no way to
+  put a Windows console into raw mode — the dashboard still redraws on every
+  change and says `Ctrl+C to quit` rather than offering keys that would never
+  arrive.
+
+- **A standalone `sloppy.phar`, attached to every release**, alongside
+  `composer global require heyosseus/sloppy`. Both run against a project that
+  has never heard of Sloppy: it finds the project by walking up to the nearest
+  `composer.json` and analyses the PSR-4 roots declared there when no
+  `config/sloppy.php` says otherwise. `sloppy fix` still drives Rector and
+  Pint, because it resolves them from the analysed project rather than from
+  its own install. The release build refuses to publish a binary whose version
+  disagrees with its tag.
+
+- `Analyzer::analyzeParsed()`, for analysing files something else has already
+  parsed. This is the seam `watch` rests on; `analyze()` and `analyzeSources()`
+  are unchanged and still funnel through the same code.
+
 ## [0.5.1] — 2026-09-14
 
 ### Fixed
@@ -561,7 +601,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/heyosseus/sloppy/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/heyosseus/sloppy/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/heyosseus/sloppy/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/heyosseus/sloppy/compare/v0.3.0...v0.4.0

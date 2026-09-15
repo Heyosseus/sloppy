@@ -78,6 +78,42 @@ want to tune it:
 php artisan vendor:publish --tag=sloppy-config
 ```
 
+### Or without adding a dependency
+
+Deciding whether a tool is worth a `composer.json` entry is easier once you
+have seen what it says about your code. Two ways to run it against a project
+that has never heard of it:
+
+```bash
+# Once per machine, for every project on it
+composer global require heyosseus/sloppy
+sloppy                                    # run it from anywhere inside a project
+
+# Or a single file, no Composer resolution at all
+curl -L -o sloppy.phar https://github.com/heyosseus/sloppy/releases/latest/download/sloppy.phar
+chmod +x sloppy.phar
+./sloppy.phar
+```
+
+Both work with no configuration file. Sloppy finds the project by walking up to
+the nearest `composer.json`, and analyses the PSR-4 source roots declared there
+when there is no `config/sloppy.php` to say otherwise — so `src/` on a
+framework-free project and `app/` on a Laravel one are both found on their own.
+Pass `--project` when the directory it picked is not the one you meant.
+
+Everything works this way except the `php artisan sloppy:*` commands
+themselves, which need the package installed in the project. `sloppy fix` still
+drives Rector and Pint, because it resolves them from the *analysed* project's
+`vendor/bin` rather than its own.
+
+Each release attaches `sloppy.phar.sha256` alongside the binary, if you want to
+check it:
+
+```bash
+curl -L -o sloppy.phar.sha256 https://github.com/heyosseus/sloppy/releases/latest/download/sloppy.phar.sha256
+sha256sum -c sloppy.phar.sha256
+```
+
 Requirements: **PHP 8.3+**. Laravel 12 or 13 for the Artisan commands and the
 `SL2xx` rules; everything else runs anywhere.
 
@@ -87,7 +123,7 @@ Requirements: **PHP 8.3+**. Laravel 12 or 13 for the Artisan commands and the
 php artisan sloppy:help      # or: vendor/bin/sloppy guide
 ```
 
-Ten commands, and the moment each one belongs to. Both names run the same
+Eleven commands, and the moment each one belongs to. Both names run the same
 code, so use whichever your project has.
 
 | Every day | | |
@@ -96,6 +132,7 @@ code, so use whichever your project has.
 | `sloppy:diff` | `sloppy diff` | Report what a change introduced, against a git revision |
 | `sloppy:review` | `sloppy review` | The same change, ordered by risk rather than by file |
 | `sloppy:baseline` | `sloppy baseline` | Accept what is already there, so only new findings fail |
+| `sloppy:watch` | `sloppy watch` | Keep the score on screen, redrawing as files change |
 | `sloppy:help` | `sloppy guide` | This list |
 | **In a pipeline** | | |
 | `sloppy:ci` | `sloppy ci` | Analyse a change the way the surrounding CI system reports it |
@@ -119,7 +156,7 @@ For one command's options, `sloppy help <command>` or
 - [JSON output](#json-output) · [Editors and code scanning](#editors-and-code-scanning)
 - [Exit codes](#exit-codes) · [CI](#ci) · [GitHub Action](#github-action) · [GitLab CI](#gitlab-ci)
 - [Fix what can be fixed](#fix-what-can-be-fixed) · [What it can fix](#what-it-can-fix-and-what-it-will-not-pretend-to) · [In your test suite](#in-your-test-suite)
-- [Filament and NativePHP](#filament-and-nativephp) · [Rules for coding agents](#rules-for-coding-agents) · [Custom rules for agents](#your-custom-rules-teach-the-agents-too) · [MCP server](#mcp-server)
+- [Watch while you work](#watch-while-you-work) · [Filament and NativePHP](#filament-and-nativephp) · [Rules for coding agents](#rules-for-coding-agents) · [Custom rules for agents](#your-custom-rules-teach-the-agents-too) · [MCP server](#mcp-server)
 - [What Sloppy is not](#what-sloppy-is-not) · [False positives](#false-positives)
 
 ## Scan a project
@@ -846,6 +883,58 @@ machine that wrote the code, seconds after it was written, while the pipeline
 fails after the push. Teams that want both usually keep the test narrow -- one
 package, one threshold -- and let CI cover the whole project.
 
+## Watch while you work
+
+The most useful moment to know what a change cost is while it is still being
+made — which is the moment nobody stops to run a command. `sloppy watch` leaves
+the answer on screen:
+
+```bash
+php artisan sloppy:watch      # Laravel
+sloppy watch                  # any PHP project
+```
+
+```
+  72/100  Needs attention
+  ██████████████░░░░░░
+
+  complexity      14  ████████████
+  laravel          9  ████████
+  duplication      4  ███
+
+  Read first
+  1 SL101 God Method             app/Services/ReportingService.php:40
+› 2 SL107 Swallowed Exception    app/Models/Order.php:112
+  3 SL204 Possible N+1           app/Http/Controllers/InvoiceController.php:88
+
+  61 files · changed ReportingService.php · 1.2s
+  ↑↓ move  ↵ open  r rescan  q quit
+```
+
+Put it beside the agent writing the code. Every save redraws the score, the
+breakdown and what to read first. `↑↓` moves through the findings, `↵` opens the
+selected one at its line in `$VISUAL` or `$EDITOR`, `r` forces a rescan and `q`
+leaves — restoring the terminal exactly as it was found.
+
+Three things worth knowing:
+
+- **A tick is not an approximation.** It re-parses only the file that moved,
+  then runs every rule over the whole project, so the numbers are identical to
+  `sloppy scan` of the same tree. Reporting on fewer files would be faster and
+  would make `SL303` and the duplication rules quietly wrong.
+- **It watches by polling, not by filesystem events.** No extension is needed
+  and it behaves the same everywhere. Changes are matched on modification time
+  and length, so the rare edit that changes neither is what `r` is for.
+- **Keyboard control needs a terminal that can give up a keypress.** PHP has no
+  way to put a Windows console into raw mode, so there `sloppy watch` is a
+  monitor: it still redraws on every change, and the footer says `Ctrl+C to
+  quit` rather than offering keys that would never arrive. Redirected into a
+  file or a pipe there is no terminal at all, and the command says so and exits
+  rather than looping forever — `sloppy health --json` is the pipeable one.
+
+Options are the ones `sloppy health` takes — `--path`, `--rule`,
+`--min-confidence`, `--top` — plus `--interval` for the poll interval in
+milliseconds (default 250).
 ## Filament and NativePHP
 
 Both read the same cached health snapshot, so a dashboard never waits for an
