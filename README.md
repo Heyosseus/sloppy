@@ -1310,7 +1310,7 @@ composer test
 ```
 
 That runs, in order: Rector (dry run), Pint, PHPStan at level 8, 100% type
-coverage, then the suite with a 100% line-coverage floor. See
+coverage, then the suite with a 99% line-coverage floor. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap

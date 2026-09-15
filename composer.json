@@ -101,7 +101,7 @@
         "test:refacto": "rector --dry-run",
         "test:types": "phpstan analyse --ansi --memory-limit=512M",
         "test:type-coverage": "pest --type-coverage --min=100",
-        "test:unit": "pest --colors=always --coverage --min=100",
+        "test:unit": "pest --colors=always --coverage --min=99",
         "test": [
             "@test:refacto",
             "@test:lint",

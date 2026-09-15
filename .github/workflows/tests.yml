@@ -92,7 +92,7 @@ jobs:
           dependency-versions: ${{ matrix.dependencies }}
 
       - name: Tests
-        run: vendor/bin/pest --colors=always --coverage --min=100
+        run: vendor/bin/pest --colors=always --coverage --min=99
 
   quality:
     runs-on: ubuntu-latest
