@@ -21,6 +21,7 @@ final class DiffCliCommand extends CliCommandBase
             ->addArgument('base', InputArgument::OPTIONAL, 'Revision to compare the working tree against, e.g. HEAD~1 or main', 'HEAD')
             ->addOption('format', null, InputOption::VALUE_REQUIRED, 'console or json', 'console')
             ->addOption('fail-on', null, InputOption::VALUE_REQUIRED, 'Lowest severity of NEW finding that fails the command, or "never"')
+            ->addOption('coverage', null, InputOption::VALUE_REQUIRED, 'Path to a clover or cobertura report; findings in untested files rank higher')
             ->addOption('explain', null, InputOption::VALUE_NONE, 'Include each rule\'s "why this matters" text');
     }
 

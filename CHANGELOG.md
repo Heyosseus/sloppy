@@ -6,6 +6,81 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-09-15
+
+Signals from the tools you already run.
+
+Sloppy now reads what PHPStan, Psalm and your test suite leave behind and
+treats it as evidence about a change. It still never runs them: `sloppy fix`
+remains the only place this package starts another process, and it starts one
+to fix, not to measure.
+
+### Added
+
+- **`SL501` Unexplained Suppression** — flags `@phpstan-ignore`,
+  `@psalm-suppress`, `@mago-expect`, `@noinspection`, `phpcs:ignore` and
+  `@SuppressWarnings` written with no reason after them. A suppression with a
+  reason is a reviewed decision someone can check and eventually delete; a bare
+  one is permanent, because no later reader can tell what it was protecting.
+
+  Deliberately not a density rule. A file carrying ten suppressions that each
+  name a bad vendor stub is a file whose author did the work, and one carrying
+  a single bare `@psalm-suppress` is not — density scores those backwards.
+
+  The vocabulary lives in `sloppy.rules.SL501.annotations`, so an analyser we
+  have not heard of needs a config line rather than a release.
+
+- **`SL502` Baseline Growth** — reports entries a change added to
+  `phpstan-baseline.neon` or `psalm-baseline.xml`. A baseline that grew inside
+  a diff is not a type error; it is a record that someone chose not to fix one,
+  and nothing else in the ecosystem reports it because reporting it requires
+  knowing what changed.
+
+  Compares entry counts per source path rather than file text, so
+  `phpstan --generate-baseline` reports nothing however different the bytes
+  are. Introducing a baseline for the first time reports once rather than once
+  per file. A baseline that shrank reports nothing.
+
+  The finding lands on the source file the entries were added for, with the
+  baseline named in its metrics — a finding parked in a config file is a
+  finding nobody sees.
+
+- **Coverage-aware reading order** — pass `--coverage=build/logs/clover.xml` to
+  `sloppy diff` or `sloppy review`, set `sloppy.risk.coverage`, or let Sloppy
+  find the usual build paths. Clover and Cobertura are both read, told apart by
+  content rather than filename. A changed file the tests never execute ranks
+  1.5x an identical covered one, and `--explain-risk` shows the new factor
+  alongside the others.
+
+- `Contracts\Detector`, the metadata half of `Contracts\Rule`, so a finding can
+  come from something that is not a rule. Every existing rule satisfies it
+  unchanged.
+
+### Changed
+
+- `RiskConfiguration` gains `exposure_weight` and `coverage`. Both live in the
+  `risk` block because risk is the only thing either one feeds, and `SL502`'s
+  watched baseline files are a rule option beside `SL501`'s vocabulary. Adding
+  them as top-level keys instead pushed `Configuration` past the god-class
+  threshold `SL102` reports — the tool caught it in its own self-check, and
+  moving each setting next to what reads it was the fix.
+
+### Notes
+
+- **Two numbers, two rules, and they have not changed.** `SL501` moves the slop
+  score, because a suppression sitting in a file is a property of the tree.
+  `SL502` and coverage never touch it: `SL502` exists only relative to a base
+  revision, and a coverage report is a build artefact that may be absent or
+  stale. Letting either in would make `sloppy scan` and `sloppy diff main`
+  disagree about the same working tree.
+- `SL502` still counts against `--fail-on`, because a build may legitimately
+  refuse a change that silenced three errors.
+- Coverage staleness is reported by `sloppy health` and `--explain-risk` — the
+  report's path and the date it was written — and never acted on. A staleness
+  heuristic would be a number that cannot show its arithmetic.
+- No new runtime dependencies. `ext-xml` is suggested rather than required;
+  without it coverage is skipped and nothing else changes.
+
 ## [0.6.0] — 2026-09-15
 
 Watch while you work, and run anywhere.
@@ -601,7 +676,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/heyosseus/sloppy/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/heyosseus/sloppy/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/heyosseus/sloppy/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/heyosseus/sloppy/compare/v0.4.0...v0.5.0

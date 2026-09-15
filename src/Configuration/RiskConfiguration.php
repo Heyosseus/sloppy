@@ -38,6 +38,18 @@ final readonly class RiskConfiguration
     public const float PROXIMITY_NEARBY = 0.3;
 
     /**
+     * How much an untested file outranks a fully tested one.
+     *
+     * At 0.5 an untested file ranks 1.5x an identical covered one: enough to
+     * lift it past a slightly worse finding in well-tested code, not enough to
+     * let coverage dominate severity. Coverage is a statement about what a
+     * mistake here would cost to discover, never about whether this is a
+     * mistake -- which is also why it moves the reading order and never the
+     * score.
+     */
+    public const float EXPOSURE_WEIGHT = 0.5;
+
+    /**
      * @param  array<string, float>  $severityWeights  Severity value => weight.
      * @param  float  $reachWeight  Multiplier on the logarithm of the blast radius.
      */
@@ -50,7 +62,22 @@ final readonly class RiskConfiguration
             'info' => 0.5,
         ],
         private float $reachWeight = 1.0,
+        private float $exposureWeight = self::EXPOSURE_WEIGHT,
+        private ?string $coveragePath = null,
     ) {}
+
+    /**
+     * An explicit coverage report path, or null to autodetect.
+     *
+     * It lives in the risk block rather than at the top level because that is
+     * the only thing it feeds. Coverage changes the order findings are read in
+     * and never the score, and a configuration key that says so is one fewer
+     * thing to explain.
+     */
+    public function coveragePath(): ?string
+    {
+        return $this->coveragePath;
+    }
 
     /**
      * @param  array<string, mixed>  $config  The `sloppy.risk` array.
@@ -71,12 +98,18 @@ final readonly class RiskConfiguration
         }
 
         $reach = $config['reach_weight'] ?? null;
+        $exposure = $config['exposure_weight'] ?? null;
+        $coverage = $config['coverage'] ?? null;
 
         $defaults = new self;
 
         return new self(
             severityWeights: $weights === [] ? $defaults->severityWeights : $weights,
             reachWeight: is_int($reach) || is_float($reach) ? max(0.0, (float) $reach) : $defaults->reachWeight,
+            exposureWeight: is_int($exposure) || is_float($exposure)
+                ? max(0.0, (float) $exposure)
+                : $defaults->exposureWeight,
+            coveragePath: is_string($coverage) && trim($coverage) !== '' ? trim($coverage) : null,
         );
     }
 
@@ -109,5 +142,22 @@ final readonly class RiskConfiguration
     public function reachWeight(): float
     {
         return $this->reachWeight;
+    }
+
+    /**
+     * A file the tests never execute is a file where a mistake survives to
+     * production, so it earns a closer read.
+     *
+     * Unknown coverage returns 1.0. The factor must neither promote nor demote
+     * a finding nobody has measured, which is what lets this whole feature be
+     * absent without reshuffling anyone's existing ranking.
+     */
+    public function exposureFor(?float $coverage): float
+    {
+        if ($coverage === null) {
+            return 1.0;
+        }
+
+        return 1.0 + (1.0 - max(0.0, min(1.0, $coverage))) * $this->exposureWeight;
     }
 }

@@ -10,6 +10,9 @@ use Heyosseus\Sloppy\Analysis\RuleRegistry;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Baseline\BaselineManager;
 use Heyosseus\Sloppy\Configuration\Configuration;
+use Heyosseus\Sloppy\Coverage\CoverageLocator;
+use Heyosseus\Sloppy\Coverage\CoverageMap;
+use Heyosseus\Sloppy\Evidence\EvidenceCollector;
 use Heyosseus\Sloppy\Git\DiffAnalyzer;
 use Heyosseus\Sloppy\Git\DiffReport;
 use Heyosseus\Sloppy\Git\Git;
@@ -35,16 +38,17 @@ final readonly class Sloppy
      * tool as `dev`. A version string duplicated across surfaces is a version
      * string that disagrees with itself.
      */
-    public const string VERSION = '0.6.0';
+    public const string VERSION = '0.7.0';
 
     public function __construct(
         public Configuration $configuration,
         private ?RuleRegistry $registry = null,
+        private ?string $coveragePath = null,
     ) {}
 
     public function withConfiguration(Configuration $configuration): self
     {
-        return new self($configuration, $this->registry);
+        return new self($configuration, $this->registry, $this->coveragePath);
     }
 
     /**
@@ -54,7 +58,7 @@ final readonly class Sloppy
      */
     public function onlyRules(array $ids): self
     {
-        return new self($this->configuration, $this->rules()->only($ids));
+        return new self($this->configuration, $this->rules()->only($ids), $this->coveragePath);
     }
 
     public function rules(): RuleRegistry
@@ -74,7 +78,30 @@ final readonly class Sloppy
 
     public function risks(): RiskCalculator
     {
-        return new RiskCalculator($this->configuration->risk());
+        return new RiskCalculator($this->configuration->risk(), $this->coverage());
+    }
+
+    /**
+     * What the tests executed, if a report says so.
+     *
+     * Empty when no report exists, which is the whole contract: coverage
+     * changes the order findings are read in and never the score, so a project
+     * without one gets exactly the behaviour it had before.
+     */
+    public function coverage(): CoverageMap
+    {
+        return (new CoverageLocator($this->configuration->basePath))->locate(
+            explicit: $this->coveragePath,
+            configured: $this->configuration->risk()->coveragePath(),
+        );
+    }
+
+    /**
+     * The same facade reading a specific coverage report, as `--coverage=` asks.
+     */
+    public function withCoverage(?string $path): self
+    {
+        return new self($this->configuration, $this->registry, $path);
     }
 
     public function analyzer(): Analyzer
@@ -117,6 +144,7 @@ final readonly class Sloppy
             analyzer: $this->analyzer(),
             finder: $this->files(),
             calculator: $this->scores(),
+            evidence: EvidenceCollector::fromConfiguration($this->configuration),
         );
 
         return $diff->compare($base);

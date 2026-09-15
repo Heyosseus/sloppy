@@ -6,15 +6,17 @@ namespace Heyosseus\Sloppy\Scoring;
 
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Configuration\RiskConfiguration;
+use Heyosseus\Sloppy\Coverage\CoverageMap;
 
 /**
  * In what order should a human read this?
  *
- *     risk = severity_weight x (confidence / 100) x novelty x proximity x reach
+ *     risk = severity_weight x (confidence / 100) x novelty x proximity x reach x exposure
  *
  *     reach     = 1 + log10(1 + blast_radius) x reach_weight
  *     novelty   = new 1.0 | inherited 0.25
  *     proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
+ *     exposure  = 1 + (1 - coverage) x exposure_weight | 1.0 when unmeasured
  *
  * This answers a different question from the slop score and does not touch it.
  * The score is a quality measure: density-normalised, baseline-compatible, and
@@ -30,6 +32,7 @@ final readonly class RiskCalculator
 {
     public function __construct(
         private RiskConfiguration $config = new RiskConfiguration,
+        private CoverageMap $coverage = new CoverageMap,
     ) {}
 
     /**
@@ -55,8 +58,17 @@ final readonly class RiskCalculator
         $severityWeight = $this->config->weightFor($finding->severity);
         $confidence = $finding->confidence / 100;
 
+        $covered = $this->coverage->forFile($finding->location->relativePath);
+        $exposure = $this->config->exposureFor($covered);
+        $exposureLabel = match (true) {
+            $covered === null => 'coverage unknown',
+            $covered <= 0.0 => 'untested',
+            $covered >= 1.0 => 'fully covered',
+            default => sprintf('%d%% covered', (int) round($covered * 100)),
+        };
+
         return new Risk(
-            value: $severityWeight * $confidence * $novelty * $proximity * $reach,
+            value: $severityWeight * $confidence * $novelty * $proximity * $reach * $exposure,
             severityWeight: $severityWeight,
             severityLabel: $finding->severity->value,
             confidence: $confidence,
@@ -66,6 +78,8 @@ final readonly class RiskCalculator
             proximityLabel: $proximityLabel,
             reach: $reach,
             blastRadius: $blastRadius,
+            exposure: $exposure,
+            exposureLabel: $exposureLabel,
         );
     }
 

@@ -49,12 +49,40 @@ final readonly class HealthRunner
             return ExitCode::Error;
         }
 
-        $output->report($this->render($snapshot, $options), $options->json ? OutputFormat::Json : OutputFormat::Console);
+        $output->report(
+            $this->render($snapshot, $options, $this->coverageLine($sloppy)),
+            $options->json ? OutputFormat::Json : OutputFormat::Console,
+        );
 
         return ExitCode::Success;
     }
 
-    private function render(HealthSnapshot $snapshot, HealthOptions $options): string
+    /**
+     * Which coverage report is in play, and how old it is.
+     *
+     * Health is the command people run to check their setup, so this is where
+     * a missing report belongs. The age is reported and never acted on: a
+     * staleness heuristic would be a number that cannot show its arithmetic.
+     */
+    private function coverageLine(Sloppy $sloppy): string
+    {
+        $coverage = $sloppy->coverage();
+        $path = $coverage->sourcePath();
+
+        if ($path === null) {
+            return 'No coverage report found, so findings in untested files are not ranked higher.';
+        }
+
+        $generated = $coverage->generatedAt();
+
+        return sprintf(
+            'Coverage read from %s%s.',
+            $path,
+            $generated === null ? '' : sprintf(', written %s', date('Y-m-d H:i', $generated)),
+        );
+    }
+
+    private function render(HealthSnapshot $snapshot, HealthOptions $options, string $coverageLine): string
     {
         if ($options->json) {
             $encoded = json_encode($snapshot->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -76,6 +104,9 @@ final readonly class HealthRunner
         foreach ($snapshot->byCategory as $category => $count) {
             $lines[] = sprintf('  %-14s %d', $category, $count);
         }
+
+        $lines[] = '';
+        $lines[] = $coverageLine;
 
         if ($snapshot->top !== []) {
             $lines[] = '';

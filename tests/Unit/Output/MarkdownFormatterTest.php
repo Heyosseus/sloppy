@@ -90,7 +90,7 @@ it('adds the risk arithmetic under --explain-risk and omits it otherwise', funct
     // A plain scan is not diff mode, so novelty and proximity are both
     // unknowable here -- this formatter's risk arithmetic reflects that.
     expect($plain)->not->toContain('confidence) x')
-        ->and($explained)->toContain('10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) = 9.89');
+        ->and($explained)->toContain('10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) x 1.00 (coverage unknown) = 9.89');
 });
 
 it('reports nothing to show for an empty result without ranking anything', function (): void {

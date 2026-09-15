@@ -24,7 +24,7 @@ final readonly class DiffRunner
     public function run(Sloppy $sloppy, DiffOptions $options, RunnerOutput $output): ExitCode
     {
         try {
-            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options);
+            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options)->withCoverage($options->coverage);
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 

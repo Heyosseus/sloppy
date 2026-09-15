@@ -137,7 +137,7 @@ it('adds risk_factors and risk_arithmetic only under --explain-risk', function (
 
     expect($plain['findings'][0])->not->toHaveKey('risk_factors')
         ->and($explained['findings'][0]['risk_arithmetic'])->toBe(
-            '10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) = 9.89',
+            '10.0 (high) x 0.76 (confidence) x 1.00 (novelty unknown) x 1.00 (whole file) x 1.30 (1 usage) x 1.00 (coverage unknown) = 9.89',
         )
         ->and($explained['findings'][0]['risk_factors'])->toMatchArray([
             'value' => 9.89,
