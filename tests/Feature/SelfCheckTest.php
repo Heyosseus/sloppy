@@ -43,7 +43,18 @@ function selfAnalysis(): AnalysisResult
  * running Rector over the user's code, and a test that did that would be
  * slower than the suite it lives in and would fail on any machine without
  * Rector installed. The alternative is not a smaller design; it is an
- * untested command that rewrites people's code. Nothing else is accepted.
+ * untested command that rewrites people's code.
+ *
+ * `EditorLauncher` is the same trade in the same shape. On the other side of
+ * it is `passthru()` handing this process's terminal to whatever the user has
+ * set `$EDITOR` to, and a test that did that would open the maintainer's
+ * editor in the middle of a suite run and wait for them to quit it. The seam
+ * is what lets `watch` prove which finding it opens and when. Nothing else is
+ * accepted.
+ *
+ * Note which interfaces are *not* here. `Dashboard` and `TerminalMode` are
+ * both real abstractions with more than one implementation, and SL303 does not
+ * report them -- which is the rule working, not the rule being lenient.
  *
  * @return list<string>
  */
@@ -52,6 +63,7 @@ function acceptedSelfFindings(): array
     return [
         'SL102 src/Ast/NodeHelper.php NodeHelper',
         'SL303 src/Integrations/Tooling/ToolRunner.php ToolRunner',
+        'SL303 src/Watch/EditorLauncher.php EditorLauncher',
     ];
 }
 

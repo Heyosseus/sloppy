@@ -52,7 +52,7 @@ final readonly class Analyzer
             }
         }
 
-        return $this->run($parsed, $errors, $only);
+        return $this->analyzeParsed($parsed, $errors, $only);
     }
 
     /**
@@ -81,19 +81,27 @@ final readonly class Analyzer
             $errors[$relative] = $file->parseError ?? 'Unknown parse error.';
         }
 
-        return $this->run($parsed, $errors, $only);
+        return $this->analyzeParsed($parsed, $errors, $only);
     }
 
     /**
+     * Analyse files somebody else has already parsed.
+     *
+     * `sloppy watch` re-parses only the file that changed and reuses the
+     * previous tick's {@see ParsedFile} for everything else, which is the
+     * difference between a dashboard that redraws and one that stalls. It
+     * arrives here rather than at a second analysis path, so a tick and a full
+     * `sloppy scan` of the same tree cannot disagree.
+     *
      * Cross-file rules need the whole project in the index even when only a
      * few files are being reported on, which is why indexing and reporting are
      * separate concerns here.
      *
-     * @param  list<ParsedFile>  $files
-     * @param  array<string, string>  $errors
-     * @param  list<string>|null  $only
+     * @param  list<ParsedFile>  $files  Every file in the project, parsed.
+     * @param  array<string, string>  $errors  Parse failures the caller already knows about, keyed by relative path.
+     * @param  list<string>|null  $only  Restrict rule execution to these relative paths, while still indexing every file.
      */
-    private function run(array $files, array $errors, ?array $only = null): AnalysisResult
+    public function analyzeParsed(array $files, array $errors = [], ?array $only = null): AnalysisResult
     {
         $index = ProjectIndex::build($files);
         $reportable = $only === null ? null : array_fill_keys($only, true);

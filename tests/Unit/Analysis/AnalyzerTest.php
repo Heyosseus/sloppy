@@ -207,3 +207,50 @@ it('produces identical results for the same input', function (): void {
         ->toBe(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $f): string => $f->identity(), $second->findings))
         ->and($first->score->value)->toBe($second->score->value);
 });
+
+it('analyses files that were parsed elsewhere', function (): void {
+    // What the watch loop rests on: a tick that re-parses only the file that
+    // changed must still produce exactly what a full run produces.
+    $sources = [
+        'app/A.php' => '<?php class A {}',
+        'app/B.php' => '<?php class B {}',
+    ];
+
+    $parser = new Parser;
+    $parsed = [];
+
+    foreach ($sources as $relative => $source) {
+        $parsed[] = $parser->parse($relative, $source);
+    }
+
+    $analyzer = analyzerWith(RuleRegistry::of([new AlwaysFiresRule]));
+
+    expect($analyzer->analyzeParsed($parsed)->toArray())
+        ->toBe($analyzer->analyzeSources($sources)->toArray());
+});
+
+it('keeps the parse errors it was handed', function (): void {
+    $result = analyzerWith(RuleRegistry::of([new AlwaysFiresRule]))->analyzeParsed(
+        [(new Parser)->parse('app/A.php', '<?php class A {}')],
+        ['app/Broken.php' => 'Syntax error.'],
+    );
+
+    expect($result->count())->toBe(1)
+        ->and($result->errors)->toBe(['app/Broken.php' => 'Syntax error.']);
+});
+
+it('indexes every parsed file but reports only the ones asked for', function (): void {
+    $parser = new Parser;
+
+    $result = analyzerWith(RuleRegistry::of([new AlwaysFiresRule]))->analyzeParsed(
+        [
+            $parser->parse('app/A.php', '<?php class A {}'),
+            $parser->parse('app/B.php', '<?php class B {}'),
+        ],
+        [],
+        ['app/B.php'],
+    );
+
+    expect($result->count())->toBe(1)
+        ->and($result->analyzedFiles)->toBe(['app/B.php']);
+});
