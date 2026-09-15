@@ -30,6 +30,7 @@ use Heyosseus\Sloppy\Rules\Php\GodMethodRule;
 use Heyosseus\Sloppy\Rules\Php\NarrativeCommentRule;
 use Heyosseus\Sloppy\Rules\Php\RedundantConditionRule;
 use Heyosseus\Sloppy\Rules\Php\SwallowedExceptionRule;
+use Heyosseus\Sloppy\Rules\Php\UnexplainedSuppressionRule;
 use Heyosseus\Sloppy\Rules\Php\UnusedConstructorDependencyRule;
 
 /**
@@ -66,6 +67,7 @@ final readonly class RuleRegistry
             NarrativeCommentRule::class,
             DefensiveProgrammingNoiseRule::class,
             CopyPasteDriftRule::class,
+            UnexplainedSuppressionRule::class,
 
             BusinessLogicInControllerRule::class,
             InlineValidationRule::class,

@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Analysis\RuleRegistry;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Contracts\Rule;
+use Heyosseus\Sloppy\Evidence\EvidenceCollector;
 use Heyosseus\Sloppy\Rules\BaseRule;
 
 /**
@@ -46,13 +47,13 @@ final class NeverFiresRule extends BaseRule
     }
 }
 
-it('ships twenty-four rules with unique ids', function (): void {
+it('ships twenty-five rules with unique ids', function (): void {
     $registry = RuleRegistry::withDefaults();
     $ids = $registry->ids();
 
-    expect($ids)->toHaveCount(24)
-        ->and(array_unique($ids))->toHaveCount(24)
-        ->and($registry->count())->toBe(24);
+    expect($ids)->toHaveCount(25)
+        ->and(array_unique($ids))->toHaveCount(25)
+        ->and($registry->count())->toBe(25);
 });
 
 it('gives every rule an id, name, description, explanation and category', function (): void {
@@ -81,7 +82,7 @@ it('drops rules the configuration disables', function (): void {
 
     expect($registry->ids())->not->toContain('SL109')
         ->not->toContain('SL110')
-        ->and($registry->count())->toBe(22);
+        ->and($registry->count())->toBe(23);
 });
 
 it('applies per-rule options', function (): void {
@@ -99,7 +100,7 @@ it('registers custom rules from configuration', function (): void {
         'custom_rules' => [NeverFiresRule::class],
     ], '/project'));
 
-    expect($registry->count())->toBe(25)
+    expect($registry->count())->toBe(26)
         ->and($registry->get('APP001'))->toBeInstanceOf(NeverFiresRule::class);
 });
 
@@ -139,19 +140,28 @@ it('can be built from an explicit list', function (): void {
         ->and($registry->rules()[0])->toBeInstanceOf(Rule::class);
 });
 
-it('has an entry in the shipped config for every shipped rule', function (): void {
+it('has an entry in the shipped config for every shipped detector', function (): void {
     /** @var array<string, mixed> $config */
     $config = require dirname(__DIR__, 3).'/config/sloppy.php';
 
     /** @var array<string, mixed> $rules */
     $rules = $config['rules'];
 
-    foreach (RuleRegistry::withDefaults()->ids() as $id) {
+    // Rules are not the only things configured under `rules`. SL502 is an
+    // evidence source -- it compares a baseline across two revisions, which a
+    // rule may not do -- but it is enabled, disabled and given its options the
+    // same way, so it belongs to the same invariant.
+    $detectors = [
+        ...RuleRegistry::withDefaults()->ids(),
+        ...EvidenceCollector::fromConfiguration(Configuration::fromArray([], __DIR__))->ids(),
+    ];
+
+    foreach ($detectors as $id) {
         expect($rules)->toHaveKey($id);
     }
 
-    // And nothing in the config refers to a rule that no longer exists.
-    expect(array_diff(array_keys($rules), RuleRegistry::withDefaults()->ids()))->toBe([]);
+    // And nothing in the config refers to a detector that no longer exists.
+    expect(array_values(array_diff(array_keys($rules), $detectors)))->toBe([]);
 });
 
 it('skips the laravel rules in a project that is not laravel, and names them', function (): void {
@@ -172,8 +182,12 @@ it('runs every rule in a laravel project', function (): void {
     $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
     $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project));
 
-    expect($registry->count())->toBe(24)
+    expect($registry->count())->toBe(25)
         ->and($registry->skipped())->toBe([]);
 
     removeTree($project);
+});
+
+it('ships SL501', function (): void {
+    expect(RuleRegistry::withDefaults()->ids())->toContain('SL501');
 });

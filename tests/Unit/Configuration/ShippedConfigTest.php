@@ -22,3 +22,14 @@ it('falls back to the package defaults when the project has no config file', fun
 
     removeTree($root);
 });
+
+it('ships the suppression vocabulary so new tools need no release', function (): void {
+    // Mago, Psalm and PHPCS all spell this differently, and more will exist.
+    // A user adopting one should edit config, not wait for us.
+    $config = require dirname(__DIR__, 3).'/config/sloppy.php';
+
+    expect($config['rules']['SL501']['annotations'])
+        ->toContain('@phpstan-ignore')
+        ->toContain('@psalm-suppress')
+        ->toContain('@mago-expect');
+});

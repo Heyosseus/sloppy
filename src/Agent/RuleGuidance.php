@@ -49,6 +49,7 @@ final readonly class RuleGuidance
         'SL301' => 'Add a layer when a second implementation or a real test seam needs it -- not in advance. Interfaces are cheap to add later and expensive to read past.',
         'SL302' => 'A class that only forwards to another is a rename with extra steps. Call the other one.',
         'SL303' => 'An interface with one implementation and one caller is indirection with nothing on the other side. Inline it until a second implementation shows up.',
+        'SL501' => 'Fix the error rather than silencing it. If you must suppress, say why in the same comment -- an ignore with no reason can never be removed, because nobody can tell what it was protecting.',
     ];
 
     public static function for(Rule $rule): string
