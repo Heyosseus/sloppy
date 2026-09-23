@@ -78,7 +78,7 @@ final class SingleUseAbstractionRule extends BaseRule
             // duplicate, so the cost this rule measures is not there. It is an
             // attachment point -- Laravel's scaffolded Controller, a marker
             // interface -- and flagging it teaches people to ignore reports.
-            if (self::declaresNothing($classLike)) {
+            if ($this->declaresNothing($classLike)) {
                 continue;
             }
 
@@ -146,7 +146,7 @@ final class SingleUseAbstractionRule extends BaseRule
      * True when the body holds nothing but comments -- no method, property,
      * constant or trait. A comment-only body parses to a `Nop`.
      */
-    private static function declaresNothing(ClassLike $classLike): bool
+    private function declaresNothing(ClassLike $classLike): bool
     {
         foreach ($classLike->stmts as $statement) {
             if (! $statement instanceof Nop) {
