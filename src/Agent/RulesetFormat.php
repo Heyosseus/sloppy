@@ -20,6 +20,7 @@ enum RulesetFormat: string
     case Agents = 'agents';
     case Copilot = 'copilot';
     case Windsurf = 'windsurf';
+    case Boost = 'boost';
     case Markdown = 'markdown';
     case Json = 'json';
 
@@ -50,6 +51,7 @@ enum RulesetFormat: string
             self::Agents => 'AGENTS.md',
             self::Copilot => '.github/copilot-instructions.md',
             self::Windsurf => '.windsurfrules',
+            self::Boost => '.ai/guidelines/sloppy.blade.php',
             self::Markdown => 'sloppy-rules.md',
             self::Json => 'sloppy-rules.json',
         };
@@ -63,6 +65,7 @@ enum RulesetFormat: string
             self::Agents => 'AGENTS.md (Codex, Jules, Amp and others)',
             self::Copilot => 'GitHub Copilot',
             self::Windsurf => 'Windsurf',
+            self::Boost => 'Laravel Boost',
             self::Markdown => 'Markdown',
             self::Json => 'JSON',
         };
@@ -79,6 +82,7 @@ enum RulesetFormat: string
             self::Agents => 'Instructions for coding agents working in this repository.',
             self::Copilot => 'Instructions for GitHub Copilot working in this repository.',
             self::Windsurf => 'Instructions for Windsurf working in this repository.',
+            self::Boost => 'Instructions for coding agents working in this repository.',
             self::Markdown, self::Json => 'The patterns Sloppy flags in this repository.',
         };
     }
@@ -86,5 +90,19 @@ enum RulesetFormat: string
     public function isJson(): bool
     {
         return $this === self::Json;
+    }
+
+    /**
+     * Whether the whole file is ours, rather than a block merged into a file
+     * someone else writes.
+     *
+     * Boost owns `CLAUDE.md` and `AGENTS.md` in the projects that use it, and
+     * composes them from `.ai/guidelines`; a guideline file of our own there is
+     * the one place our rules reach every agent without competing with Boost
+     * for a file it regenerates.
+     */
+    public function ownsFile(): bool
+    {
+        return $this === self::Json || $this === self::Boost;
     }
 }

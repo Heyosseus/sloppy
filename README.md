@@ -1056,7 +1056,7 @@ The cheapest finding is the one that never gets written. `sloppy:rules` writes
 this project's rules where the agents already look, before they write anything:
 
 ```bash
-php artisan sloppy:rules                              # CLAUDE.md
+php artisan sloppy:rules                              # CLAUDE.md, or Boost's guidelines
 php artisan sloppy:rules --format=cursor --format=agents
 php artisan sloppy:rules --format=copilot --format=windsurf
 php artisan sloppy:rules --stdout                     # print instead
@@ -1068,6 +1068,7 @@ unusual case:
 | `--format=` | Writes |
 | --- | --- |
 | `claude` (default) | `CLAUDE.md` |
+| `boost` (default with Laravel Boost) | `.ai/guidelines/sloppy.blade.php` |
 | `cursor` | `.cursorrules` |
 | `agents` | `AGENTS.md` |
 | `copilot` | `.github/copilot-instructions.md` |
@@ -1098,6 +1099,29 @@ Existing files are respected: the generated rules go inside a marked block,
 appended the first time and replaced in place afterwards, with everything
 outside the markers left exactly as your team wrote it. Regenerate it from the
 scheduler or a git hook and your team's own notes survive every run.
+
+### With Laravel Boost
+
+[Laravel Boost](https://laravel.com/docs/boost) owns `CLAUDE.md`, `AGENTS.md`
+and the rest in the projects that use it: it regenerates them on
+`boost:update`, and its docs suggest keeping them out of git. A block merged
+into those files survives the regeneration but is never committed, so a
+teammate who clones the repository never gets it.
+
+So where Boost is installed -- `laravel/boost` in `composer.json`, or a
+`boost.json` -- `sloppy:rules` writes a Boost guideline instead, and Boost puts
+it into every agent file it manages:
+
+```bash
+php artisan sloppy:rules    # writes .ai/guidelines/sloppy.blade.php
+php artisan boost:update    # composes it into CLAUDE.md, AGENTS.md, ...
+```
+
+Commit `.ai/guidelines/sloppy.blade.php`. The file is Sloppy's own: each run
+replaces it, and it refuses to replace one it did not write unless you pass
+`--force`. The rules are wrapped in `@verbatim`, because Boost renders
+guidelines through Blade. Pass `--format=claude` to write `CLAUDE.md` as
+before.
 
 ### Your custom rules teach the agents too
 

@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`sloppy rules --format=boost` writes the rules as a Laravel Boost
+  guideline.** Boost regenerates `CLAUDE.md` and `AGENTS.md` and suggests
+  keeping them out of git, so a Sloppy block merged there was never committed
+  and never reached the rest of the team. The new format writes
+  `.ai/guidelines/sloppy.blade.php`, which Boost composes into every agent file
+  it manages. It is the default where Boost is installed (`laravel/boost` in
+  `composer.json`, or a `boost.json`); `--format=claude` still writes
+  `CLAUDE.md`. The rules are wrapped in `@verbatim`, since Boost renders
+  guidelines through Blade, and a guideline Sloppy did not write is replaced
+  only with `--force`. ([#14](https://github.com/Heyosseus/sloppy/issues/14))
+
 ### Fixed
 
 - **`SL303` no longer reports abstractions that declare nothing.** An empty

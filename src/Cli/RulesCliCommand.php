@@ -25,7 +25,7 @@ final class RulesCliCommand extends CliCommandBase
         $this->configureSharedOptions();
 
         $this
-            ->addOption('format', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'claude, cursor, agents, copilot, windsurf, markdown or json (repeatable)')
+            ->addOption('format', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'claude, cursor, agents, copilot, windsurf, boost, markdown or json (repeatable)')
             ->addOption('output', null, InputOption::VALUE_REQUIRED, 'Write to this file instead of the format\'s usual one')
             ->addOption('stdout', null, InputOption::VALUE_NONE, 'Print the ruleset instead of writing a file')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Overwrite a generated file that already exists');

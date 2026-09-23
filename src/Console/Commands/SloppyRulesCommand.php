@@ -17,7 +17,7 @@ use Heyosseus\Sloppy\Sloppy;
 final class SloppyRulesCommand extends SloppyCommandBase
 {
     protected $signature = 'sloppy:rules
-        {--format=* : claude, cursor, agents, copilot, windsurf, markdown or json (repeatable)}
+        {--format=* : claude, cursor, agents, copilot, windsurf, boost, markdown or json (repeatable)}
         {--output= : Write to this file instead of the format\'s usual one}
         {--stdout : Print the ruleset instead of writing a file}
         {--force : Overwrite a generated file that already exists}';

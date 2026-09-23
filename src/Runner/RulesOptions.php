@@ -12,7 +12,7 @@ use Heyosseus\Sloppy\Agent\RulesetFormat;
 final readonly class RulesOptions
 {
     /**
-     * @param  list<RulesetFormat>  $formats  One file per format; empty means Claude, the most common by a distance.
+     * @param  list<RulesetFormat>  $formats  One file per format; empty means Boost's guidelines where Boost is installed, and Claude, the most common by a distance, everywhere else.
      * @param  string|null  $output  Write here instead of the format's usual file. Only meaningful for a single format.
      */
     public function __construct(
@@ -23,11 +23,16 @@ final readonly class RulesOptions
     ) {}
 
     /**
+     * @param  bool  $usesBoost  Whether the project has Laravel Boost, which owns the agent files there.
      * @return list<RulesetFormat>
      */
-    public function formats(): array
+    public function formats(bool $usesBoost = false): array
     {
-        return $this->formats === [] ? [RulesetFormat::Claude] : $this->formats;
+        if ($this->formats !== []) {
+            return $this->formats;
+        }
+
+        return [$usesBoost ? RulesetFormat::Boost : RulesetFormat::Claude];
     }
 
     /**
