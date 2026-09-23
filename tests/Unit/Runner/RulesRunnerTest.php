@@ -159,3 +159,69 @@ it('refuses to write a ruleset with no rules in it', function (): void {
 
     removeTree($root);
 });
+
+it('writes a Boost guideline by default where Boost is installed', function (string $file, string $contents): void {
+    [$sloppy, $root] = rulesProject([$file => $contents]);
+    $output = new RecordingRunnerOutput;
+
+    $code = (new RulesRunner)->run($sloppy, new RulesOptions, $output);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and(is_file($root.'/.ai/guidelines/sloppy.blade.php'))->toBeTrue()
+        ->and(is_file($root.'/CLAUDE.md'))->toBeFalse()
+        ->and($output->messages())->toBe([
+            'info: Created .ai/guidelines/sloppy.blade.php for Laravel Boost (25 rule(s)).',
+            'info: Run `php artisan boost:update` so Boost adds it to your agent files.',
+        ]);
+
+    removeTree($root);
+})->with([
+    'required in composer.json' => ['composer.json', '{"require":{"laravel/framework":"^12.0"},"require-dev":{"laravel/boost":"^2.0"}}'],
+    'configured with boost.json' => ['boost.json', '{"agents":["claude_code"]}'],
+]);
+
+it('still writes CLAUDE.md in a Boost project when asked to', function (): void {
+    [$sloppy, $root] = rulesProject(['boost.json' => '{}']);
+
+    (new RulesRunner)->run($sloppy, new RulesOptions(formats: [RulesetFormat::Claude]), new RecordingRunnerOutput);
+
+    expect(is_file($root.'/CLAUDE.md'))->toBeTrue()
+        ->and(is_file($root.'/.ai/guidelines/sloppy.blade.php'))->toBeFalse();
+
+    removeTree($root);
+});
+
+it('replaces its own Boost guideline on the next run', function (): void {
+    [$sloppy, $root] = rulesProject();
+    $options = new RulesOptions(formats: [RulesetFormat::Boost]);
+    $second = new RecordingRunnerOutput;
+
+    (new RulesRunner)->run($sloppy, $options, new RecordingRunnerOutput);
+    $first = (string) file_get_contents($root.'/.ai/guidelines/sloppy.blade.php');
+
+    $code = (new RulesRunner)->run($sloppy, $options, $second);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and(file_get_contents($root.'/.ai/guidelines/sloppy.blade.php'))->toBe($first)
+        ->and($second->messages()[0])->toBe('info: Replaced .ai/guidelines/sloppy.blade.php for Laravel Boost (25 rule(s)).');
+
+    removeTree($root);
+});
+
+it('refuses to overwrite a Boost guideline it did not write without --force', function (): void {
+    [$sloppy, $root] = rulesProject(['.ai/guidelines/sloppy.blade.php' => "Our own notes.\n"]);
+    $output = new RecordingRunnerOutput;
+
+    $code = (new RulesRunner)->run($sloppy, new RulesOptions(formats: [RulesetFormat::Boost]), $output);
+
+    expect($code)->toBe(ExitCode::Error)
+        ->and($output->messages())->toContain('error: .ai/guidelines/sloppy.blade.php already exists. Pass --force to overwrite it.')
+        ->and(file_get_contents($root.'/.ai/guidelines/sloppy.blade.php'))->toBe("Our own notes.\n");
+
+    $code = (new RulesRunner)->run($sloppy, new RulesOptions(formats: [RulesetFormat::Boost], force: true), new RecordingRunnerOutput);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and(file_get_contents($root.'/.ai/guidelines/sloppy.blade.php'))->toContain('### SL101 God Method');
+
+    removeTree($root);
+});
