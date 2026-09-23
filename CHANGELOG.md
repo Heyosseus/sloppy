@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`SL303` no longer reports abstractions that declare nothing.** An empty
+  abstract class or interface has no signature to duplicate, so the cost the
+  rule measures is not there. The visible case was Laravel 11's scaffolded
+  `abstract class Controller {}`, reported on any fresh application with a
+  single controller. Declaring one method, property, constant or trait brings
+  it back under the rule. ([#13](https://github.com/Heyosseus/sloppy/issues/13))
+
 ## [0.7.0] — 2026-09-15
 
 Signals from the tools you already run.
