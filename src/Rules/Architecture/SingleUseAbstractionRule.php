@@ -10,7 +10,9 @@ use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use PhpParser\Node\Stmt\Class_;
+use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\Interface_;
+use PhpParser\Node\Stmt\Nop;
 
 /**
  * SL303 -- an interface or abstract class with one implementation and one
@@ -72,6 +74,14 @@ final class SingleUseAbstractionRule extends BaseRule
                 continue;
             }
 
+            // An abstraction that declares nothing has no signature to
+            // duplicate, so the cost this rule measures is not there. It is an
+            // attachment point -- Laravel's scaffolded Controller, a marker
+            // interface -- and flagging it teaches people to ignore reports.
+            if ($this->declaresNothing($classLike)) {
+                continue;
+            }
+
             // An interface or an abstract class always has a name -- only a
             // `new class` expression does not, and that is neither -- so the
             // empty fallback below simply finds no summary.
@@ -130,6 +140,21 @@ final class SingleUseAbstractionRule extends BaseRule
                 ],
             );
         }
+    }
+
+    /**
+     * True when the body holds nothing but comments -- no method, property,
+     * constant or trait. A comment-only body parses to a `Nop`.
+     */
+    private function declaresNothing(ClassLike $classLike): bool
+    {
+        foreach ($classLike->stmts as $statement) {
+            if (! $statement instanceof Nop) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

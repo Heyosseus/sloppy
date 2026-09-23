@@ -133,3 +133,34 @@ it('flags a trivial abstract class the same way', function (): void {
     expect($found)->toHaveCount(1)
         ->and($found[0]->message)->toStartWith('Abstract class BaseImporter');
 });
+
+it('does not flag an empty abstract base class, such as Laravel\'s scaffolded Controller', function (): void {
+    // There is no signature to duplicate, so there is nothing for the second
+    // file to cost -- it is an attachment point, not an abstraction.
+    expect(findingsAcross(singleUse(), [
+        'app/Http/Controllers/Controller.php' => "namespace App\Http\Controllers;\n\nabstract class Controller\n{\n    //\n}",
+        'app/Http/Controllers/HomeController.php' => "namespace App\Http\Controllers;\n\nclass HomeController extends Controller\n{\n    public function __invoke(): string\n    {\n        return 'home';\n    }\n}",
+    ]))->toBeEmpty();
+});
+
+it('does not flag an empty marker interface', function (): void {
+    expect(findingsAcross(singleUse(), [
+        'app/ShouldAudit.php' => "namespace App;\n\ninterface ShouldAudit\n{\n}",
+        'app/Invoice.php' => "namespace App;\n\nclass Invoice implements ShouldAudit\n{\n    public function total(): int\n    {\n        return 0;\n    }\n}",
+    ]))->toBeEmpty();
+});
+
+it('flags an abstract base class once it declares something', function (string $member): void {
+    $found = findingsAcross(singleUse(), [
+        'app/Http/Controllers/Controller.php' => "namespace App\Http\Controllers;\n\nabstract class Controller\n{\n    {$member}\n}",
+        'app/Http/Controllers/HomeController.php' => "namespace App\Http\Controllers;\n\nclass HomeController extends Controller\n{\n    public function __invoke(): string\n    {\n        return 'home';\n    }\n}",
+    ]);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->message)->toStartWith('Abstract class Controller');
+})->with([
+    'a method' => ['protected function respond(): void {}'],
+    'a property' => ['protected int $perPage = 15;'],
+    'a constant' => ['protected const PER_PAGE = 15;'],
+    'a trait' => ['use \App\Concerns\Paginates;'],
+]);
