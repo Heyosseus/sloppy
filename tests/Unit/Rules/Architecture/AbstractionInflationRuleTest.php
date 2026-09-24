@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Rules\Architecture\AbstractionInflationRule;
+use Heyosseus\Sloppy\Tests\Support\RuleTester;
 
 /**
  * @param  array<string, mixed>  $options
@@ -197,4 +199,91 @@ it('does not flag deep layers that are all doing real work', function (): void {
 
 it('respects a configured layer depth', function (): void {
     expect(findingsAcross(abstractionInflation(['min_layers' => 10]), inflatedStack()))->toBeEmpty();
+});
+
+/**
+ * The `Charge` concept as a project with factories and Fractal transformers
+ * lays it out: a model, its factory, its transformer and one service.
+ *
+ * @return array<string, string>
+ */
+function conventionalStack(string $transformerBase = 'TransformerAbstract'): array
+{
+    return [
+        'app/Charge.php' => "namespace App\Models;\n\nclass Charge extends \Illuminate\Database\Eloquent\Model {}",
+        'app/ChargeFactory.php' => <<<'PHP'
+        namespace Database\Factories;
+
+        class ChargeFactory extends \Illuminate\Database\Eloquent\Factories\Factory
+        {
+            public function definition(): array
+            {
+                return ['amount' => 100];
+            }
+        }
+        PHP,
+        'app/ChargeTransformer.php' => <<<PHP
+        namespace App\Transformers;
+
+        use League\Fractal\TransformerAbstract;
+
+        class ChargeTransformer extends {$transformerBase}
+        {
+            public function transform(\$charge): array
+            {
+                return ['id' => \$charge->id];
+            }
+        }
+        PHP,
+        'app/BaseTransformer.php' => <<<'PHP'
+        namespace App\Transformers;
+
+        abstract class BaseTransformer extends \League\Fractal\TransformerAbstract
+        {
+            protected function money(int $cents): string
+            {
+                return number_format($cents / 100, 2);
+            }
+        }
+        PHP,
+        'app/ChargeService.php' => <<<'PHP'
+        namespace App\Services;
+
+        class ChargeService
+        {
+            public function total(): int
+            {
+                return 0;
+            }
+        }
+        PHP,
+    ];
+}
+
+it('does not count or report layers a framework convention asks for', function (): void {
+    // Factory and transformer are each one class the framework expects per
+    // model, not indirection the team chose to add.
+    expect(findingsAcross(abstractionInflation(['min_layers' => 2]), conventionalStack()))->toBeEmpty();
+});
+
+it('recognises a convention base reached through a project base class', function (): void {
+    expect(findingsAcross(abstractionInflation(['min_layers' => 2]), conventionalStack('BaseTransformer')))->toBeEmpty();
+});
+
+it('accepts a project convention added to the base list', function (): void {
+    $files = inflatedStack();
+    $files['app/Repository.php'] = "namespace App\Repositories;\n\nabstract class Repository {}";
+    $files['app/InvoiceRepository.php'] = str_replace(
+        'class InvoiceRepository implements',
+        'class InvoiceRepository extends Repository implements',
+        $files['app/InvoiceRepository.php'],
+    );
+
+    $found = findingsAcross(abstractionInflation([
+        'convention_bases' => ['App\Repositories\Repository'],
+    ]), $files);
+
+    expect($found)->not->toBeEmpty()
+        ->and(array_column(array_map(static fn (Finding $finding): array => $finding->metrics, $found), 'layers'))->each->toBe(3)
+        ->and(RuleTester::fingerprints($found))->not->toContain('InvoiceRepository');
 });

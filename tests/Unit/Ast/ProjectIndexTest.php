@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Ast\BlockSignature;
+use Heyosseus\Sloppy\Ast\ClassSummary;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 
@@ -232,4 +233,36 @@ it('agrees with blocksMatching about which bodies share a hash', function (): vo
 
     expect($signatures[0]->hash)->toBe($signatures[1]->hash)
         ->and($index->blocksMatching($signatures[0]->hash))->toHaveCount(2);
+});
+
+it('resolves the traits a class composes, through other traits, once each', function (): void {
+    $index = indexOf([
+        'app/Traits.php' => <<<'PHP'
+        namespace App;
+
+        trait A
+        {
+            use B;
+        }
+
+        trait B
+        {
+            use A;
+        }
+        PHP,
+        'app/Report.php' => <<<'PHP'
+        namespace App;
+
+        final class Report
+        {
+            use A, B, \Illuminate\Support\Traits\Macroable;
+        }
+        PHP,
+    ]);
+
+    // B is reached twice and A comes back round through B; the vendor trait
+    // is not indexed, so nothing is known about it.
+    expect(array_map(static fn (ClassSummary $trait): string => $trait->fqn, $index->traitsOf('App\Report')))
+        ->toBe(['App\A', 'App\B'])
+        ->and($index->traitsOf('App\Missing'))->toBe([]);
 });

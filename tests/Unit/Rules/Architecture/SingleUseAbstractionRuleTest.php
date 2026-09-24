@@ -164,3 +164,33 @@ it('flags an abstract base class once it declares something', function (string $
     'a constant' => ['protected const PER_PAGE = 15;'],
     'a trait' => ['use \App\Concerns\Paginates;'],
 ]);
+
+it('names the implementation in full when it shares the interface short name', function (): void {
+    // "ChargeRepository is implemented only by ChargeRepository" reads as the
+    // interface implementing itself.
+    $found = findingsAcross(new SingleUseAbstractionRule, [
+        'app/Domain/ChargeRepository.php' => <<<'PHP'
+        namespace App\Domain;
+
+        interface ChargeRepository
+        {
+            public function find(int $id): ?Charge;
+        }
+        PHP,
+        'app/Infrastructure/ChargeRepository.php' => <<<'PHP'
+        namespace App\Infrastructure;
+
+        class ChargeRepository implements \App\Domain\ChargeRepository
+        {
+            public function find(int $id): ?Charge
+            {
+                return null;
+            }
+        }
+        PHP,
+    ]);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->message)->toContain('implemented only by App\Infrastructure\ChargeRepository')
+        ->and($found[0]->metrics['implementation'])->toBe('App\Infrastructure\ChargeRepository');
+});

@@ -17,6 +17,10 @@ final readonly class ClassSummary
      * @param  'class'|'interface'|'trait'|'enum'  $kind
      * @param  list<string>  $interfaces
      * @param  list<string>  $publicMethodNames
+     * @param  list<string>  $traits  Fully qualified names of the traits it `use`s directly.
+     * @param  list<string>  $propertyReads  Traits only: every `$this->name` the body reads.
+     * @param  list<string>  $calledNames  Traits only: lower-cased method names it calls or names in a string.
+     * @param  bool  $isValueObject  A `readonly` class, or one whose constructor only promotes readonly properties.
      */
     public function __construct(
         public string $fqn,
@@ -32,6 +36,11 @@ final readonly class ClassSummary
         public int $lineSpan,
         public int $dependencyCount,
         public bool $isAbstract,
+        public array $traits = [],
+        public array $propertyReads = [],
+        public array $calledNames = [],
+        public bool $hasDynamicAccess = false,
+        public bool $isValueObject = false,
     ) {}
 
     /**

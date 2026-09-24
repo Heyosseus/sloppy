@@ -4,11 +4,22 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Ast;
 
+use PhpParser\Modifiers;
+use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\NullsafeMethodCall;
+use PhpParser\Node\Expr\PropertyFetch;
+use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Interface_;
+use PhpParser\Node\Stmt\Trait_;
+use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\Node\UseItem;
 
 /**
@@ -165,6 +176,33 @@ final readonly class ProjectIndex
         return $this->usages[$fqn] ?? [];
     }
 
+    /**
+     * Every indexed trait a class composes, including traits used by those
+     * traits. Traits outside the analysed paths are not indexed and so are
+     * not returned.
+     *
+     * @return list<ClassSummary>
+     */
+    public function traitsOf(string $fqn): array
+    {
+        $found = [];
+        $pending = $this->classes[$fqn]->traits ?? [];
+
+        while ($pending !== []) {
+            $name = array_shift($pending);
+            $trait = $this->classes[$name] ?? null;
+
+            if (isset($found[$name]) || $trait === null || $trait->kind !== 'trait') {
+                continue;
+            }
+
+            $found[$name] = $trait;
+            $pending = [...$pending, ...$trait->traits];
+        }
+
+        return array_values($found);
+    }
+
     public function usageCount(string $fqn): int
     {
         return count($this->usagesOf($fqn));
@@ -247,7 +285,107 @@ final readonly class ProjectIndex
             lineSpan: NodeHelper::lineSpan($classLike),
             dependencyCount: NodeHelper::countDependencies($classLike),
             isAbstract: $classLike instanceof Class_ && $classLike->isAbstract(),
+            traits: self::traitNames($classLike),
+            propertyReads: $classLike instanceof Trait_ ? self::propertyReads($classLike) : [],
+            calledNames: $classLike instanceof Trait_ ? self::calledNames($classLike) : [],
+            hasDynamicAccess: $classLike instanceof Trait_ && NodeHelper::hasDynamicAccess($classLike),
+            isValueObject: $classLike instanceof Class_ && self::isValueObject($classLike),
         );
+    }
+
+    /**
+     * A class that holds data rather than behaviour: declared `readonly`, or
+     * built only from readonly promoted properties.
+     */
+    private static function isValueObject(Class_ $class): bool
+    {
+        if ($class->isReadonly()) {
+            return true;
+        }
+
+        $params = NodeHelper::constructorParams($class);
+
+        foreach ($params as $param) {
+            if (($param->flags & Modifiers::READONLY) === 0) {
+                return false;
+            }
+        }
+
+        return $params !== [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function traitNames(ClassLike $classLike): array
+    {
+        $names = [];
+
+        foreach ($classLike->stmts as $statement) {
+            if (! $statement instanceof TraitUse) {
+                continue;
+            }
+
+            foreach ($statement->traits as $trait) {
+                $names[] = $trait->toString();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Every `$this->name` a trait reads. Its own `$this->name = ...` is a
+     * write, not a read.
+     *
+     * @return list<string>
+     */
+    private static function propertyReads(Trait_ $trait): array
+    {
+        $names = [];
+
+        foreach (NodeHelper::find($trait, PropertyFetch::class) as $fetch) {
+            if (! $fetch->name instanceof Identifier || ! $fetch->var instanceof Variable || $fetch->var->name !== 'this') {
+                continue;
+            }
+
+            $parent = $fetch->getAttribute('parent');
+
+            if ($parent instanceof Assign && $parent->var === $fetch) {
+                continue;
+            }
+
+            $names[$fetch->name->toString()] = true;
+        }
+
+        return array_keys($names);
+    }
+
+    /**
+     * Method names a trait calls, on any receiver, plus every string literal
+     * in it -- the same evidence SL105 accepts inside the class itself.
+     *
+     * @return list<string>
+     */
+    private static function calledNames(Trait_ $trait): array
+    {
+        $names = [];
+
+        foreach ([MethodCall::class, NullsafeMethodCall::class, StaticCall::class] as $type) {
+            foreach (NodeHelper::find($trait, $type) as $call) {
+                $name = NodeHelper::callName($call);
+
+                if ($name !== null) {
+                    $names[mb_strtolower($name)] = true;
+                }
+            }
+        }
+
+        foreach (NodeHelper::find($trait, String_::class) as $string) {
+            $names[mb_strtolower($string->value)] = true;
+        }
+
+        return array_map(strval(...), array_keys($names));
     }
 
     /**

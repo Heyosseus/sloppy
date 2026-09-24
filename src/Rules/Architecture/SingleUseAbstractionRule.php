@@ -112,6 +112,12 @@ final class SingleUseAbstractionRule extends BaseRule
                 continue;
             }
 
+            // Name the implementation in full when its short name is the
+            // abstraction's own, or the message reads as a self-implementation.
+            $implementation = NodeHelper::baseName($implementations[0]) === $name
+                ? $implementations[0]
+                : NodeHelper::baseName($implementations[0]);
+
             yield $this->report(
                 context: $context,
                 at: $classLike,
@@ -120,13 +126,13 @@ final class SingleUseAbstractionRule extends BaseRule
                     $isInterface ? 'Interface' : 'Abstract class',
                     $name,
                     $summary->methodCount,
-                    NodeHelper::baseName($implementations[0]),
+                    $implementation,
                     $usages === 0 ? 'nothing in the analysed paths' : 'one file',
                 ),
                 suggestion: sprintf(
                     'Depending on %s directly would remove a file without removing a capability. Worth keeping if '
                     .'a second implementation, a fake for tests, or a package boundary is actually planned.',
-                    NodeHelper::baseName($implementations[0]),
+                    $implementation,
                 ),
                 confidence: $this->confidenceFrom(55, [
                     $usages === 0,
@@ -135,7 +141,7 @@ final class SingleUseAbstractionRule extends BaseRule
                 fingerprint: $name,
                 metrics: [
                     'methods' => $summary->methodCount,
-                    'implementation' => NodeHelper::baseName($implementations[0]),
+                    'implementation' => $implementation,
                     'usages' => $usages,
                 ],
             );

@@ -87,4 +87,74 @@ describe('SL207 excessive service dependencies', function (): void {
     it('ignores classes that are neither services nor controllers', function (): void {
         expect(findings(new ExcessiveServiceDependenciesRule, classWithDependencies('class Widget', 12)))->toBeEmpty();
     });
+
+    it('does not count data a domain entity is built from', function (): void {
+        // Enums, value objects, models, dates and collections are the
+        // entity's fields, not collaborators the container resolves.
+        expect(findingsAcross(new ExcessiveServiceDependenciesRule, [
+            'app/Domain/Types.php' => <<<'PHP'
+            namespace App\Domain;
+
+            enum ChargeStatus: string { case Open = 'open'; }
+
+            final readonly class Money
+            {
+                public function __construct(public int $cents, public string $currency) {}
+            }
+
+            final class Period
+            {
+                public function __construct(
+                    public readonly Carbon $from,
+                    public readonly Carbon $to,
+                ) {}
+            }
+
+            class Resident extends \Illuminate\Database\Eloquent\Model {}
+            PHP,
+            'app/Domain/Charge.php' => <<<'PHP'
+            namespace App\Domain;
+
+            use Carbon\CarbonImmutable;
+            use Illuminate\Support\Collection;
+
+            final class Charge
+            {
+                public function __construct(
+                    private Money $amount,
+                    private Money $balance,
+                    private Period $period,
+                    private ChargeStatus $status,
+                    private Resident $resident,
+                    private CarbonImmutable $dueDate,
+                    private ?\DateTimeImmutable $paidAt,
+                    private Collection $lines,
+                    private Ledger $ledger,
+                ) {}
+            }
+            PHP,
+        ]))->toBeEmpty();
+    });
+
+    it('counts only the collaborators when reporting', function (): void {
+        $found = findingsAcross(new ExcessiveServiceDependenciesRule, [
+            'app/Status.php' => "namespace App;\n\nenum Status: string { case Open = 'open'; }",
+            'app/OrderService.php' => <<<'PHP'
+            namespace App;
+
+            class OrderService
+            {
+                public function __construct(
+                    private Dep1 $dep1, private Dep2 $dep2, private Dep3 $dep3,
+                    private Dep4 $dep4, private Dep5 $dep5, private Dep6 $dep6,
+                    private Dep7 $dep7, private Dep8 $dep8,
+                    private Status|string $status, private \Carbon\Carbon $now,
+                ) {}
+            }
+            PHP,
+        ]);
+
+        expect($found)->toHaveCount(1)
+            ->and($found[0]->metrics['dependencies'])->toBe(8);
+    });
 });
