@@ -6,6 +6,72 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-09-24
+
+### Fixed
+
+- **SL105 and SL106 now see what traits do.** A private method called only
+  from a trait the class uses (often one the trait declares
+  `abstract private`), or a constructor property read only by such a trait
+  (`$this->id` in a `HasIdentity::getId()`), was reported as dead. Traits
+  used through other traits count too. A trait that reaches members
+  dynamically makes both rules skip the class, as they already do for the
+  class itself. Only traits inside the analysed paths are resolved. Reported
+  in #18, where this accounted for 110 of 113 findings from the two rules.
+- **SL204 no longer flags a memoized lookup.** `$units[$code] ??= Unit::where(...)->first()`
+  queries once per distinct key, not once per iteration, which is the
+  in-memory lookup the rule's own suggestion asks for. Only `??=` into an
+  array key or a property counts; a plain `=` is still reported.
+- **SL107 rates parse-or-reject helpers low instead of high.** A catch whose
+  only statement is `return false` in a `bool` function, or `return null` in
+  a nullable one when a specific exception was caught, answers with the value
+  the signature already uses for "no" (`isValidPhoneNumber(): bool`,
+  `verify(string $token): ?Payload`, a validation rule's `passes()`). These
+  are still reported, but at `low`, so they no longer fail CI. A broad
+  `catch (Throwable)` returning null stays `high`, since there null cannot be
+  told apart from a crash. A project that configured SL107 lower than `low`
+  keeps its own setting. Reported in #18.
+- **SL207 counts collaborators, not the data a class is built from.** A
+  constructor parameter typed as an enum, a value object (a `readonly` class,
+  or one built only from readonly promoted properties), an Eloquent model, a
+  date (`Carbon`, `DateTimeImmutable`, ...) or a `Collection` no longer counts
+  as a dependency. A domain entity taking its fields was being reported as an
+  over-coupled service: all 38 SL207 findings in #18 were entities or value
+  objects.
+- **A lookup table is one decision, not one per row.** A `match` whose arms
+  all map constants to constants (literals, constants, enum cases, arrays of
+  those), or a `switch` whose cases only `return` such a value, adds 1 to
+  cyclomatic complexity instead of 1 per arm, and its lines no longer count
+  towards SL101's size signal. An enum's `label()` with 53 cases was reported
+  at complexity 54, and a calling-code lookup at 206. A `match` with any arm
+  that computes something is counted as before. This affects SL101 and SL201.
+- **SL301 leaves framework conventions out of a layer stack.** A class that
+  extends an Eloquent `Factory`, a Fractal `TransformerAbstract`, an API
+  resource, a form request, a seeder or a service provider -- directly or
+  through a project base class -- is one class the framework expects per
+  concept, not indirection the team added. It no longer counts as a layer or
+  gets reported. The list is SL301's new `convention_bases` option, where a
+  project can add its own pattern bases, such as a data mapper base. 89 of
+  the 110 SL301 findings in #18 were factories and transformers.
+- **SL303 names the implementation in full when it shares the abstraction's
+  short name.** `Domain\ChargeRepository` implemented by
+  `Infrastructure\ChargeRepository` was reported as "implemented only by
+  ChargeRepository", which reads as an interface implementing itself.
+
+### Changed
+
+- **Test directories are excluded by default.** `tests` and `Tests` join the
+  default `exclude` list, so module layouts such as `Modules/Billing/Tests`
+  are skipped too. Long setup, many public methods and near-identical bodies
+  are what good tests look like, and they made up 60 percent of the first-run
+  findings in #18. Projects with their own `exclude` list keep it as is.
+- **Module layouts' migrations, factories and seeders are excluded by
+  default.** `Database/Migrations`, `Database/Factories` and
+  `Database/Seeders` join the list, so nwidart modules
+  (`Modules/Billing/Database/Migrations`) are skipped like
+  `database/migrations` already was. Chunked backfills in module migrations
+  were the largest share of SL204 findings in #18.
+
 ## [0.8.0] — 2026-09-23
 
 ### Added
@@ -700,7 +766,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/heyosseus/sloppy/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/heyosseus/sloppy/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/heyosseus/sloppy/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/heyosseus/sloppy/compare/v0.5.1...v0.6.0

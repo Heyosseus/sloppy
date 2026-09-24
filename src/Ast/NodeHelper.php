@@ -45,6 +45,7 @@ use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Interface_;
 use PhpParser\Node\Stmt\Nop;
 use PhpParser\Node\Stmt\Property;
+use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\Stmt\Switch_;
 use PhpParser\Node\Stmt\Trait_;
 use PhpParser\Node\Stmt\TryCatch;
@@ -531,7 +532,25 @@ final class NodeHelper
     {
         $complexity = 1;
 
+        /** @var array<int, true> $tables Switches that are lookup tables, by object id. */
+        $tables = [];
+
+        foreach (self::find($node, Switch_::class) as $switch) {
+            if (self::isLookupTable($switch)) {
+                $tables[spl_object_id($switch)] = true;
+                $complexity++;
+
+                foreach ($switch->cases as $case) {
+                    $tables[spl_object_id($case)] = true;
+                }
+            }
+        }
+
         foreach (self::find($node, Node::class) as $child) {
+            if (isset($tables[spl_object_id($child)])) {
+                continue;
+            }
+
             $complexity += match (true) {
                 $child instanceof If_,
                 $child instanceof ElseIf_,
@@ -546,12 +565,101 @@ final class NodeHelper
                 $child instanceof BinaryOp\LogicalAnd,
                 $child instanceof BinaryOp\LogicalOr => 1,
                 $child instanceof Case_ => $child->cond instanceof Expr ? 1 : 0,
-                $child instanceof Match_ => count($child->arms),
+                $child instanceof Match_ => self::isLookupTable($child) ? 1 : count($child->arms),
                 default => 0,
             };
         }
 
         return $complexity;
+    }
+
+    /**
+     * Whether a match or switch only maps constant values to constant values,
+     * like an enum's `label()` or a country-code lookup. A table like that is
+     * one decision, however many rows it has: the reader checks a row, not a
+     * path per arm.
+     */
+    public static function isLookupTable(Match_|Switch_ $node): bool
+    {
+        if ($node instanceof Match_) {
+            foreach ($node->arms as $arm) {
+                foreach ([...$arm->conds ?? [], $arm->body] as $expr) {
+                    if (! self::isConstantValue($expr)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        foreach ($node->cases as $case) {
+            if ($case->cond instanceof Expr && ! self::isConstantValue($case->cond)) {
+                return false;
+            }
+
+            $statements = array_values(array_filter(
+                $case->stmts,
+                static fn (Stmt $statement): bool => ! $statement instanceof Nop,
+            ));
+
+            // An empty case falls through to the next one's value.
+            if ($statements === []) {
+                continue;
+            }
+
+            if (count($statements) !== 1
+                || ! $statements[0] instanceof Return_
+                || ! $statements[0]->expr instanceof Expr
+                || ! self::isConstantValue($statements[0]->expr)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Lines taken up by lookup tables inside a node, so a size measure can
+     * leave out rows of data. Tables never nest: every arm of one is a
+     * constant, and a table is not.
+     */
+    public static function lookupTableLines(Node $node): int
+    {
+        $lines = 0;
+
+        foreach ([...self::find($node, Match_::class), ...self::find($node, Switch_::class)] as $table) {
+            if (self::isLookupTable($table)) {
+                $lines += self::lineSpan($table);
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * A literal, a constant, a class constant or enum case, or an array of
+     * those.
+     */
+    private static function isConstantValue(Expr $expr): bool
+    {
+        if ($expr instanceof Expr\UnaryMinus || $expr instanceof Expr\UnaryPlus) {
+            return self::isConstantValue($expr->expr);
+        }
+
+        if ($expr instanceof Expr\Array_) {
+            foreach ($expr->items as $item) {
+                if (! self::isConstantValue($item->value) || ($item->key instanceof Expr && ! self::isConstantValue($item->key))) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return ($expr instanceof Scalar && ! $expr instanceof Scalar\InterpolatedString)
+            || $expr instanceof Expr\ConstFetch
+            || ($expr instanceof ClassConstFetch && $expr->class instanceof Name && $expr->name instanceof Identifier);
     }
 
     /**

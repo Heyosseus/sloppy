@@ -9,6 +9,7 @@ use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\ClassSummary;
 use Heyosseus\Sloppy\Ast\NodeHelper;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Rules\BaseRule;
 
 /**
@@ -23,6 +24,24 @@ use Heyosseus\Sloppy\Rules\BaseRule;
  */
 final class AbstractionInflationRule extends BaseRule
 {
+    /**
+     * Base classes a framework expects one subclass of per concept. A class
+     * extending one, directly or through a project base class, is a
+     * convention the team adopted, not a layer it added, so it neither counts
+     * towards a stack nor gets reported.
+     *
+     * @var list<string>
+     */
+    public const array CONVENTION_BASES = [
+        \Illuminate\Database\Eloquent\Factories\Factory::class,
+        \Illuminate\Database\Seeder::class,
+        \Illuminate\Foundation\Http\FormRequest::class,
+        \Illuminate\Http\Resources\Json\JsonResource::class,
+        \Illuminate\Http\Resources\Json\ResourceCollection::class,
+        \Illuminate\Support\ServiceProvider::class,
+        'League\Fractal\TransformerAbstract',
+    ];
+
     public function id(): string
     {
         return 'SL301';
@@ -62,7 +81,7 @@ final class AbstractionInflationRule extends BaseRule
         $minSignals = max(1, $this->intOption('min_signals', 2));
         $maxStatements = max(1, $this->intOption('trivial_max_statements', 12));
         $maxMethods = max(1, $this->intOption('trivial_max_methods', 3));
-        $stacks = LayerStack::group($context->index, $this->listOption('layer_suffixes', LayerStack::LAYER_SUFFIXES));
+        $stacks = $this->stacks($context->index);
 
         foreach ($context->classLikes() as $classLike) {
             $fqn = NodeHelper::className($classLike);
@@ -133,6 +152,46 @@ final class AbstractionInflationRule extends BaseRule
                 );
             }
         }
+    }
+
+    /**
+     * The project's layer stacks, without the members that are framework
+     * conventions.
+     *
+     * @return array<string, LayerStack>
+     */
+    private function stacks(ProjectIndex $index): array
+    {
+        $bases = $this->listOption('convention_bases', self::CONVENTION_BASES);
+        $isConvention = fn (ClassSummary $member): bool => $this->extendsAny($index, $member, $bases);
+
+        return array_map(
+            static fn (LayerStack $stack): LayerStack => $stack->without($isConvention),
+            LayerStack::group($index, $this->listOption('layer_suffixes', LayerStack::LAYER_SUFFIXES)),
+        );
+    }
+
+    /**
+     * Whether a class extends one of the given bases, following parents
+     * through the index for as long as the project declares them.
+     *
+     * @param  list<string>  $bases
+     */
+    private function extendsAny(ProjectIndex $index, ClassSummary $member, array $bases): bool
+    {
+        $seen = [];
+        $parent = $member->parent;
+
+        while ($parent !== null && ! isset($seen[$parent])) {
+            if (in_array($parent, $bases, true)) {
+                return true;
+            }
+
+            $seen[$parent] = true;
+            $parent = $index->class($parent)?->parent;
+        }
+
+        return false;
     }
 
     /**

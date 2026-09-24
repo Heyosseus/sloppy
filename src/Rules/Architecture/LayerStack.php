@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Rules\Architecture;
 
+use Closure;
 use Heyosseus\Sloppy\Ast\ClassSummary;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 
@@ -122,5 +123,18 @@ final readonly class LayerStack
         }
 
         return null;
+    }
+
+    /**
+     * The same stack without the members a predicate rejects.
+     *
+     * @param  Closure(ClassSummary): bool  $exclude
+     */
+    public function without(Closure $exclude): self
+    {
+        return new self($this->noun, array_values(array_filter(
+            $this->members,
+            static fn (ClassSummary $member): bool => ! $exclude($member),
+        )));
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Rules\Php\UnusedConstructorDependencyRule;
+use Heyosseus\Sloppy\Tests\Support\RuleTester;
 
 function unusedDependency(): UnusedConstructorDependencyRule
 {
@@ -199,4 +200,146 @@ it('reports a protected property only when nothing extends the class', function 
             'app/Base.php' => $code,
             'app/Child.php' => "namespace App;\n\nclass Child extends Base {}",
         ]))->toBeEmpty();
+});
+
+it('does not flag a dependency read by a trait the class uses', function (): void {
+    expect(findingsAcross(unusedDependency(), [
+        'app/HasIdentity.php' => <<<'PHP'
+        namespace App;
+
+        trait HasIdentity
+        {
+            public function getId(): Identity
+            {
+                return $this->id;
+            }
+        }
+        PHP,
+        'app/Resident.php' => <<<'PHP'
+        namespace App;
+
+        final class Resident
+        {
+            use HasIdentity;
+
+            public function __construct(private Identity $id) {}
+        }
+        PHP,
+    ]))->toBeEmpty();
+});
+
+it('does not flag a dependency read by a trait used through another trait', function (): void {
+    expect(findingsAcross(unusedDependency(), [
+        'app/Traits.php' => <<<'PHP'
+        namespace App;
+
+        trait ResolvesPaymentAmount
+        {
+            public function amount(): int
+            {
+                return $this->stripe->amount();
+            }
+        }
+
+        trait BuildsPayments
+        {
+            use ResolvesPaymentAmount;
+        }
+        PHP,
+        'app/Charge.php' => <<<'PHP'
+        namespace App;
+
+        final class Charge
+        {
+            use BuildsPayments;
+
+            public function __construct(private Stripe $stripe) {}
+        }
+        PHP,
+    ]))->toBeEmpty();
+});
+
+it('still flags a dependency when the used trait reads something else', function (): void {
+    $found = findingsAcross(unusedDependency(), [
+        'app/HasIdentity.php' => <<<'PHP'
+        namespace App;
+
+        trait HasIdentity
+        {
+            public function getId(): Identity
+            {
+                return $this->id;
+            }
+        }
+        PHP,
+        'app/Resident.php' => <<<'PHP'
+        namespace App;
+
+        final class Resident
+        {
+            use HasIdentity;
+
+            public function __construct(
+                private Identity $id,
+                private Mailer $mailer,
+            ) {}
+        }
+        PHP,
+    ]);
+
+    expect(RuleTester::fingerprints($found))->toBe(['Resident::$mailer']);
+});
+
+it('stays quiet when a used trait reaches members dynamically', function (): void {
+    expect(findingsAcross(unusedDependency(), [
+        'app/Magic.php' => <<<'PHP'
+        namespace App;
+
+        trait Magic
+        {
+            public function read(string $name): mixed
+            {
+                return $this->{$name};
+            }
+        }
+        PHP,
+        'app/Resident.php' => <<<'PHP'
+        namespace App;
+
+        final class Resident
+        {
+            use Magic;
+
+            public function __construct(private Mailer $mailer) {}
+        }
+        PHP,
+    ]))->toBeEmpty();
+});
+
+it('does not count a trait writing the property as reading it', function (): void {
+    $found = findingsAcross(unusedDependency(), [
+        'app/ResetsMailer.php' => <<<'PHP'
+        namespace App;
+
+        trait ResetsMailer
+        {
+            public function reset(Mailer $mailer): void
+            {
+                $this->mailer = $mailer;
+            }
+        }
+        PHP,
+        'app/Resident.php' => <<<'PHP'
+        namespace App;
+
+        final class Resident
+        {
+            use ResetsMailer;
+
+            public function __construct(private Mailer $mailer) {}
+        }
+        PHP,
+    ]);
+
+    expect(RuleTester::fingerprints($found))->toBe(['Resident::$mailer']);
 });

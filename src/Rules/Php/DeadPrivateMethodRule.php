@@ -54,7 +54,8 @@ final class DeadPrivateMethodRule extends BaseRule
     public function explanation(): string
     {
         return 'A private method can only be called from within its own class, so an unreferenced one is very '
-            .'likely dead: it still has to be read, understood and kept compiling. Anything that could be reached '
+            .'likely dead: it still has to be read, understood and kept compiling. Calls from traits the class '
+            .'uses count as callers. Anything that could be reached '
             .'indirectly -- magic methods, dynamic calls, a name appearing as a string, attributes -- is skipped '
             .'rather than guessed at.';
     }
@@ -94,7 +95,13 @@ final class DeadPrivateMethodRule extends BaseRule
                 continue;
             }
 
-            $called = $this->calledNames($classLike);
+            $traitCalls = $this->traitCalls($context, NodeHelper::className($classLike));
+
+            if ($traitCalls === null) {
+                continue;
+            }
+
+            $called = $this->calledNames($classLike) + $traitCalls;
             $literals = $this->stringLiterals($classLike);
 
             foreach ($methods as $method) {
@@ -175,6 +182,31 @@ final class DeadPrivateMethodRule extends BaseRule
                 if ($name !== null) {
                     $names[mb_strtolower($name)] = true;
                 }
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Method names called, or named in a string, by the traits the class uses,
+     * directly or through other traits. A trait can call a private method of
+     * the class that composes it, often one it declares `abstract private`.
+     * Null when a trait calls dynamically and so could call anything.
+     *
+     * @return array<string, true>|null
+     */
+    private function traitCalls(AnalysisContext $context, ?string $fqn): ?array
+    {
+        $names = [];
+
+        foreach ($fqn === null ? [] : $context->index->traitsOf($fqn) as $trait) {
+            if ($trait->hasDynamicAccess) {
+                return null;
+            }
+
+            foreach ($trait->calledNames as $name) {
+                $names[$name] = true;
             }
         }
 

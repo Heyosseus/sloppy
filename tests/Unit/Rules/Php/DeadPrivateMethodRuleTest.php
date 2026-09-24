@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Rules\Php\DeadPrivateMethodRule;
+use Heyosseus\Sloppy\Tests\Support\RuleTester;
 
 function deadPrivate(): DeadPrivateMethodRule
 {
@@ -155,4 +156,130 @@ it('does not flag protected or public methods', function (): void {
         protected function unusedProtected(): void {}
     }
     PHP))->toBeEmpty();
+});
+
+it('does not flag a private method called from a trait the class uses', function (): void {
+    // The trait declares `abstract private function filter()` and calls it;
+    // the class supplies the body. The call site lives in the trait.
+    expect(findingsAcross(deadPrivate(), [
+        'app/FiltersQueries.php' => <<<'PHP'
+        namespace App;
+
+        trait FiltersQueries
+        {
+            abstract private function filter(Builder $query): Builder;
+
+            public function apply(Builder $query): Builder
+            {
+                return $this->filter($query);
+            }
+        }
+        PHP,
+        'app/ActiveResidents.php' => <<<'PHP'
+        namespace App;
+
+        final class ActiveResidents
+        {
+            use FiltersQueries;
+
+            private function filter(Builder $query): Builder
+            {
+                return $query->where('active', true);
+            }
+        }
+        PHP,
+    ]))->toBeEmpty();
+});
+
+it('still flags a private method the used trait does not call', function (): void {
+    $found = findingsAcross(deadPrivate(), [
+        'app/FiltersQueries.php' => <<<'PHP'
+        namespace App;
+
+        trait FiltersQueries
+        {
+            public function apply(Builder $query): Builder
+            {
+                return $this->filter($query);
+            }
+        }
+        PHP,
+        'app/ActiveResidents.php' => <<<'PHP'
+        namespace App;
+
+        final class ActiveResidents
+        {
+            use FiltersQueries;
+
+            private function filter(Builder $query): Builder
+            {
+                return $query->where('active', true);
+            }
+
+            private function legacy(): void {}
+        }
+        PHP,
+    ]);
+
+    expect(RuleTester::fingerprints($found))->toBe(['ActiveResidents::legacy']);
+});
+
+it('does not flag a private method a used trait names as a callback', function (): void {
+    expect(findingsAcross(deadPrivate(), [
+        'app/SortsRows.php' => <<<'PHP'
+        namespace App;
+
+        trait SortsRows
+        {
+            public function sorted(array $rows): array
+            {
+                usort($rows, [$this, 'compare']);
+
+                return $rows;
+            }
+        }
+        PHP,
+        'app/Report.php' => <<<'PHP'
+        namespace App;
+
+        final class Report
+        {
+            use SortsRows;
+
+            private function compare(array $a, array $b): int
+            {
+                return $a['total'] <=> $b['total'];
+            }
+        }
+        PHP,
+    ]))->toBeEmpty();
+});
+
+it('stays quiet when a used trait calls methods dynamically', function (): void {
+    expect(findingsAcross(deadPrivate(), [
+        'app/Dispatches.php' => <<<'PHP'
+        namespace App;
+
+        trait Dispatches
+        {
+            public function dispatch(string $method): mixed
+            {
+                return $this->{$method}();
+            }
+        }
+        PHP,
+        'app/Report.php' => <<<'PHP'
+        namespace App;
+
+        final class Report
+        {
+            use Dispatches;
+
+            private function monthly(): array
+            {
+                return [];
+            }
+        }
+        PHP,
+    ]))->toBeEmpty();
 });

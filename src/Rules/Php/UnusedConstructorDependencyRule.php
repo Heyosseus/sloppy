@@ -49,6 +49,7 @@ final class UnusedConstructorDependencyRule extends BaseRule
         return 'An unused dependency still has to be constructed and resolved, and it misleads the next reader '
             .'about what the class actually needs. Only private properties are reported outright: a public one is '
             .'part of the class\'s API and any caller may read it, and a protected one belongs to subclasses. '
+            .'Reads inside traits the class uses count as uses. '
             .'Dependencies that could be consumed indirectly -- through a parent class, dynamic property access '
             .'or an attribute -- are skipped rather than guessed at.';
     }
@@ -82,6 +83,12 @@ final class UnusedConstructorDependencyRule extends BaseRule
             }
 
             $fqn = NodeHelper::className($classLike);
+            $traitReads = $this->traitReads($context, $fqn);
+
+            if ($traitReads === null) {
+                continue;
+            }
+
             $hasSubclasses = $fqn !== null && $context->index->implementationsOf($fqn) !== [];
             $declaredVisibility = $this->propertyVisibility($classLike);
 
@@ -109,7 +116,7 @@ final class UnusedConstructorDependencyRule extends BaseRule
                     continue;
                 }
 
-                if ($this->isUsed($classLike, $constructor, $propertyName, $paramName)) {
+                if (isset($traitReads[$propertyName]) || $this->isUsed($classLike, $constructor, $propertyName, $paramName)) {
                     continue;
                 }
 
@@ -135,6 +142,30 @@ final class UnusedConstructorDependencyRule extends BaseRule
                 );
             }
         }
+    }
+
+    /**
+     * Properties read by the traits the class uses, directly or through other
+     * traits. A trait's methods run as the class's own, so those reads are
+     * uses. Null when a trait reads dynamically and so could read anything.
+     *
+     * @return array<string, true>|null
+     */
+    private function traitReads(AnalysisContext $context, ?string $fqn): ?array
+    {
+        $reads = [];
+
+        foreach ($fqn === null ? [] : $context->index->traitsOf($fqn) as $trait) {
+            if ($trait->hasDynamicAccess) {
+                return null;
+            }
+
+            foreach ($trait->propertyReads as $property) {
+                $reads[$property] = true;
+            }
+        }
+
+        return $reads;
     }
 
     /**

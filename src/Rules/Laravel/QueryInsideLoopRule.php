@@ -10,6 +10,9 @@ use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node;
+use PhpParser\Node\Expr\ArrayDimFetch;
+use PhpParser\Node\Expr\AssignOp\Coalesce;
+use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Expr\StaticCall;
 
 /**
@@ -81,6 +84,10 @@ final class QueryInsideLoopRule extends LaravelRule
                     continue;
                 }
 
+                if ($this->isMemoized($chainEnd)) {
+                    continue;
+                }
+
                 $subject = NodeHelper::baseName(NodeHelper::staticCallClass($call) ?? 'query');
                 $method = NodeHelper::enclosingMethod($call);
                 $methodName = $method?->name->toString() ?? 'closure';
@@ -118,5 +125,19 @@ final class QueryInsideLoopRule extends LaravelRule
                 );
             }
         }
+    }
+
+    /**
+     * Whether the query fills a keyed cache only when the key is missing --
+     * `$units[$code] ??= Unit::where(...)->first()`. That runs once per
+     * distinct key, not once per iteration.
+     */
+    private function isMemoized(Node $chainEnd): bool
+    {
+        $parent = $chainEnd->getAttribute('parent');
+
+        return $parent instanceof Coalesce
+            && $parent->expr === $chainEnd
+            && ($parent->var instanceof ArrayDimFetch || $parent->var instanceof PropertyFetch);
     }
 }

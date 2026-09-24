@@ -115,6 +115,10 @@ abstract class BaseRule implements Rule
     /**
      * Build a finding, filling in everything derivable from the rule itself.
      *
+     * A rule may pass a severity for one finding it knows to be milder than
+     * its usual case. It only ever lowers: a project that configured the rule
+     * lower still gets its own setting.
+     *
      * @param  array<string, string|int|float|bool>  $metrics
      */
     protected function report(
@@ -125,12 +129,15 @@ abstract class BaseRule implements Rule
         int $confidence,
         string $fingerprint,
         array $metrics = [],
+        ?Severity $severity = null,
     ): Finding {
+        $configured = $this->severity();
+
         return new Finding(
             ruleId: $this->id(),
             ruleName: $this->name(),
             category: $this->category(),
-            severity: $this->severity(),
+            severity: $severity instanceof Severity && $severity->rank() > $configured->rank() ? $severity : $configured,
             confidence: $confidence,
             location: $at instanceof Location ? $at : $context->locate($at),
             message: $message,
