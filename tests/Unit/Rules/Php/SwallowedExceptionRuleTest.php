@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Rules\Php\SwallowedExceptionRule;
 
@@ -162,4 +163,129 @@ it('gives two swallowing catches in one method distinct identities', function ()
 
     expect($found)->toHaveCount(2)
         ->and($found[0]->identity())->not->toBe($found[1]->identity());
+});
+
+it('rates a bool predicate that answers false on failure as low', function (): void {
+    // `false` is the documented "no" of a predicate, so the caller is told.
+    $found = findings(swallowed(), <<<'PHP'
+    class PhoneNumbers
+    {
+        public function isValid(string $number): bool
+        {
+            try {
+                return $this->parser->parse($number)->isValid();
+            } catch (\Throwable $e) {
+                return false;
+            }
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->severity)->toBe(Severity::Low);
+});
+
+it('rates a narrow catch that rejects with null from a nullable method as low', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    class Tokens
+    {
+        public function verify(string $token): ?Payload
+        {
+            try {
+                return $this->jwt->decode($token);
+            } catch (JWTException $e) {
+                return null;
+            }
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->severity)->toBe(Severity::Low);
+});
+
+it('keeps a broad catch returning null from a nullable method high', function (): void {
+    // Null here cannot be told apart from "nothing found": a crash in the
+    // parser and an empty file look the same to the caller.
+    $found = findings(swallowed(), <<<'PHP'
+    class Importer
+    {
+        public function read(string $path): ?array
+        {
+            try {
+                return $this->parse($path);
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+    }
+    PHP);
+
+    expect($found[0]->severity)->toBe(Severity::High);
+});
+
+it('keeps a rejecting catch high when the return type does not admit the value', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    class Tokens
+    {
+        public function verify(string $token): Payload|false
+        {
+            try {
+                return $this->jwt->decode($token);
+            } catch (JWTException $e) {
+                return null;
+            }
+        }
+
+        public function check(string $token): bool
+        {
+            try {
+                return $this->jwt->valid($token);
+            } catch (JWTException $e) {
+                return null;
+            }
+        }
+    }
+    PHP);
+
+    expect(array_map(static fn (Finding $finding): Severity => $finding->severity, $found))
+        ->toBe([Severity::High, Severity::High]);
+});
+
+it('judges a catch inside a closure by the closure return type', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    class Tokens
+    {
+        public function valid(array $tokens): array
+        {
+            return array_filter($tokens, function (string $token): bool {
+                try {
+                    return $this->jwt->valid($token);
+                } catch (JWTException $e) {
+                    return false;
+                }
+            });
+        }
+    }
+    PHP);
+
+    expect($found[0]->severity)->toBe(Severity::Low);
+});
+
+it('never raises a severity the project lowered further', function (): void {
+    $found = findings(new SwallowedExceptionRule(['severity' => 'info']), <<<'PHP'
+    class PhoneNumbers
+    {
+        public function isValid(string $number): bool
+        {
+            try {
+                return $this->parser->parse($number)->isValid();
+            } catch (\Throwable $e) {
+                return false;
+            }
+        }
+    }
+    PHP);
+
+    expect($found[0]->severity)->toBe(Severity::Info);
 });

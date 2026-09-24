@@ -69,7 +69,105 @@ describe('metrics', function (): void {
             ->and(NodeHelper::lineSpan($method))->toBe(12);
     });
 
-    it('counts match arms towards complexity', function (): void {
+    it('counts match arms that compute something towards complexity', function (): void {
+        $method = firstMethod(<<<'PHP'
+        class A
+        {
+            public function go(string $kind): int
+            {
+                return match ($kind) {
+                    'a' => $this->first(),
+                    'b' => 2,
+                    default => 0,
+                };
+            }
+        }
+        PHP);
+
+        expect(NodeHelper::cyclomaticComplexity($method))->toBe(4);
+    });
+
+    it('counts a lookup table as one decision however many arms it has', function (): void {
+        // Every arm maps a literal to a literal: the reader checks one row,
+        // not one path per arm.
+        $method = firstMethod(<<<'PHP'
+        class A
+        {
+            public function go(string $kind): int
+            {
+                $weight = match ($kind) {
+                    'a' => 1,
+                    'b' => -2,
+                    'c', 'd' => self::HEAVY,
+                    'e' => Status::Open,
+                    'f' => ['x', 1],
+                    default => null,
+                };
+
+                switch ($kind) {
+                    case 'a':
+                        return 1;
+                    case 'b':
+                    case 'c':
+                        return Status::Open;
+                    default:
+                        return 0;
+                }
+            }
+        }
+        PHP);
+
+        // 1 base + 1 for the match + 1 for the switch.
+        expect(NodeHelper::cyclomaticComplexity($method))->toBe(3);
+    });
+
+    it('does not treat a switch that does work in its cases as a lookup table', function (): void {
+        $method = firstMethod(<<<'PHP'
+        class A
+        {
+            public function go(string $kind): void
+            {
+                switch ($kind) {
+                    case 'a':
+                        $this->a();
+                        break;
+                    case 'b':
+                        return;
+                }
+            }
+        }
+        PHP);
+
+        expect(NodeHelper::cyclomaticComplexity($method))->toBe(3);
+    });
+
+    it('does not treat a table with a computed key or value as a lookup table', function (): void {
+        $method = firstMethod(<<<'PHP'
+        class A
+        {
+            public function go(string $kind, int $limit): array
+            {
+                $row = match ($kind) {
+                    'a' => ['limit' => $limit],
+                    default => [],
+                };
+
+                switch ($kind) {
+                    case self::prefix().'b':
+                        return 1;
+                }
+
+                return $row;
+            }
+        }
+        PHP);
+
+        // 1 base + 2 match arms + 1 case.
+        expect(NodeHelper::cyclomaticComplexity($method))->toBe(4)
+            ->and(NodeHelper::lookupTableLines($method))->toBe(0);
+    });
+
+    it('measures how many lines lookup tables take up', function (): void {
         $method = firstMethod(<<<'PHP'
         class A
         {
@@ -84,7 +182,7 @@ describe('metrics', function (): void {
         }
         PHP);
 
-        expect(NodeHelper::cyclomaticComplexity($method))->toBe(4);
+        expect(NodeHelper::lookupTableLines($method))->toBe(5);
     });
 
     it('counts calls and distinct collaborators', function (): void {

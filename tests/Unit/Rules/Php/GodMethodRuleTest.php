@@ -134,3 +134,24 @@ it('ignores abstract and interface methods that have no body', function (): void
     }
     PHP))->toBeEmpty();
 });
+
+it('does not flag a method that is one long lookup table', function (): void {
+    // A country calling-code lookup: 200 arms, every one a literal.
+    $arms = implode("\n", array_map(
+        static fn (int $i): string => sprintf("                'C%d' => '+%d',", $i, $i),
+        range(1, 200),
+    ));
+
+    expect(findings(godMethod(), <<<PHP
+    class CallingCodes
+    {
+        public function for(string \$country): ?string
+        {
+            return match (\$country) {
+    $arms
+                default => null,
+            };
+        }
+    }
+    PHP))->toBeEmpty();
+});

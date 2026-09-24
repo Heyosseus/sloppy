@@ -224,3 +224,41 @@ it('still flags a class the project knows is a model', function (): void {
         SNIPPET,
     ]))->toHaveCount(1);
 });
+
+it('does not flag a lookup memoized with ??=', function (): void {
+    // Each key is queried once however many rows share it, which is the
+    // in-memory lookup the suggestion asks for, built lazily.
+    expect(findings(queryInLoop(), <<<'PHP'
+    class Importer
+    {
+        private array $residents = [];
+
+        public function import(array $rows): void
+        {
+            $units = [];
+
+            foreach ($rows as $row) {
+                $units[$row['unit']] ??= Unit::where('code', $row['unit'])->first();
+                $this->residents[$row['email']] ??= Resident::find($row['email']);
+            }
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('still flags a keyed assignment that is not memoized', function (): void {
+    // `=` runs the query on every row; only `??=` skips keys already seen.
+    $found = findings(queryInLoop(), <<<'PHP'
+    class Importer
+    {
+        public function import(array $rows): void
+        {
+            foreach ($rows as $row) {
+                $row['unit_id'] = Unit::where('code', $row['unit'])->value('id');
+            }
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1);
+});
