@@ -9,6 +9,7 @@ use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
+use PhpParser\Node\Stmt\ClassMethod;
 
 /**
  * SL101 -- methods that have grown into several methods wearing one name.
@@ -34,7 +35,9 @@ final class GodMethodRule extends BaseRule
     {
         return 'A method this size usually holds several unrelated responsibilities, which makes it hard to '
             .'name, hard to test in isolation and hard to change without reading all of it. Length alone is not '
-            .'the problem: this fires when size, branching and the number of collaborators grow together.';
+            .'the problem: this fires when size, branching and the number of collaborators grow together. A '
+            .'lookup table -- a match or switch mapping constants to constants -- counts as one decision, and its '
+            .'rows do not count towards size.';
     }
 
     public function category(): Category
@@ -65,15 +68,18 @@ final class GodMethodRule extends BaseRule
                     continue;
                 }
 
-                $lines = NodeHelper::lineSpan($method);
-                $complexity = NodeHelper::cyclomaticComplexity($method);
-                $statements = NodeHelper::countStatements($method);
-                $nesting = NodeHelper::maxNestingDepth($method);
-                $calls = NodeHelper::countCalls($method);
-                $collaborators = NodeHelper::countDistinctCallTargets($method);
+                [
+                    'lines' => $lines,
+                    'logic_lines' => $logicLines,
+                    'complexity' => $complexity,
+                    'statements' => $statements,
+                    'nesting' => $nesting,
+                    'calls' => $calls,
+                    'collaborators' => $collaborators,
+                ] = $this->measure($method);
 
                 $signals = [
-                    $lines > $maxLines,
+                    $logicLines > $maxLines,
                     $complexity > $maxComplexity,
                     $statements > $maxStatements,
                     $nesting > $maxNesting,
@@ -86,7 +92,7 @@ final class GodMethodRule extends BaseRule
                 // A single measurement can carry a finding on its own only when
                 // it is off the scale -- a 200 line method is a god method even
                 // if every line is a simple assignment.
-                $overwhelming = $lines > $maxLines * 2 || $complexity > $maxComplexity * 2;
+                $overwhelming = $logicLines > $maxLines * 2 || $complexity > $maxComplexity * 2;
 
                 if ($triggered < $minSignals && ! $overwhelming) {
                     continue;
@@ -129,5 +135,24 @@ final class GodMethodRule extends BaseRule
                 );
             }
         }
+    }
+
+    /**
+     * @return array{lines: int, logic_lines: int, complexity: int, statements: int, nesting: int, calls: int, collaborators: int}
+     */
+    private function measure(ClassMethod $method): array
+    {
+        $lines = NodeHelper::lineSpan($method);
+
+        return [
+            'lines' => $lines,
+            // Rows of a lookup table are data, not logic to follow.
+            'logic_lines' => $lines - NodeHelper::lookupTableLines($method),
+            'complexity' => NodeHelper::cyclomaticComplexity($method),
+            'statements' => NodeHelper::countStatements($method),
+            'nesting' => NodeHelper::maxNestingDepth($method),
+            'calls' => NodeHelper::countCalls($method),
+            'collaborators' => NodeHelper::countDistinctCallTargets($method),
+        ];
     }
 }

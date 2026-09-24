@@ -541,7 +541,8 @@ return [
     'exclude' => [
         'vendor', 'storage', 'bootstrap/cache', 'node_modules', 'public',
         'database/migrations', 'database/factories', 'database/seeders',
-        '*.blade.php',
+        'Database/Migrations', 'Database/Factories', 'Database/Seeders',
+        'tests', 'Tests', '*.blade.php',
     ],
 
     // Lowest severity that fails the command, or null to never fail.

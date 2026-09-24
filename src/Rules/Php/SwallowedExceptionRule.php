@@ -11,6 +11,7 @@ use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\NullsafeMethodCall;
@@ -18,9 +19,11 @@ use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\StaticPropertyFetch;
 use PhpParser\Node\Expr\Throw_;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\Echo_;
 use PhpParser\Node\Stmt\Nop;
+use PhpParser\Node\Stmt\Return_;
 
 /**
  * SL107 -- catch blocks where the failure goes nowhere.
@@ -60,7 +63,9 @@ final class SwallowedExceptionRule extends BaseRule
     {
         return 'A catch block that does nothing observable turns a failure into a silent wrong answer: the caller '
             .'sees null or false and cannot tell a genuine empty result from a crash, and nothing is recorded for '
-            .'anyone to investigate later. Catches that log, report, rethrow or record state are not flagged.';
+            .'anyone to investigate later. Catches that log, report, rethrow or record state are not flagged. A '
+            .'catch that answers with the value its signature already uses for "no" -- false from a bool '
+            .'predicate, or null from a nullable function after a specific exception -- is rated low.';
     }
 
     public function category(): Category
@@ -122,6 +127,7 @@ final class SwallowedExceptionRule extends BaseRule
                         'empty_body' => $empty,
                         'broad_type' => $broad,
                     ],
+                    severity: $this->rejectsByContract($catch, $broad) ? Severity::Low : null,
                 );
             }
         }
@@ -136,6 +142,34 @@ final class SwallowedExceptionRule extends BaseRule
         // A narrow catch returning a fallback is a defensible pattern often
         // enough that we should not be strident about it.
         return $broad ? 84 : 66;
+    }
+
+    /**
+     * Whether the catch answers with the value the function's signature
+     * already uses for "no": `false` from a `bool` predicate, or `null` from a
+     * nullable return when only a specific exception was caught. The caller
+     * is told, so this is a parse-or-reject helper rather than a swallowed
+     * failure. A broad catch returning null stays serious -- there null cannot
+     * be told apart from a crash.
+     */
+    private function rejectsByContract(Catch_ $catch, bool $broad): bool
+    {
+        $statements = $this->meaningfulStatements($catch);
+        $function = NodeHelper::closestAncestor($catch, FunctionLike::class);
+
+        if (count($statements) !== 1 || ! $statements[0] instanceof Return_ || ! $function instanceof FunctionLike) {
+            return false;
+        }
+
+        $returned = $statements[0]->expr;
+        $value = $returned instanceof ConstFetch ? $returned->name->toLowerString() : null;
+        $type = mb_strtolower(NodeHelper::typeToString($function->getReturnType()) ?? '');
+
+        return match ($value) {
+            'false' => $type === 'bool',
+            'null' => ! $broad && (str_starts_with($type, '?') || in_array('null', explode('|', $type), true)),
+            default => false,
+        };
     }
 
     /**

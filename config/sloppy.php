@@ -63,6 +63,10 @@ return [
     |
     | Migrations and factories are excluded by default: they are legitimately
     | repetitive and long, and flagging them teaches people to ignore reports.
+    | Tests are excluded for the same reason -- long setup, many public methods
+    | and near-identical bodies are what good tests look like. The capitalised
+    | entries cover module layouts such as Modules/Billing/Database/Migrations
+    | and Modules/Billing/Tests.
     |
     */
 
@@ -75,6 +79,11 @@ return [
         'database/migrations',
         'database/factories',
         'database/seeders',
+        'Database/Migrations',
+        'Database/Factories',
+        'Database/Seeders',
+        'tests',
+        'Tests',
         '*.blade.php',
     ],
 
@@ -419,6 +428,19 @@ return [
             'min_signals' => 2,
             'trivial_max_statements' => 12,
             'trivial_max_methods' => 3,
+            // Classes extending one of these, directly or through your own
+            // base class, are a convention rather than a layer: they neither
+            // count towards a stack nor get reported. Add your project's own
+            // pattern bases here -- a data mapper base, say.
+            'convention_bases' => [
+                Illuminate\Database\Eloquent\Factories\Factory::class,
+                Illuminate\Database\Seeder::class,
+                Illuminate\Foundation\Http\FormRequest::class,
+                Illuminate\Http\Resources\Json\JsonResource::class,
+                Illuminate\Http\Resources\Json\ResourceCollection::class,
+                Illuminate\Support\ServiceProvider::class,
+                'League\Fractal\TransformerAbstract',
+            ],
         ],
 
         'SL302' => [
