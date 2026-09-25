@@ -163,35 +163,12 @@ final class AbstractionInflationRule extends BaseRule
     private function stacks(ProjectIndex $index): array
     {
         $bases = $this->listOption('convention_bases', self::CONVENTION_BASES);
-        $isConvention = fn (ClassSummary $member): bool => $this->extendsAny($index, $member, $bases);
+        $isConvention = static fn (ClassSummary $member): bool => $index->extendsAny($member->parent, $bases);
 
         return array_map(
             static fn (LayerStack $stack): LayerStack => $stack->without($isConvention),
             LayerStack::group($index, $this->listOption('layer_suffixes', LayerStack::LAYER_SUFFIXES)),
         );
-    }
-
-    /**
-     * Whether a class extends one of the given bases, following parents
-     * through the index for as long as the project declares them.
-     *
-     * @param  list<string>  $bases
-     */
-    private function extendsAny(ProjectIndex $index, ClassSummary $member, array $bases): bool
-    {
-        $seen = [];
-        $parent = $member->parent;
-
-        while ($parent !== null && ! isset($seen[$parent])) {
-            if (in_array($parent, $bases, true)) {
-                return true;
-            }
-
-            $seen[$parent] = true;
-            $parent = $index->class($parent)?->parent;
-        }
-
-        return false;
     }
 
     /**

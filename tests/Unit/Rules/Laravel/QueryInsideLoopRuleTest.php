@@ -262,3 +262,75 @@ it('still flags a keyed assignment that is not memoized', function (): void {
 
     expect($found)->toHaveCount(1);
 });
+
+it('gives write advice for a write inside a loop', function (): void {
+    $found = findings(queryInLoop(), <<<'PHP'
+    class Import
+    {
+        public function run(array $rows): void
+        {
+            foreach ($rows as $row) {
+                Branch::query()->create($row);
+            }
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->metrics['kind'])->toBe('write')
+        ->and($found[0]->message)->toContain('writes to Branch')
+        ->and($found[0]->suggestion)->toContain('insert(')
+        ->and($found[0]->suggestion)->toContain('upsert(')
+        ->and($found[0]->suggestion)->not->toContain('whereIn');
+});
+
+it('labels a read inside a loop as a read', function (): void {
+    $found = findings(queryInLoop(), <<<'PHP'
+    class Rows
+    {
+        public function build(array $ids): void
+        {
+            foreach ($ids as $id) {
+                Order::where('id', $id)->first();
+            }
+        }
+    }
+    PHP);
+
+    expect($found[0]->metrics['kind'])->toBe('read');
+});
+
+it('does not flag a bulk write over chunks', function (): void {
+    // One insert per chunk is the bulk pattern, not a query per row.
+    expect(findings(queryInLoop(), <<<'PHP'
+    class Import
+    {
+        public function run(array $rows, Collection $items): void
+        {
+            foreach (array_chunk($rows, 500) as $chunk) {
+                Branch::query()->insert($chunk);
+            }
+
+            foreach ($items->chunk(500) as $batch) {
+                DB::table('items')->upsert($batch->all(), ['id']);
+            }
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('still flags a per-row write inside a loop over chunks', function (): void {
+    expect(findings(queryInLoop(), <<<'PHP'
+    class Import
+    {
+        public function run(array $rows): void
+        {
+            foreach (array_chunk($rows, 500) as $chunk) {
+                foreach ($chunk as $row) {
+                    Branch::query()->create($row);
+                }
+            }
+        }
+    }
+    PHP))->toHaveCount(1);
+});

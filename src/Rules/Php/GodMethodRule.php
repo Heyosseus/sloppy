@@ -10,6 +10,8 @@ use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Expression;
+use PhpParser\Node\Stmt\Return_;
 
 /**
  * SL101 -- methods that have grown into several methods wearing one name.
@@ -37,7 +39,8 @@ final class GodMethodRule extends BaseRule
             .'name, hard to test in isolation and hard to change without reading all of it. Length alone is not '
             .'the problem: this fires when size, branching and the number of collaborators grow together. A '
             .'lookup table -- a match or switch mapping constants to constants -- counts as one decision, and its '
-            .'rows do not count towards size.';
+            .'rows do not count towards size. A method that is one statement building a value, such as a form or '
+            .'table definition, is only reported when it also branches or nests past the limits.';
     }
 
     public function category(): Category
@@ -89,6 +92,15 @@ final class GodMethodRule extends BaseRule
 
                 $triggered = count(array_filter($signals));
 
+                // One statement building a value -- a form schema, a table
+                // definition -- is configuration. However long the chain,
+                // there is nothing to follow unless it branches or nests.
+                $hasLogic = $complexity > $maxComplexity || $statements > $maxStatements || $nesting > $maxNesting;
+
+                if (! $hasLogic && $this->isDeclarative($method)) {
+                    continue;
+                }
+
                 // A single measurement can carry a finding on its own only when
                 // it is off the scale -- a 200 line method is a god method even
                 // if every line is a simple assignment.
@@ -135,6 +147,17 @@ final class GodMethodRule extends BaseRule
                 );
             }
         }
+    }
+
+    /**
+     * Whether the body is a single statement that returns or evaluates one
+     * expression, such as a fluent builder chain.
+     */
+    private function isDeclarative(ClassMethod $method): bool
+    {
+        $stmts = $method->stmts ?? [];
+
+        return count($stmts) === 1 && ($stmts[0] instanceof Return_ || $stmts[0] instanceof Expression);
     }
 
     /**

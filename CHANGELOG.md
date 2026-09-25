@@ -6,6 +6,48 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-09-25
+
+First stable release. The CLI, configuration keys, rule IDs, finding
+fingerprints and JSON output are now covered by semantic versioning.
+
+### Fixed
+
+- **SL203 no longer reads Collection methods as relations.** In
+  `$group->pluck('id')->toArray()` inside a loop over a grouped collection,
+  `pluck` was reported as a lazy-loaded relation with the suggestion
+  `->with('pluck')`. A name that is itself a Collection or query builder
+  method (`pluck`, `map`, `filter`, `where`, `count`...) is no longer taken
+  for a relation. Reported in #19.
+- **SL204 gives write advice for writes.** A `create()`, `update()` or
+  `insert()` inside a loop was told to use `whereIn(...)->get()->keyBy(...)`,
+  which only fixes reads. Writes now say "writes to" and suggest one
+  `insert($rows)` or `upsert($rows, ...)` after the loop, and findings carry a
+  `kind` metric of `read` or `write`. An `insert`, `insertOrIgnore` or
+  `upsert` once per chunk of `array_chunk(...)` or `->chunk(...)` is the bulk
+  pattern and is no longer reported. Reported in #22.
+- **SL101 no longer flags declarative builders.** A method that is a single
+  statement building a value, such as a Filament form or table definition,
+  was reported on line count, calls and collaborators alone. It is now only
+  reported when complexity, statement count or nesting is also over its
+  limit. Reported in #20.
+- **SL102 judges framework classes by what they do, not the surface the
+  framework gives them.** Reported in #23:
+  - Getters and fluent setters (`return $this->label;`,
+    `return $this->evaluate($this->label);`,
+    `$this->label = $label; return $this;`) no longer count towards the
+    method or public method count. They are reported as a separate
+    `accessors` metric.
+  - Classes extending a Filament resource, page, widget, action, form
+    component, table column or filter, or a Livewire component, directly or
+    through a project base class, get `framework_leniency` (1.5) times the
+    size limits, as models already did. The list is the new
+    `framework_bases` option.
+  - A class within both `max_dependencies` and `max_collaborators` needs one
+    more signal than `min_signals` before it is reported.
+  - The message no longer says "0 injected dependencies"; the count only
+    appears when there is at least one.
+
 ## [0.9.0] — 2026-09-24
 
 ### Fixed
@@ -766,7 +808,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/heyosseus/sloppy/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/heyosseus/sloppy/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/heyosseus/sloppy/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/heyosseus/sloppy/compare/v0.6.0...v0.7.0

@@ -177,6 +177,29 @@ final readonly class ProjectIndex
     }
 
     /**
+     * Whether a class is one of the given bases or extends one, following
+     * parents through the index for as long as the project declares them.
+     * Pass a class's parent to ask whether the class extends a base.
+     *
+     * @param  list<string>  $bases
+     */
+    public function extendsAny(?string $class, array $bases): bool
+    {
+        $seen = [];
+
+        while ($class !== null && ! isset($seen[$class])) {
+            if (in_array($class, $bases, true)) {
+                return true;
+            }
+
+            $seen[$class] = true;
+            $class = $this->classes[$class]->parent ?? null;
+        }
+
+        return false;
+    }
+
+    /**
      * Every indexed trait a class composes, including traits used by those
      * traits. Traits outside the analysed paths are not indexed and so are
      * not returned.

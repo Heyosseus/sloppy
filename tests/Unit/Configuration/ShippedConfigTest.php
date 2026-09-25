@@ -74,3 +74,9 @@ it('ships the same SL301 convention bases the rule defaults to', function (): vo
 
     expect($config['rules']['SL301']['convention_bases'])->toBe(AbstractionInflationRule::CONVENTION_BASES);
 });
+
+it('ships the full default SL102 framework bases', function (): void {
+    $config = require dirname(__DIR__, 3).'/config/sloppy.php';
+
+    expect($config['rules']['SL102']['framework_bases'])->toBe(Heyosseus\Sloppy\Rules\Php\GodClassRule::FRAMEWORK_BASES);
+});
