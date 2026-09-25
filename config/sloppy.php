@@ -295,7 +295,7 @@ return [
                 'Filament\Schemas\Components\Component',
                 'Filament\Tables\Columns\Column',
                 'Filament\Tables\Filters\BaseFilter',
-                \Filament\Widgets\Widget::class,
+                Filament\Widgets\Widget::class,
                 'Livewire\Component',
             ],
         ],
