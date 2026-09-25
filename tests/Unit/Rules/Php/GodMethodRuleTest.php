@@ -155,3 +155,41 @@ it('does not flag a method that is one long lookup table', function (): void {
     }
     PHP))->toBeEmpty();
 });
+
+/**
+ * A Filament-style form definition: one return of a long fluent chain.
+ */
+function declarativeSchema(int $fields, string $extra = ''): string
+{
+    $components = implode("\n", array_map(
+        static fn (int $i): string => sprintf(
+            "                Field%d::make('field_%d')->label('Field %d')->required()->visible(fn (\$get) => \$get('toggle_%d')),",
+            $i, $i, $i, $i,
+        ),
+        range(1, $fields),
+    ));
+
+    return <<<PHP
+    class CustomerForm
+    {
+        public static function configure(Schema \$schema): Schema
+        {
+            return \$schema->components([
+    $components
+            ]){$extra};
+        }
+    }
+    PHP;
+}
+
+it('does not flag a declarative builder that is one statement with no branching', function (): void {
+    // 180 lines and dozens of collaborators, but a single statement with
+    // nothing to follow: configuration, not several jobs.
+    expect(findings(godMethod(), declarativeSchema(180)))->toBeEmpty();
+});
+
+it('still flags a single statement that branches past the limit', function (): void {
+    $conditions = implode(' && ', array_map(static fn (int $i): string => "\$get('f{$i}')", range(1, 20)));
+
+    expect(findings(godMethod(), declarativeSchema(100, "->visible(fn (\$get) => {$conditions})")))->toHaveCount(1);
+});

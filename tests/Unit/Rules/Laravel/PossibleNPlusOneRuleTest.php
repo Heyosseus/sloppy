@@ -312,3 +312,27 @@ it('treats a relation on the model itself as database-backed', function (): void
     }
     SNIPPET))->toHaveCount(1);
 });
+
+it('does not read a collection method as a relation', function (): void {
+    // $group is a Collection from groupBy(); pluck(), map() and filter() are
+    // its own methods, not relations to eager load.
+    expect(findings(nPlusOne(), <<<'SNIPPET'
+    class Rows
+    {
+        public function build(): array
+        {
+            $groups = Order::all()->groupBy('status');
+            $rows = [];
+
+            foreach ($groups as $group) {
+                $rows[] = $group->pluck('id')->toArray();
+                $rows[] = $group->map(fn ($o) => $o->total)->sum();
+                $rows[] = $group->filter()->count();
+                $rows[] = $group->where('paid', true)->count();
+            }
+
+            return $rows;
+        }
+    }
+    SNIPPET))->toBeEmpty();
+});

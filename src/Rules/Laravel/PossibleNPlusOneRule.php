@@ -59,6 +59,20 @@ final class PossibleNPlusOneRule extends LaravelRule
         'loadMissing', 'toArray', 'isEmpty', 'isNotEmpty', 'paginate',
     ];
 
+    /**
+     * Collection methods that shape a collection rather than name a relation.
+     * Together with the triggering and query method lists, they tell
+     * `$group->pluck('id')->all()` on a grouped collection apart from
+     * `$order->items()->count()` on a model.
+     *
+     * @var list<string>
+     */
+    private const array COLLECTION_METHODS = [
+        'all', 'map', 'mapWithKeys', 'flatMap', 'filter', 'reject', 'each', 'groupBy', 'keyBy',
+        'sortBy', 'sortByDesc', 'unique', 'values', 'keys', 'only', 'except', 'flatten', 'collapse',
+        'take', 'skip', 'slice', 'chunk', 'merge', 'reverse', 'whereStrict',
+    ];
+
     public function id(): string
     {
         return 'SL203';
@@ -299,7 +313,7 @@ final class PossibleNPlusOneRule extends LaravelRule
                 || NodeHelper::isNameOneOf($name, LaravelCalls::QUERY_TERMINALS);
 
             if ($inner instanceof MethodCall && $inner->name instanceof Identifier && $this->isLoopVariable($inner->var, $item)) {
-                if ($triggering || LaravelCalls::looksLikeQuery($call)) {
+                if (($triggering || LaravelCalls::looksLikeQuery($call)) && ! $this->isCollectionMethod($inner->name->toString())) {
                     $accesses[] = [
                         'node' => $call,
                         'relation' => $inner->name->toString(),
@@ -320,6 +334,19 @@ final class PossibleNPlusOneRule extends LaravelRule
         }
 
         return $accesses;
+    }
+
+    /**
+     * Whether a method called on the loop variable belongs to Collection or
+     * Builder, in which case the loop variable is a collection and the name
+     * is not a relation.
+     */
+    private function isCollectionMethod(string $name): bool
+    {
+        return NodeHelper::isNameOneOf($name, self::COLLECTION_METHODS)
+            || NodeHelper::isNameOneOf($name, self::TRIGGERING)
+            || NodeHelper::isNameOneOf($name, self::QUERY_EVIDENCE)
+            || NodeHelper::isNameOneOf($name, LaravelCalls::QUERY_TERMINALS);
     }
 
     private function isLoopVariable(Expr $expr, string $item): bool

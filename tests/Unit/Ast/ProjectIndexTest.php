@@ -266,3 +266,27 @@ it('resolves the traits a class composes, through other traits, once each', func
         ->toBe(['App\A', 'App\B'])
         ->and($index->traitsOf('App\Missing'))->toBe([]);
 });
+
+it('tells whether a parent chain reaches one of the given bases', function (): void {
+    $index = indexOf([
+        'app/Chain.php' => <<<'PHP'
+        namespace App;
+
+        abstract class BaseResource extends \Filament\Resources\Resource {}
+
+        class OrderResource extends BaseResource {}
+
+        class Loop extends Knot {}
+
+        class Knot extends Loop {}
+        PHP,
+    ]);
+
+    $bases = ['Filament\Resources\Resource'];
+
+    expect($index->extendsAny('App\BaseResource', $bases))->toBeTrue()
+        ->and($index->extendsAny('Filament\Resources\Resource', $bases))->toBeTrue()
+        ->and($index->extendsAny('App\Loop', $bases))->toBeFalse()
+        ->and($index->extendsAny(null, $bases))->toBeFalse()
+        ->and($index->extendsAny('App\OrderResource', []))->toBeFalse();
+});

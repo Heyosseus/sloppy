@@ -269,6 +269,9 @@ return [
         'SL102' => [
             // God Class. Models get `model_leniency` times the size limits,
             // because many small relations and accessors are normal for them.
+            // Getters and fluent setters never count as methods, and a class
+            // within both max_dependencies and max_collaborators needs one
+            // signal more than min_signals.
             'max_lines' => 300,
             'max_methods' => 20,
             'max_public_methods' => 15,
@@ -277,6 +280,24 @@ return [
             'max_collaborators' => 15,
             'min_signals' => 2,
             'model_leniency' => 1.5,
+            // Classes extending one of these, directly or through a project
+            // base class, get `framework_leniency` times the size limits: the
+            // framework decides their public surface. Add your own here.
+            'framework_leniency' => 1.5,
+            'framework_bases' => [
+                'Filament\Actions\Action',
+                'Filament\Forms\Components\Component',
+                'Filament\Forms\Components\Field',
+                'Filament\Infolists\Components\Entry',
+                'Filament\Pages\Page',
+                'Filament\Resources\Pages\Page',
+                'Filament\Resources\Resource',
+                'Filament\Schemas\Components\Component',
+                'Filament\Tables\Columns\Column',
+                'Filament\Tables\Filters\BaseFilter',
+                \Filament\Widgets\Widget::class,
+                'Livewire\Component',
+            ],
         ],
 
         'SL103' => [
