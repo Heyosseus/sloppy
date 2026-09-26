@@ -28,6 +28,8 @@ final class SloppyApplication extends Application
             new HealthCliCommand,
             new WatchCliCommand,
             new RulesCliCommand,
+            new AgentsCliCommand,
+            new HookCliCommand,
             new McpCliCommand,
             new GuideCliCommand,
         ]);

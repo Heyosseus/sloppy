@@ -49,6 +49,7 @@ it('registers every command', function (): void {
         ->toContain('sloppy:fix')
         ->toContain('sloppy:health')
         ->toContain('sloppy:rules')
+        ->toContain('sloppy:agents')
         ->toContain('sloppy:mcp')
         ->toContain('sloppy:help');
 });
@@ -87,6 +88,10 @@ it('reports a bad option through artisan rather than running', function (): void
 
     $this->artisan('sloppy:rules --format=emacs')
         ->expectsOutputToContain('Unknown ruleset format [emacs]')
+        ->assertExitCode(ExitCode::Error->value);
+
+    $this->artisan('sloppy:agents uninstall')
+        ->expectsOutputToContain('Unknown action [uninstall]')
         ->assertExitCode(ExitCode::Error->value);
 
     removeTree($root);
@@ -153,6 +158,22 @@ it('serves the MCP protocol through artisan', function (): void {
     // Windows will not delete a file whose handle is still open.
     unset($command);
     gc_collect_cycles();
+
+    removeTree($root);
+});
+
+it('installs the agent hooks through artisan', function (): void {
+    $root = artisanProject([GOD_METHOD_APP => godMethodSource(), 'vendor/bin/sloppy' => '<?php']);
+
+    $this->artisan('sloppy:agents --dry-run')
+        ->expectsOutputToContain('Dry run')
+        ->assertExitCode(ExitCode::Success->value);
+
+    $this->artisan('sloppy:agents')
+        ->expectsOutputToContain('.claude/settings.json')
+        ->assertExitCode(ExitCode::Success->value);
+
+    expect(file_get_contents($root.'/.claude/settings.json'))->toContain('vendor/bin/sloppy\" hook post-edit');
 
     removeTree($root);
 });

@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-26
+
+### Added
+
+- **`sloppy agents install` (`php artisan sloppy:agents`) puts Sloppy inside
+  Claude Code's own loop.** It adds two hooks to `.claude/settings.json`
+  (`--local` for `settings.local.json`, `--dry-run` to preview) and writes the
+  `CLAUDE.md` ruleset. After every edit to a PHP file, the findings that edit
+  introduced in that file, compared with `HEAD`, are handed back to the model.
+  When the agent tries to finish, new findings at or above `fail_on` send it
+  back once. The retry is let through, so a false positive never traps a
+  session. Every failure to run (no git, no commits, a broken config) lets the
+  agent carry on. Existing settings and other hooks are preserved, and
+  reinstalling replaces Sloppy's entries rather than duplicating them.
+
 ## [1.0.0] — 2026-09-25
 
 First stable release. The CLI, configuration keys, rule IDs, finding
@@ -808,7 +823,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/heyosseus/sloppy/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyosseus/sloppy/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/heyosseus/sloppy/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/heyosseus/sloppy/compare/v0.7.0...v0.8.0
