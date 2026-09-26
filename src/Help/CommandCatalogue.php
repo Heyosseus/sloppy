@@ -79,6 +79,13 @@ final readonly class CommandCatalogue
                 'you want the agent to know the rules before it writes.',
             ),
             new CommandSummary(
+                CommandGroup::Agents,
+                'agents',
+                'sloppy:agents',
+                'Hook Sloppy into Claude Code, so it checks every edit and every finish.',
+                'the agent should fix its own findings before you ever see them.',
+            ),
+            new CommandSummary(
                 CommandGroup::Everyday,
                 'watch',
                 'sloppy:watch',

@@ -5,18 +5,23 @@ declare(strict_types=1);
 use Heyosseus\Sloppy\Cli\SloppyApplication;
 use Heyosseus\Sloppy\Help\CommandCatalogue;
 use Heyosseus\Sloppy\Help\CommandSummary;
+use Symfony\Component\Console\Command\Command;
 
 /**
- * Every command name the standalone binary answers to, without the two
- * Symfony defines for itself.
+ * Every command name the standalone binary answers to, without the ones
+ * Symfony defines for itself and the hidden plumbing nobody types -- `hook`
+ * is written into an agent's settings, not reached for.
  *
  * @return list<string>
  */
 function registeredCliCommands(): array
 {
-    $names = array_keys((new SloppyApplication('test'))->all());
+    $visible = array_filter(
+        (new SloppyApplication('test'))->all(),
+        static fn (Command $command): bool => ! $command->isHidden(),
+    );
 
-    return array_values(array_diff($names, ['help', 'list', '_complete', 'completion']));
+    return array_values(array_diff(array_keys($visible), ['help', 'list', '_complete', 'completion']));
 }
 
 it('covers every command the standalone binary registers', function (): void {

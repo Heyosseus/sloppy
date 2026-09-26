@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy;
 
 use Heyosseus\Sloppy\Configuration\Configuration;
+use Heyosseus\Sloppy\Console\Commands\SloppyAgentsCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyBaselineCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyCiCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyCommand;
@@ -90,6 +91,7 @@ final class SloppyServiceProvider extends ServiceProvider
             SloppyHealthCommand::class,
             SloppyWatchCommand::class,
             SloppyRulesCommand::class,
+            SloppyAgentsCommand::class,
             SloppyMcpCommand::class,
             SloppyHelpCommand::class,
         ]);
