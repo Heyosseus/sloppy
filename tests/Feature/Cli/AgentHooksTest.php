@@ -135,4 +135,28 @@ describe('against a real git repository', function (): void {
             ->and($process->getErrorOutput())->toContain('SL101')
             ->and($process->getOutput())->toBe('');
     });
+
+    it('reads a payload redirected from a file, not only a pipe', function (): void {
+        // On Windows, Symfony's terminal probe used to swallow a redirected
+        // file before the hook could read it, and the edit went unchecked.
+        $repository = TempRepository::create();
+        $repository->write('composer.json', '{}')->write('app/Fine.php', "<?php\n\nclass Fine\n{\n}\n")->commit('first');
+        $repository->write('app/Bad.php', godMethodSource());
+        $repository->write('payload.json', json_encode([
+            'cwd' => $repository->path,
+            'tool_input' => ['file_path' => $repository->path.'/app/Bad.php'],
+        ], JSON_THROW_ON_ERROR));
+
+        $process = Process::fromShellCommandline(
+            '"${:PHP}" "${:BINARY}" hook post-edit < payload.json',
+            $repository->path,
+            ['PHP' => PHP_BINARY, 'BINARY' => dirname(__DIR__, 3).'/bin/sloppy', 'COLUMNS' => false, 'LINES' => false],
+        );
+        $process->run();
+
+        $repository->remove();
+
+        expect($process->getExitCode())->toBe(2)
+            ->and($process->getErrorOutput())->toContain('SL101');
+    });
 });

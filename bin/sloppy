@@ -25,4 +25,17 @@ if (! class_exists(SloppyApplication::class)) {
     exit(2);
 }
 
+// `sloppy hook` reads an agent's payload from standard input. Symfony measures
+// the terminal before any command runs, and on Windows it does that by running
+// `mode CON` -- which inherits standard input and swallows a redirected file
+// before the hook can read it. A width already in the environment skips the
+// measurement, and nothing a hook prints depends on one.
+if (($argv[1] ?? null) === 'hook') {
+    foreach (['COLUMNS' => '80', 'LINES' => '50'] as $name => $default) {
+        if (getenv($name) === false) {
+            putenv($name.'='.$default);
+        }
+    }
+}
+
 exit((new SloppyApplication(Sloppy::VERSION))->run());

@@ -25,7 +25,7 @@ final readonly class HookFeedbackFormatter
     public function forEdit(string $relativePath, array $findings): string
     {
         return sprintf(
-            "Sloppy: this edit to %s introduced %s.\n\n%s\nFix these while the code is in front of you. If one is deliberate, say why in your reply rather than in a code comment.\n",
+            "Sloppy: this edit to %s introduced %s.\n\n%s\nFix these while the code is in front of you. If one is deliberate, say why in your reply.\n",
             $relativePath,
             $this->count($findings),
             $this->list($findings),
