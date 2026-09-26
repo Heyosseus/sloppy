@@ -9,7 +9,7 @@
   <b>Static analysis for the code-quality patterns AI coding agents leave behind.</b><br>
   Runs on any PHP project — 25 rules, plus a Laravel set that knows Eloquent, controllers and queues.
   Hands the mechanical fixes to Rector and Pint, fails your Pest suite on new debt, annotates the
-  pull request, and teaches the agent through CLAUDE.md and MCP.<br>
+  pull request, and hooks into Claude Code so the agent fixes its own findings before you see them.<br>
   Deterministic and local — no model, no API key, no network.
 </p>
 
@@ -35,8 +35,9 @@ describe it, with an official GitHub Action and a GitLab template; an
 automated fix pass that hands the mechanical findings to Rector and the
 formatting to Pint; a Pest plugin, so new debt fails in the same red-green
 loop as everything else; and, for the agents writing the code, a generated
-ruleset for `CLAUDE.md` and its equivalents plus an MCP server they can check
-their own work against.
+ruleset for `CLAUDE.md` and its equivalents, an MCP server they can check
+their own work against, and hooks that make Claude Code run that check after
+every edit and before it calls a task done.
 
 Every screenshot on this page is real output from the command in its caption.
 
@@ -123,7 +124,7 @@ Requirements: **PHP 8.3+**. Laravel 12 or 13 for the Artisan commands and the
 php artisan sloppy:help      # or: vendor/bin/sloppy guide
 ```
 
-Eleven commands, and the moment each one belongs to. Both names run the same
+Twelve commands, and the moment each one belongs to. Both names run the same
 code, so use whichever your project has.
 
 | Every day | | |
@@ -140,6 +141,7 @@ code, so use whichever your project has.
 | `sloppy:health` | `sloppy health` | The score and what is dragging it down, from a cached snapshot |
 | **For agents** | | |
 | `sloppy:rules` | `sloppy rules` | Write this project's rules into `CLAUDE.md`, `AGENTS.md` and friends |
+| `sloppy:agents` | `sloppy agents install` | Hook Sloppy into Claude Code, so it checks every edit and every finish |
 | `sloppy:mcp` | `sloppy mcp` | Serve scan, diff, rules and health over MCP |
 
 For one command's options, `sloppy help <command>` or
@@ -156,7 +158,7 @@ For one command's options, `sloppy help <command>` or
 - [JSON output](#json-output) · [Editors and code scanning](#editors-and-code-scanning)
 - [Exit codes](#exit-codes) · [CI](#ci) · [GitHub Action](#github-action) · [GitLab CI](#gitlab-ci)
 - [Fix what can be fixed](#fix-what-can-be-fixed) · [What it can fix](#what-it-can-fix-and-what-it-will-not-pretend-to) · [In your test suite](#in-your-test-suite)
-- [Watch while you work](#watch-while-you-work) · [Filament and NativePHP](#filament-and-nativephp) · [Rules for coding agents](#rules-for-coding-agents) · [Custom rules for agents](#your-custom-rules-teach-the-agents-too) · [MCP server](#mcp-server)
+- [Watch while you work](#watch-while-you-work) · [Filament and NativePHP](#filament-and-nativephp) · [Let the agent check itself](#let-the-agent-check-itself) · [Rules for coding agents](#rules-for-coding-agents) · [Custom rules for agents](#your-custom-rules-teach-the-agents-too) · [MCP server](#mcp-server)
 - [What Sloppy is not](#what-sloppy-is-not) · [False positives](#false-positives)
 
 ## Scan a project
@@ -1050,6 +1052,58 @@ php artisan sloppy:health --json
 
 Filament is not a dependency of this package. Neither is NativePHP: the desktop
 integration hands you strings, and your app decides what to do with them.
+
+## Let the agent check itself
+
+A ruleset tells the agent what to avoid, and the MCP server lets it check when
+it remembers to. Neither makes it check. Hooks do: Claude Code runs Sloppy
+itself, after every edit and before the agent is allowed to call the task
+done, whether or not the model thought to ask.
+
+```bash
+vendor/bin/sloppy agents install          # or: php artisan sloppy:agents
+vendor/bin/sloppy agents install --local  # .claude/settings.local.json, out of git
+vendor/bin/sloppy agents install --dry-run
+```
+
+That adds two hooks to `.claude/settings.json` and writes the ruleset into
+`CLAUDE.md` as [`sloppy:rules`](#rules-for-coding-agents) would:
+
+| When | What runs | What the agent sees |
+| --- | --- | --- |
+| After every `Edit`, `Write` or `MultiEdit` of a PHP file | `sloppy hook post-edit` | Findings *that edit* introduced in *that file*, compared with `HEAD`, while the code is still in front of it |
+| When the agent tries to finish | `sloppy hook stop` | New findings at or above `fail_on` across the whole change. The agent is sent back to fix them |
+
+Only what the change introduced is ever reported. An agent editing one method
+in a legacy file is not told about the twelve problems the file already had,
+because an agent told about them goes and "fixes" code nobody asked it to touch.
+
+The Stop hook blocks **once**. If the agent tries to finish again, Claude Code
+marks the retry and Sloppy lets it through, listing whatever is left in the
+transcript. A false positive costs one round trip, not the session. And every
+way the hook could fail to run — no git, no commits yet, a broken config —
+lets the agent carry on, with a note in the transcript. A broken analyser never
+traps an agent.
+
+What the model reads is plain text, capped at ten findings:
+
+```text
+Sloppy: this edit to app/Services/Billing.php introduced 1 finding.
+
+- app/Services/Billing.php:42 SL107 Swallowed Exception (high): The catch block for Throwable discards the exception...
+  Fix: Handle the failure or let it travel...
+```
+
+Installing is safe to repeat. Your permissions, environment and other hooks
+are left exactly as they were. Sloppy's own entries are found by their command
+and replaced in place, and a settings file that is not valid JSON is refused
+rather than rewritten. In a project with Sloppy in `vendor/`, the hooks call
+`php "$CLAUDE_PROJECT_DIR/vendor/bin/sloppy"`, so the committed file works on
+every checkout. With a global or phar install they call the binary that
+installed them.
+
+"New" means new compared with `HEAD`, so uncommitted work from before the
+session counts as part of the change. That is the same rule `sloppy diff` uses.
 
 ## Rules for coding agents
 

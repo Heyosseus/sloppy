@@ -1,6 +1,6 @@
 {
     "name": "heyosseus/sloppy",
-    "description": "Static analysis for the debt AI coding agents leave behind, on any PHP project: 25 rules, git-diff review, coverage-aware reading order, PHPStan baseline-growth detection, a Rector and Pint fix pass, Pest expectations, CI annotations, agent rulesets and an MCP server. Extra rules and dashboards for Laravel. Deterministic, local, no LLM.",
+    "description": "Static analysis for the debt AI coding agents leave behind, on any PHP project: 25 rules, git-diff review, coverage-aware reading order, PHPStan baseline-growth detection, a Rector and Pint fix pass, Pest expectations, CI annotations, agent rulesets, Claude Code hooks and an MCP server. Extra rules and dashboards for Laravel. Deterministic, local, no LLM.",
     "keywords": [
         "php",
         "static-analysis",
