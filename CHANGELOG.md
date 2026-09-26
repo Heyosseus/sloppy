@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-09-26
+
 ### Fixed
 
 - **`sloppy hook` no longer misses a payload redirected from a file on
@@ -845,7 +847,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/heyosseus/sloppy/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/heyosseus/sloppy/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyosseus/sloppy/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/heyosseus/sloppy/compare/v0.8.0...v0.9.0
