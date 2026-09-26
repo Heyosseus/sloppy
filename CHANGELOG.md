@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`sloppy hook` no longer misses a payload redirected from a file on
+  Windows.** Symfony Console measures the terminal before any command runs,
+  and on Windows its `mode CON` probe inherited standard input and swallowed
+  a redirected file, so the edit went unchecked. Piped input, which is what
+  Claude Code sends, was not affected. The binary now sets a terminal width
+  for hook runs, which skips the probe.
+
+### Changed
+
+- The hook feedback no longer tells the agent to explain a deliberate finding
+  "rather than in a code comment". That contradicted SL107's own advice to
+  leave a comment when a swallowed failure is intentional.
+
+### Documentation
+
+- The README is now a landing page, and the reference material has moved to
+  `docs/`, word for word: getting started, coding agents, rules, workflow,
+  CI, scoring, configuration, JSON output and custom rules. It opens with real
+  output of the Claude Code hook.
+
 ## [1.1.0] — 2026-09-26
 
 ### Added

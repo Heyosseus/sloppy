@@ -1,7 +1,7 @@
 /build
 /vendor
 /node_modules
-/docs
+/docs/superpowers/
 /.phpunit.cache
 /.pest
 phpunit.xml

@@ -73,7 +73,8 @@ order:
 3. **Register it** in `RuleRegistry::shipped()` and add an entry to
    `config/sloppy.php` documenting every option with its default. A test
    asserts the config and the registry agree, in both directions.
-4. **Add it to the README table.**
+4. **Document it.** Add a row to the table in `docs/rules.md`, and the ID and
+   name to the "What it catches" table in the README.
 
 ### What a good rule looks like
 
