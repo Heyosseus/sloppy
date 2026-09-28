@@ -39,6 +39,10 @@ That's it: no configuration file, no account. Sloppy finds your source roots
 from `composer.json`. It runs on any PHP 8.3+ project, and adds ten
 Eloquent-aware rules when it finds Laravel 12 or 13.
 
+A first scan of a codebase with history does not hand you hundreds of findings
+to work through. It lists the defects worth fixing first, sums up the rest per
+file, and offers to baseline what is already there.
+
 Trying it before adding a dependency? Run `composer global require heyosseus/sloppy`,
 or [download the phar](https://github.com/heyosseus/sloppy/releases/latest/download/sloppy.phar).
 See [Getting started](docs/getting-started.md).
@@ -94,6 +98,15 @@ analyser is, **why** the pattern costs you, and **what to do** instead. See
 
 The same analyser, wherever else you want the answer.
 
+**Start with what matters.** A first scan of a medium-sized application finds
+hundreds of things, and nobody reads hundreds of things. So `sloppy` lists the
+defects first (swallowed exceptions, queries in loops, unfinished bodies),
+highest risk first. It sums up the long methods and narrating comments per
+file, putting the files that keep changing at the top. Then it tells you which
+commands shorten the list without reading it: `sloppy fix` for the mechanical
+findings, `sloppy baseline` for the debt that is already there. `--all` lists
+everything.
+
 **Review a change.** `sloppy diff main` reports only what your branch
 *introduced*, never what it inherited. `sloppy review main` ranks the same
 findings by risk, so you know which file to read first and where to stop.
@@ -123,8 +136,9 @@ it('has no new slop on this branch', function (): void {
 ```
 
 **Fix what a machine can fix.** `sloppy fix` hands the mechanical findings to
-Rector, scoped to the files that have them, then formats with Pint. It tells
-you which findings still need a person, and why no tool should touch them.
+Rector, scoped to the files that have them, deletes the comments that only
+restate their code, then formats with Pint. It tells you which findings still
+need a person, and why no tool should touch them.
 
 **Keep score while you work.** `sloppy watch` keeps the score and what to read
 first on screen, redrawing on every save. It's made to sit beside an agent that
@@ -157,7 +171,9 @@ report, which is what makes Sloppy usable as a gate. See
 **It is tuned for silence.** Rules need several signals, not one; they
 understand framework conventions; and they back off wherever code could be
 reached indirectly. Sloppy runs over its own source in CI, and a test asserts
-that ordinary Laravel code produces zero findings.
+that ordinary Laravel code produces zero findings. The rules and the score are
+checked against eight open-source Laravel applications, 782,578 lines, where
+the four healthiest score 87 to 90.
 
 **It complements your tools rather than replacing them:**
 
@@ -175,12 +191,12 @@ If PHPStan can prove it, Sloppy stays out of it.
 
 | | |
 | --- | --- |
-| [Getting started](docs/getting-started.md) | Install options, every command, your first scan, adopting on an existing codebase |
+| [Getting started](docs/getting-started.md) | Install options, every command, your first scan and how a long one is triaged, adopting on an existing codebase |
 | [Coding agents](docs/agents.md) | Claude Code hooks, rulesets for every agent, Laravel Boost, the MCP server |
 | [Rules](docs/rules.md) | Every rule in detail, and how false positives are kept down |
-| [Everyday workflow](docs/workflow.md) | Diff and review, `sloppy fix`, Pest expectations, `watch`, Filament and NativePHP |
+| [Everyday workflow](docs/workflow.md) | Diff and review, `sloppy fix` over Rector, Pint and narrating comments, Pest expectations, `watch`, Filament and NativePHP |
 | [CI and code scanning](docs/ci.md) | `sloppy ci`, the GitHub Action, GitLab, SARIF, annotations, exit codes |
-| [Score, severity and risk](docs/scoring.md) | How every number is calculated, and what coverage and PHPStan baselines feed |
+| [Score, severity and risk](docs/scoring.md) | How every number is calculated, and what coverage, git history and PHPStan baselines feed |
 | [Configuration](docs/configuration.md) | `config/sloppy.php`, and taming a noisy first run |
 | [JSON output](docs/json-output.md) | The machine-readable report and its contract |
 | [Custom rules](docs/custom-rules.md) | Writing your own rule, and where it shows up |

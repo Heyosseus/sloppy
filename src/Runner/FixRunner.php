@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Runner;
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Finding;
+use Heyosseus\Sloppy\Fix\NarrativeCommentRemover;
 use Heyosseus\Sloppy\Integrations\Tooling\ProcessToolRunner;
 use Heyosseus\Sloppy\Integrations\Tooling\RectorRules;
 use Heyosseus\Sloppy\Integrations\Tooling\ToolDetector;
@@ -25,6 +26,10 @@ use Throwable;
  * that is what it contributes: a generated Rector config scoped to the files
  * that actually have findings, run, and then formatted back into the project's
  * own style by Pint.
+ *
+ * One rewrite Sloppy does make itself: comments SL109 found restating the
+ * line below them are deleted, because no Rector rule knows which ones they
+ * are and deleting them loses nothing the code does not already say.
  *
  * Findings with no automated fix are reported rather than passed over -- the
  * point of the command is to shorten the list, and knowing what is left is
@@ -63,15 +68,24 @@ final readonly class FixRunner
             return ExitCode::Success;
         }
 
+        $comments = $this->removeComments($sloppy, $before, $options, $output);
+
         $fixable = array_values(array_filter(
             $before->findings,
             static fn (Finding $finding): bool => RectorRules::fixes($finding->ruleId),
         ));
 
         if ($fixable === []) {
-            $this->reportRemaining($before->findings, $output);
+            $this->reportRemaining($this->without($before->findings, $comments), $output);
 
-            return ExitCode::Success;
+            if ($comments === []) {
+                return ExitCode::Success;
+            }
+
+            $failures = $this->runTools($sloppy, $options->withoutRector(), $this->paths($comments), $output);
+            $this->reportDelta($sloppy, $before, $options, $output);
+
+            return $failures > 0 ? ExitCode::Error : ExitCode::Success;
         }
 
         $configPath = $sloppy->configuration->absolutePath($options->configFile);
@@ -89,16 +103,55 @@ final readonly class FixRunner
             $options->configFile,
         ));
 
-        $failures = $this->runTools($sloppy, $options, $this->paths($fixable), $output);
+        $failures = $this->runTools($sloppy, $options, $this->paths([...$fixable, ...$comments]), $output);
 
         if (! $options->keepConfig && is_file($configPath)) {
             @unlink($configPath);
         }
 
-        $this->reportRemaining(RectorFormatter::unfixable($before->findings), $output);
+        $this->reportRemaining($this->without(RectorFormatter::unfixable($before->findings), $comments), $output);
         $this->reportDelta($sloppy, $before, $options, $output);
 
         return $failures > 0 ? ExitCode::Error : ExitCode::Success;
+    }
+
+    /**
+     * Delete the comments that only restate their code, before Rector runs,
+     * so Pint formats both rewrites in one pass.
+     *
+     * @return list<Finding> The findings whose comment went.
+     */
+    private function removeComments(Sloppy $sloppy, AnalysisResult $before, FixOptions $options, RunnerOutput $output): array
+    {
+        if (! $options->withComments) {
+            return [];
+        }
+
+        $removed = (new NarrativeCommentRemover)->remove($sloppy->configuration->basePath, $before->findings, $options->dryRun);
+
+        if ($removed !== []) {
+            $output->notice(sprintf(
+                '%s %d comment(s) that only restated their code, in %d file(s).',
+                $options->dryRun ? 'Would remove' : 'Removed',
+                count($removed),
+                count($this->paths($removed)),
+            ));
+        }
+
+        return $removed;
+    }
+
+    /**
+     * @param  list<Finding>  $findings
+     * @param  list<Finding>  $handled
+     * @return list<Finding>
+     */
+    private function without(array $findings, array $handled): array
+    {
+        return array_values(array_filter(
+            $findings,
+            static fn (Finding $finding): bool => ! in_array($finding, $handled, true),
+        ));
     }
 
     /**

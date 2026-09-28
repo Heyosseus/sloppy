@@ -154,3 +154,69 @@ it('shows no progress bar for a machine-readable run over the threshold', functi
 
     removeTree($project);
 });
+
+/**
+ * @param  array<string, mixed>  $config
+ */
+function triagedScan(string $fixtures, string $baseline, array $config = []): Sloppy
+{
+    return new Sloppy(Configuration::fromArray([
+        'paths' => ['Sloppy'],
+        'fail_on' => 'high',
+        'baseline' => $baseline,
+        ...$config,
+    ], $fixtures));
+}
+
+it('triages a run too long to read, and lists everything when asked', function () use ($fixtures): void {
+    $baseline = tempProject().'/.sloppy-baseline.json';
+
+    $triaged = new RecordingRunnerOutput;
+    (new ScanRunner)->run(triagedScan($fixtures, $baseline), new ScanOptions(top: 3), $triaged);
+
+    $all = new RecordingRunnerOutput;
+    (new ScanRunner)->run(triagedScan($fixtures, $baseline), new ScanOptions(all: true, top: 3), $all);
+
+    $oneRule = new RecordingRunnerOutput;
+    (new ScanRunner)->run(triagedScan($fixtures, $baseline), new ScanOptions(rules: ['SL101'], top: 1), $oneRule);
+
+    expect($triaged->reportBody())->toContain('Fix first')->toContain('By rule')->toContain('No baseline yet')
+        ->and($all->reportBody())->not->toContain('Fix first')
+        ->and($oneRule->reportBody())->not->toContain('Fix first')
+        // Nobody answered, so nothing was written.
+        ->and($triaged->messages())->toContain('confirm: Accept these '.substr_count($all->reportBody(), 'confidence)').' findings as a baseline (.sloppy-baseline.json), so scans report only new ones from now on?')
+        ->and(is_file($baseline))->toBeFalse();
+
+    removeTree(dirname($baseline));
+});
+
+it('writes the baseline when the person at the terminal accepts it, and passes', function () use ($fixtures): void {
+    $baseline = tempProject().'/.sloppy-baseline.json';
+    $output = new RecordingRunnerOutput(answers: [true]);
+
+    $code = (new ScanRunner)->run(triagedScan($fixtures, $baseline), new ScanOptions(top: 3), $output);
+
+    $again = new RecordingRunnerOutput;
+    (new ScanRunner)->run(triagedScan($fixtures, $baseline), new ScanOptions(top: 3), $again);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and(is_file($baseline))->toBeTrue()
+        ->and(implode("\n", $output->messages()))->toContain('Commit it, and every scan from here reports only what is new.')
+        // The next scan sees the baseline and has nothing new to show or ask.
+        ->and($again->reportBody())->toContain('Nothing flagged.')
+        ->and(implode("\n", $again->messages()))->not->toContain('confirm:');
+
+    removeTree(dirname($baseline));
+});
+
+it('never offers a baseline to a machine-readable report', function () use ($fixtures): void {
+    $baseline = tempProject().'/.sloppy-baseline.json';
+    $output = new RecordingRunnerOutput(answers: [true]);
+
+    (new ScanRunner)->run(triagedScan($fixtures, $baseline), new ScanOptions(format: OutputFormat::Json, top: 3), $output);
+
+    expect(implode("\n", $output->messages()))->not->toContain('confirm:')
+        ->and(is_file($baseline))->toBeFalse();
+
+    removeTree(dirname($baseline));
+});

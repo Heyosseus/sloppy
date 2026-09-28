@@ -65,7 +65,7 @@ it('penalises findings that blanket the codebase more than localised ones', func
 it('never falls below zero or rises above one hundred', function (): void {
     $calculator = new ScoreCalculator;
     $many = array_map(
-        static fn (int $i): Heyosseus\Sloppy\Analysis\Finding => finding(line: 1, endLine: 100, fingerprint: 'f'.$i, severity: Severity::Critical),
+        static fn (int $i): Heyosseus\Sloppy\Analysis\Finding => finding(rule: 'SL'.(100 + $i % 10), line: 1, endLine: 100, fingerprint: 'f'.$i, severity: Severity::Critical),
         range(1, 200),
     );
 
@@ -150,4 +150,56 @@ it('has a colour for every band', function (): void {
         expect($band->color())->not->toBe('')
             ->and($band->label())->not->toBe('');
     }
+});
+
+it('counts a line covered by two findings once', function (): void {
+    $calculator = new ScoreCalculator(new ScoreConfiguration(ruleCap: 0.0));
+
+    // A god method inside a god class: the method's lines are already the
+    // class's, so the pair covers 100 lines, not 150.
+    $nested = $calculator->calculate([
+        finding(rule: 'SL102', line: 1, endLine: 100, fingerprint: 'class'),
+        finding(rule: 'SL101', line: 20, endLine: 69, fingerprint: 'method'),
+    ], 1000);
+
+    $apart = $calculator->calculate([
+        finding(rule: 'SL102', line: 1, endLine: 100, fingerprint: 'class'),
+        finding(rule: 'SL101', file: 'app/Other.php', line: 20, endLine: 69, fingerprint: 'method'),
+    ], 1000);
+
+    // 2 x 9.0 penalty per unit, x (1 + 100/1000) nested, x (1 + 150/1000) apart.
+    expect($nested->value)->toBe(80)
+        ->and($apart->value)->toBe(79);
+});
+
+it('gives each rule diminishing returns up to the rule cap', function (): void {
+    $findings = array_map(
+        static fn (int $i): Heyosseus\Sloppy\Analysis\Finding => finding(fingerprint: 'f'.$i, confidence: 100),
+        range(1, 30),
+    );
+
+    $uncapped = (new ScoreCalculator(new ScoreConfiguration(ruleCap: 0.0)))->calculate($findings, 1000);
+    $capped = (new ScoreCalculator)->calculate($findings, 1000);
+
+    // Thirty certain high findings in 1,000 lines deduct 300 points unchecked,
+    // and one rule alone can take at most 30.
+    expect($uncapped->value)->toBe(0)
+        ->and($capped->value)->toBe(70);
+});
+
+it('barely changes a small deduction', function (): void {
+    $findings = [finding(confidence: 100)];
+
+    $uncapped = (new ScoreCalculator(new ScoreConfiguration(ruleCap: 0.0)))->calculate($findings, 1000);
+    $capped = (new ScoreCalculator)->calculate($findings, 1000);
+
+    expect($uncapped->value)->toBe(90)
+        ->and($capped->value)->toBe(91);
+});
+
+it('reads the rule cap from configuration and rejects a negative one', function (): void {
+    expect(ScoreConfiguration::fromArray(['rule_cap' => 12])->ruleCap)->toBe(12.0)
+        ->and(ScoreConfiguration::fromArray(['rule_cap' => 0])->ruleCap)->toBe(0.0)
+        ->and(ScoreConfiguration::fromArray(['rule_cap' => -1])->ruleCap)->toBe(ScoreConfiguration::RULE_CAP)
+        ->and(ScoreConfiguration::fromArray([])->ruleCap)->toBe(30.0);
 });

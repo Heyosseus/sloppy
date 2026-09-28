@@ -83,9 +83,9 @@ this space has them.
 
 ## Fix what can be fixed
 
-Sloppy does not rewrite your code. Rector and Pint already do that well, and
-what Sloppy knows that they do not is *which* of their rules this project
-currently needs:
+Sloppy leaves rewriting to Rector and Pint, which already do it well. What
+Sloppy knows that they do not is *which* of their rules this project currently
+needs:
 
 ```bash
 php artisan sloppy:fix --dry-run     # show what would change
@@ -94,9 +94,17 @@ php artisan sloppy:fix               # rewrite, then format
 
 It generates a Rector configuration scoped to the files that actually have
 findings, runs it, formats the rewritten files with Pint, and then tells you
-what is left:
+what is left.
+
+The one rewrite Sloppy makes itself is deleting the comments `SL109` found
+restating the line below them. No Rector rule knows which comments those are,
+and deleting one loses nothing the code does not already say. A comment is
+deleted only when it has its line to itself, exactly as the finding quoted it.
+Step narration (`// 1. Load the order`) is left for a person, because it marks
+a method that wants splitting. Pass `--no-comments` to keep them all.
 
 ```
+  Removed 4 comment(s) that only restated their code, in 3 file(s).
   12 of 31 finding(s) have an automated fix. Wrote rector-sloppy.php.
   rector finished.
   pint finished.

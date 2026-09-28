@@ -26,7 +26,27 @@ final readonly class FixOptions implements RunnerOptions
         public bool $withPint = true,
         public bool $keepConfig = false,
         public string $configFile = 'rector-sloppy.php',
+        public bool $withComments = true,
     ) {}
+
+    /**
+     * The same run with nothing left for Rector to do -- only the formatting
+     * pass over what was already rewritten.
+     */
+    public function withoutRector(): self
+    {
+        return new self(
+            paths: $this->paths,
+            rules: $this->rules,
+            minConfidence: $this->minConfidence,
+            dryRun: $this->dryRun,
+            withRector: false,
+            withPint: $this->withPint,
+            keepConfig: $this->keepConfig,
+            configFile: $this->configFile,
+            withComments: $this->withComments,
+        );
+    }
 
     /** @return list<string> */
     public function paths(): array

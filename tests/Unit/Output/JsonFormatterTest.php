@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
+use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Analysis\TierMap;
+use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Configuration\ScoreConfiguration;
 use Heyosseus\Sloppy\Output\JsonFormatter;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
@@ -169,4 +172,21 @@ it('names the rules it skipped', function (): void {
     $decoded = json_decode((new JsonFormatter)->format($result), true, 512, JSON_THROW_ON_ERROR);
 
     expect($decoded['rules_skipped'])->toBe(['SL201', 'SL203']);
+});
+
+it('gives every finding its tier, as the configuration files it', function (): void {
+    $result = analysisResult([
+        finding(),
+        finding(rule: 'SL107', fingerprint: 'b', category: Category::ErrorHandling),
+    ]);
+
+    $tiers = new TierMap(Configuration::fromArray(['rules' => ['SL101' => ['tier' => 'advisory']]], '/tmp'));
+
+    /** @var array{findings: list<array<string, mixed>>} $default */
+    $default = json_decode((new JsonFormatter)->format($result), true, 512, JSON_THROW_ON_ERROR);
+    /** @var array{findings: list<array<string, mixed>>} $configured */
+    $configured = json_decode((new JsonFormatter(tiers: $tiers))->format($result), true, 512, JSON_THROW_ON_ERROR);
+
+    expect(array_column($default['findings'], 'tier', 'rule'))->toBe(['SL101' => 'maintainability', 'SL107' => 'defect'])
+        ->and(array_column($configured['findings'], 'tier', 'rule'))->toBe(['SL101' => 'advisory', 'SL107' => 'defect']);
 });

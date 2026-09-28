@@ -32,22 +32,7 @@ final readonly class ConsoleFormatter implements Formatter
 
     public function format(AnalysisResult $result): string
     {
-        $lines = ['', '  <options=bold>Sloppy</>', ''];
-
-        $score = $result->score;
-        $lines[] = sprintf(
-            '  Score  <fg=%s;options=bold>%d/100</>  <fg=%s>%s</>',
-            $score->band->color(),
-            $score->value,
-            $score->band->color(),
-            $score->label(),
-        );
-        $lines[] = sprintf(
-            '  Files  %s analysed  ·  %s lines  ·  %s',
-            number_format($result->fileCount()),
-            number_format($result->analyzedLines),
-            $this->countLabel($result->count()),
-        );
+        $lines = $this->header($result);
 
         if ($result->isEmpty()) {
             $lines[] = '';
@@ -74,6 +59,45 @@ final readonly class ConsoleFormatter implements Formatter
             }
         }
 
+        return $this->close($lines, $result);
+    }
+
+    /**
+     * The title, the score and the size of the run -- the top of every
+     * console report, whichever way its findings are laid out below.
+     *
+     * @return list<string>
+     */
+    public function header(AnalysisResult $result): array
+    {
+        $lines = ['', '  <options=bold>Sloppy</>', ''];
+
+        $score = $result->score;
+        $lines[] = sprintf(
+            '  Score  <fg=%s;options=bold>%d/100</>  <fg=%s>%s</>',
+            $score->band->color(),
+            $score->value,
+            $score->band->color(),
+            $score->label(),
+        );
+        $lines[] = sprintf(
+            '  Files  %s analysed  ·  %s lines  ·  %s',
+            number_format($result->fileCount()),
+            number_format($result->analyzedLines),
+            $this->countLabel($result->count()),
+        );
+
+        return $lines;
+    }
+
+    /**
+     * The divider, the severity summary, the verdict, and whatever could not be
+     * analysed -- the bottom of every console report with findings in it.
+     *
+     * @param  list<string>  $lines  The report so far.
+     */
+    public function close(array $lines, AnalysisResult $result): string
+    {
         $lines[] = '';
         $lines[] = '  <fg=gray>'.str_repeat('─', 60).'</>';
         $lines[] = '';
@@ -83,22 +107,29 @@ final readonly class ConsoleFormatter implements Formatter
     }
 
     /**
+     * One finding as the full report shows it: what, and what to do.
+     *
+     * Under a file heading the line number is enough. Without one, `$where`
+     * is printed beneath the title instead -- console markup, so the caller
+     * escapes whatever it quotes. A report that has already given a rule's
+     * advice once can leave it out the next time.
+     *
      * @return list<string>
      */
-    private function renderFinding(Finding $finding): array
+    public function renderFinding(Finding $finding, ?string $where = null, bool $withSuggestion = true): array
     {
-        $lines = [
-            '',
-            sprintf(
-                '  %5d  <fg=%s;options=bold>%-8s</> <options=bold>%s</>  %s  <fg=gray>(%d%% confidence)</>',
-                $finding->location->line,
-                $finding->severity->color(),
-                $finding->severity->label(),
-                $finding->ruleId,
-                $finding->ruleName,
-                $finding->confidence,
-            ),
-        ];
+        $title = sprintf(
+            '<fg=%s;options=bold>%-8s</> <options=bold>%s</>  %s  <fg=gray>(%d%% confidence)</>',
+            $finding->severity->color(),
+            $finding->severity->label(),
+            $finding->ruleId,
+            $finding->ruleName,
+            $finding->confidence,
+        );
+
+        $lines = $where === null
+            ? ['', sprintf('  %5d  ', $finding->location->line).$title]
+            : ['', '  '.$title, '         '.$where];
 
         foreach ($this->wrap($finding->message, 84) as $line) {
             $lines[] = '         '.OutputFormatter::escape($line);
@@ -110,7 +141,7 @@ final readonly class ConsoleFormatter implements Formatter
             }
         }
 
-        foreach ($this->wrap($finding->suggestion, 84) as $index => $line) {
+        foreach ($withSuggestion ? $this->wrap($finding->suggestion, 84) : [] as $index => $line) {
             $lines[] = ($index === 0 ? '         <fg=cyan>→ </>' : '           ').OutputFormatter::escape($line);
         }
 

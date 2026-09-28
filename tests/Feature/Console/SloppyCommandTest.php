@@ -251,3 +251,21 @@ it('reports files it could not parse', function (): void {
 
     removeTree($root);
 });
+
+it('triages a long run with the artisan names in its hints, and lists it all with --all', function (): void {
+    $root = project([
+        'app/OrderController.php' => SWALLOWING_CONTROLLER,
+        'app/Http/Controllers/InvoiceController.php' => str_replace('OrderController', 'InvoiceController', SWALLOWING_CONTROLLER),
+    ], ['fail_on' => null]);
+
+    $this->artisan('sloppy', ['--top' => '1', '--no-interaction' => true])
+        ->expectsOutputToContain('Fix first')
+        ->expectsOutputToContain('php artisan sloppy --all')
+        ->assertExitCode(ExitCode::Success->value);
+
+    $this->artisan('sloppy', ['--top' => '1', '--all' => true])
+        ->doesntExpectOutputToContain('Fix first')
+        ->assertExitCode(ExitCode::Success->value);
+
+    removeTree($root);
+});

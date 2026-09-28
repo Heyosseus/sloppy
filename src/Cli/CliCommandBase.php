@@ -12,6 +12,7 @@ use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Runner\RunnerOutput;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Support\StringListOption;
+use Heyosseus\Sloppy\Support\Terminal;
 use InvalidArgumentException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -56,7 +57,7 @@ abstract class CliCommandBase extends Command
 
     protected function runnerOutput(InputInterface $input, OutputInterface $output): SymfonyRunnerOutput
     {
-        return new SymfonyRunnerOutput(new SymfonyStyle($input, $output));
+        return new SymfonyRunnerOutput(new SymfonyStyle($input, $output), Terminal::canAsk($input));
     }
 
     protected function stringOption(InputInterface $input, string $name): ?string

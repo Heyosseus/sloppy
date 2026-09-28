@@ -69,6 +69,26 @@ it('leaves a short delegating method alone', function (): void {
     PHP))->toBeEmpty();
 });
 
+it('counts many calls to many collaborators as one signal, not two', function (): void {
+    // 30 calls to 30 different services, one statement each: short, flat,
+    // and over both the call and the collaborator limit. It delegates; it
+    // is not a god method.
+    $body = implode("\n", array_map(
+        static fn (int $i): string => sprintf('        $this->service%d->handle($order);', $i),
+        range(1, 30),
+    ));
+
+    expect(findings(godMethod(), <<<PHP
+    class Checkout
+    {
+        public function process(\$order): void
+        {
+    $body
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
 it('does not flag a method on one signal alone', function (): void {
     // 40 trivial assignments: long-ish, but no branching, few collaborators.
     $body = implode("\n", array_map(

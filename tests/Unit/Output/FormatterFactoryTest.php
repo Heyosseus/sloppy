@@ -13,6 +13,7 @@ use Heyosseus\Sloppy\Output\MarkdownFormatter;
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Output\RectorFormatter;
 use Heyosseus\Sloppy\Output\SarifFormatter;
+use Heyosseus\Sloppy\Output\TriageFormatter;
 use Heyosseus\Sloppy\Sloppy;
 
 it('builds the formatter each format names', function (): void {
@@ -47,4 +48,11 @@ it('covers every format the enum declares', function (): void {
     foreach (OutputFormat::cases() as $format) {
         expect($factory->for($format)->format(analysisResult([finding()])))->toBeString()->not->toBe('');
     }
+});
+
+it('triages the console report only when asked to', function (): void {
+    $sloppy = new Sloppy(Configuration::fromArray([], sys_get_temp_dir()));
+
+    expect((new FormatterFactory($sloppy, all: false))->for(OutputFormat::Console))->toBeInstanceOf(TriageFormatter::class)
+        ->and((new FormatterFactory($sloppy))->for(OutputFormat::Console))->toBeInstanceOf(ConsoleFormatter::class);
 });

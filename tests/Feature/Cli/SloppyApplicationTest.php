@@ -224,3 +224,17 @@ it('rejects an unknown format with exit code 2', function (): void {
 
     removeTree($project);
 });
+
+it('triages a long scan and lists it all with --all', function (): void {
+    $fixtures = dirname(__DIR__, 2).'/Fixtures';
+    $options = ['command' => 'scan', '--project' => $fixtures, '--path' => ['Sloppy'], '--fail-on' => 'never', '--no-baseline' => true];
+
+    $triaged = tester();
+    $triaged->run([...$options, '--top' => '2'], ['interactive' => false, 'decorated' => false]);
+
+    $all = tester();
+    $all->run([...$options, '--top' => '2', '--all' => true], ['interactive' => false, 'decorated' => false]);
+
+    expect($triaged->getDisplay())->toContain('Fix first')->toContain('vendor/bin/sloppy scan --all')
+        ->and($all->getDisplay())->not->toContain('Fix first');
+});

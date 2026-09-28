@@ -13,6 +13,14 @@ use Heyosseus\Sloppy\Scoring\ScoreBand;
 final readonly class ScoreConfiguration
 {
     /**
+     * The most one rule can take off the score. Thirty is where eight real
+     * Laravel applications spread across every band instead of the two with
+     * the most long methods sitting at zero, while a codebase that is poor on
+     * several fronts still reaches the bottom.
+     */
+    public const float RULE_CAP = 30.0;
+
+    /**
      * @param  array<string, float>  $weights  Penalty per finding, keyed by severity value.
      * @param  array<string, int>  $bands  Minimum score for a band, keyed by band value.
      */
@@ -21,6 +29,7 @@ final readonly class ScoreConfiguration
         public int $linesPerUnit = 1000,
         public float $penaltyMultiplier = 1.0,
         private array $bands = [],
+        public float $ruleCap = self::RULE_CAP,
     ) {}
 
     /**
@@ -60,12 +69,14 @@ final readonly class ScoreConfiguration
 
         $linesPerUnit = $config['lines_per_unit'] ?? 1000;
         $multiplier = $config['penalty_multiplier'] ?? 1.0;
+        $cap = $config['rule_cap'] ?? self::RULE_CAP;
 
         return new self(
             weights: $weights,
             linesPerUnit: is_int($linesPerUnit) && $linesPerUnit > 0 ? $linesPerUnit : 1000,
             penaltyMultiplier: is_int($multiplier) || is_float($multiplier) ? (float) $multiplier : 1.0,
             bands: $bands,
+            ruleCap: (is_int($cap) || is_float($cap)) && $cap >= 0 ? (float) $cap : self::RULE_CAP,
         );
     }
 

@@ -28,6 +28,7 @@ final class FixCliCommand extends CliCommandBase
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Show what would change without writing anything')
             ->addOption('no-rector', null, InputOption::VALUE_NONE, 'Skip Rector, only write the configuration')
             ->addOption('no-pint', null, InputOption::VALUE_NONE, 'Skip the formatting pass')
+            ->addOption('no-comments', null, InputOption::VALUE_NONE, 'Keep the comments that only restate their code')
             ->addOption('keep-config', null, InputOption::VALUE_NONE, 'Leave the generated Rector configuration in place')
             ->addOption('rector-config', null, InputOption::VALUE_REQUIRED, 'Filename for the generated Rector configuration', 'rector-sloppy.php');
     }
@@ -43,6 +44,7 @@ final class FixCliCommand extends CliCommandBase
             withPint: $input->getOption('no-pint') !== true,
             keepConfig: $input->getOption('keep-config') === true,
             configFile: $this->stringOption($input, 'rector-config') ?? 'rector-sloppy.php',
+            withComments: $input->getOption('no-comments') !== true,
         ), $runnerOutput));
     }
 }

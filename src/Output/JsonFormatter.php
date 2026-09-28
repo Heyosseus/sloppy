@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Output;
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Finding;
+use Heyosseus\Sloppy\Analysis\TierMap;
 use Heyosseus\Sloppy\Contracts\Formatter;
 use Heyosseus\Sloppy\Scoring\RiskCalculator;
 
@@ -25,6 +26,7 @@ final readonly class JsonFormatter implements Formatter
         private bool $pretty = true,
         private bool $explainRisk = false,
         private RiskCalculator $risk = new RiskCalculator,
+        private TierMap $tiers = new TierMap,
     ) {}
 
     public function format(AnalysisResult $result): string
@@ -45,7 +47,8 @@ final readonly class JsonFormatter implements Formatter
     }
 
     /**
-     * Adds `risk` to every finding, and the factors behind it on request.
+     * Adds `risk` and `tier` to every finding, and the factors behind the risk
+     * on request.
      *
      * Additive within schema 1, which the contract allows: a consumer reading
      * the documented keys is unaffected, and one that wants to rank findings
@@ -69,6 +72,7 @@ final readonly class JsonFormatter implements Formatter
             $risk = $this->risk->for($finding);
             $row = $finding->toArray();
             $row['risk'] = round($risk->value, 2);
+            $row['tier'] = $this->tiers->for($finding)->value;
 
             if ($this->explainRisk) {
                 $row['risk_factors'] = $risk->toArray();

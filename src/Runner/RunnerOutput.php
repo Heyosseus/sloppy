@@ -45,6 +45,15 @@ interface RunnerOutput
     public function isQuiet(): bool;
 
     /**
+     * Ask the person at the terminal a yes-or-no question, defaulting to no.
+     *
+     * Always no when nobody can answer: a non-interactive run, or standard
+     * input that is not a terminal. A pipeline must never hang on a prompt,
+     * and must never have a question answered for it either.
+     */
+    public function confirm(string $question): bool;
+
+    /**
      * Begin reporting progress over a known number of items.
      *
      * Progress lives on the port rather than behind a returned reporter

@@ -99,3 +99,29 @@ it('says the four kinds of thing a runner can say', function (): void {
         ->and($written)->toContain('a warning')
         ->and($written)->toContain('a line');
 });
+
+it('asks only when someone can answer, on both surfaces', function (): void {
+    $answer = static function (): ArrayInput {
+        $input = new ArrayInput([]);
+        $stream = fopen('php://memory', 'r+');
+        fwrite($stream, "yes\n");
+        rewind($stream);
+        $input->setStream($stream);
+
+        return $input;
+    };
+
+    $symfony = new SymfonyRunnerOutput(new SymfonyStyle($answer(), new BufferedOutput), canAsk: true);
+
+    $command = new Command;
+    $command->setLaravel(app());
+    $input = $answer();
+    $command->setInput($input);
+    $command->setOutput(new OutputStyle($input, new BufferedOutput));
+    $laravel = new LaravelRunnerOutput($command, canAsk: true);
+
+    expect($symfony->confirm('Baseline?'))->toBeTrue()
+        ->and($laravel->confirm('Baseline?'))->toBeTrue()
+        ->and(symfonyAdapter(new BufferedOutput)->confirm('Baseline?'))->toBeFalse()
+        ->and(laravelAdapter(new BufferedOutput)->confirm('Baseline?'))->toBeFalse();
+});

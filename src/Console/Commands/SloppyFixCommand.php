@@ -22,6 +22,7 @@ final class SloppyFixCommand extends SloppyCommandBase
         {--dry-run : Show what would change without writing anything}
         {--no-rector : Skip Rector, only write the configuration}
         {--no-pint : Skip the formatting pass}
+        {--no-comments : Keep the comments that only restate their code}
         {--keep-config : Leave the generated Rector configuration in place}
         {--rector-config=rector-sloppy.php : Filename for the generated Rector configuration}';
 
@@ -38,6 +39,7 @@ final class SloppyFixCommand extends SloppyCommandBase
             withPint: ! $this->boolOption('no-pint'),
             keepConfig: $this->boolOption('keep-config'),
             configFile: $this->stringOption('rector-config', 'rector-sloppy.php'),
+            withComments: ! $this->boolOption('no-comments'),
         ), $output));
     }
 }

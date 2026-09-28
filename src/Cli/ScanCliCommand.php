@@ -27,7 +27,9 @@ final class ScanCliCommand extends CliCommandBase
             ->addOption('fail-on', null, InputOption::VALUE_REQUIRED, 'Lowest severity that fails the command, or "never"')
             ->addOption('explain', null, InputOption::VALUE_NONE, 'Include each rule\'s "why this matters" text')
             ->addOption('explain-risk', null, InputOption::VALUE_NONE, 'Show the arithmetic behind each risk value')
-            ->addOption('no-baseline', null, InputOption::VALUE_NONE, 'Report every finding, including baselined ones');
+            ->addOption('no-baseline', null, InputOption::VALUE_NONE, 'Report every finding, including baselined ones')
+            ->addOption('all', null, InputOption::VALUE_NONE, 'List every finding instead of the defects worth fixing first')
+            ->addOption('top', null, InputOption::VALUE_REQUIRED, 'How many defects to list before summarising the rest');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -41,6 +43,8 @@ final class ScanCliCommand extends CliCommandBase
             explain: $input->getOption('explain') === true,
             noBaseline: $input->getOption('no-baseline') === true,
             explainRisk: $input->getOption('explain-risk') === true,
+            all: $input->getOption('all') === true,
+            top: max(1, $this->intOption($input, 'top') ?? ScanOptions::TOP),
         ), $runnerOutput));
     }
 }

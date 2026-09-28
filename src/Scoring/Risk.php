@@ -26,6 +26,8 @@ final readonly class Risk
         public ?int $blastRadius,
         public float $exposure = 1.0,
         public string $exposureLabel = 'coverage unknown',
+        public float $activity = 1.0,
+        public ?int $changes = null,
     ) {}
 
     /**
@@ -33,11 +35,14 @@ final readonly class Risk
      *
      * Reads as:
      *   10.0 (high) x 0.88 (confidence) x 1.0 (new) x 1.0 (in hunk) x 2.04 (47 usages) x 1.50 (untested) = 26.93
+     *
+     * The history factor joins the line only when there was history to read,
+     * so a project outside git reads exactly as it always has.
      */
     public function explain(): string
     {
         return sprintf(
-            '%.1f (%s) x %.2f (confidence) x %.2f (%s) x %.2f (%s) x %.2f (%s) x %.2f (%s) = %.2f',
+            '%.1f (%s) x %.2f (confidence) x %.2f (%s) x %.2f (%s) x %.2f (%s) x %.2f (%s)%s = %.2f',
             $this->severityWeight,
             $this->severityLabel,
             $this->confidence,
@@ -51,8 +56,14 @@ final readonly class Risk
                 : sprintf('%d usage%s', $this->blastRadius, $this->blastRadius === 1 ? '' : 's'),
             $this->exposure,
             $this->exposureLabel,
+            $this->changes === null ? '' : sprintf(' x %.2f (%s)', $this->activity, $this->changesLabel()),
             $this->value,
         );
+    }
+
+    private function changesLabel(): string
+    {
+        return sprintf('%d recent change%s', $this->changes, $this->changes === 1 ? '' : 's');
     }
 
     /**
@@ -72,6 +83,8 @@ final readonly class Risk
             'blast_radius' => $this->blastRadius,
             'exposure' => round($this->exposure, 2),
             'exposure_label' => $this->exposureLabel,
+            'activity' => round($this->activity, 2),
+            'recent_changes' => $this->changes,
         ];
     }
 }
