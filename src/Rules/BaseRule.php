@@ -9,6 +9,7 @@ use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Location;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Contracts\Rule;
+use Heyosseus\Sloppy\Support\StringListOption;
 use PhpParser\Node;
 
 /**
@@ -96,20 +97,7 @@ abstract class BaseRule implements Rule
     {
         $value = $this->options[$key] ?? null;
 
-        if (! is_array($value)) {
-            return $default;
-        }
-
-        $items = [];
-
-        /** @var mixed $item */
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $items[] = trim($item);
-            }
-        }
-
-        return $items;
+        return is_array($value) ? StringListOption::from($value) : $default;
     }
 
     /**
