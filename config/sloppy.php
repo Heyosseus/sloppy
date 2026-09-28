@@ -380,6 +380,12 @@ return [
             'max_comparisons' => 5000,
         ],
 
+        'SL112' => [
+            // Placeholder Implementation. Fires only on bodies that say they
+            // are unfinished: an elided-code comment, a "not implemented"
+            // throw, or a TODO over an empty or constant return.
+        ],
+
         // ---- Laravel ---------------------------------------------------
 
         'SL201' => [
@@ -487,6 +493,17 @@ return [
             'files' => [
                 'phpstan-baseline.neon',
                 'psalm-baseline.xml',
+            ],
+        ],
+
+        'SL503' => [
+            // Weakened Test. Directories whose PHP files are tests, compared
+            // across two revisions for skips, lost assertions, assertions that
+            // cannot fail and deleted tests. Any `*Test.php` counts wherever
+            // it lives. Like SL502 it only runs where there is a base to
+            // compare with: diff, ci, review and the agent hooks.
+            'paths' => [
+                'tests',
             ],
         ],
 

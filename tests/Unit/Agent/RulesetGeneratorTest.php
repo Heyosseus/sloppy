@@ -26,7 +26,7 @@ it('writes every rule in force, with what to do instead', function (): void {
 
     expect($ruleset)->toContain('# Sloppy: code rules for this repository')
         ->and($ruleset)->toContain('Instructions for Claude Code working in this repository.')
-        ->and($ruleset)->toContain('## The 25 rules in force')
+        ->and($ruleset)->toContain('## The 26 rules in force')
         ->and($ruleset)->toContain('### SL101 God Method')
         ->and($ruleset)->toContain('### SL210 Suspicious Model::all()')
         ->and($ruleset)->toContain('- Write it this way instead: Give a method one job.')
@@ -60,7 +60,17 @@ it('names the rules that do not apply, so nothing is written to satisfy them', f
     expect($ruleset)->toContain('## Not in force here')
         ->and($ruleset)->toContain('SL201')
         ->and($ruleset)->toContain('they describe a framework it does not use')
-        ->and($ruleset)->toContain('## The 15 rules in force');
+        ->and($ruleset)->toContain('## The 16 rules in force');
+});
+
+it('tells the agent not to weaken tests, unless SL503 is switched off', function (): void {
+    // SL503 is an evidence source, so it is not in the rule list. The warning
+    // has to be said up front, because the shortcut it catches is taken
+    // before the diff check ever runs.
+    expect(generatorFor()->generate(RulesetFormat::Claude))
+        ->toContain('Never make a failing test pass by weakening it')
+        ->and(generatorFor(['rules' => ['SL503' => ['enabled' => false]]])->generate(RulesetFormat::Claude))
+        ->not->toContain('weakening it');
 });
 
 it('leaves out the section entirely when every rule applies', function (): void {
@@ -74,7 +84,7 @@ it('writes the same rules as structured JSON', function (): void {
     expect($decoded['schema'])->toBe(1)
         ->and($decoded['version'])->toBe(Sloppy::VERSION)
         ->and($decoded['project']['fail_on'])->toBe('high')
-        ->and($decoded['rules'])->toHaveCount(25)
+        ->and($decoded['rules'])->toHaveCount(26)
         ->and($decoded['rules'][0])->toHaveKeys(['id', 'name', 'category', 'severity', 'description', 'explanation', 'guidance'])
         ->and($decoded['rules_not_in_force'])->toBe([]);
 });

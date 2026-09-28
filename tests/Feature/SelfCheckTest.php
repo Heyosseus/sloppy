@@ -65,11 +65,9 @@ function acceptedSelfFindings(): array
         'SL303 src/Integrations/Tooling/ToolRunner.php ToolRunner',
         'SL303 src/Watch/EditorLauncher.php EditorLauncher',
 
-        // Same reasoning as the two ports above: an interface with one
-        // implementation, kept because the implementation shells out to git
-        // and the test suite substitutes one that does not. It is also the
-        // documented extension point -- a project adding its own evidence
-        // source implements this and nothing else.
+        // EvidenceSource used to be signed off here as an interface with one
+        // implementation. SL503 gave it a second, so the finding resolved
+        // itself the way SL303 says it will.
         //
         // Note this list does NOT contain SL102 for Configuration. Adding the
         // coverage and baseline accessors there pushed it past the god-class
@@ -78,7 +76,6 @@ function acceptedSelfFindings(): array
         // watched files in its own rule options -- rather than to sign off a
         // finding this release caused. Accepting that one would have been the
         // exact move SL501 exists to report.
-        'SL303 src/Contracts/EvidenceSource.php EvidenceSource',
     ];
 }
 

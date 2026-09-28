@@ -33,7 +33,7 @@ it('writes CLAUDE.md by default', function (): void {
     expect($code)->toBe(ExitCode::Success)
         ->and($written)->toContain(RulesetFile::BEGIN)
         ->and($written)->toContain('### SL101 God Method')
-        ->and($output->messages())->toContain('info: Created CLAUDE.md for Claude Code (25 rule(s)).');
+        ->and($output->messages())->toContain('info: Created CLAUDE.md for Claude Code (26 rule(s)).');
 
     removeTree($root);
 });
@@ -69,8 +69,8 @@ it('keeps what a team already wrote in CLAUDE.md and refreshes only its own bloc
 
     expect($written)->toContain('Deploy with `make ship`.')
         ->and(mb_substr_count($written, RulesetFile::BEGIN))->toBe(1)
-        ->and($first->messages())->toContain('info: Updated CLAUDE.md for Claude Code (25 rule(s)).')
-        ->and($second->messages())->toContain('info: Refreshed the Sloppy block in CLAUDE.md for Claude Code (25 rule(s)).');
+        ->and($first->messages())->toContain('info: Updated CLAUDE.md for Claude Code (26 rule(s)).')
+        ->and($second->messages())->toContain('info: Refreshed the Sloppy block in CLAUDE.md for Claude Code (26 rule(s)).');
 
     removeTree($root);
 });
@@ -170,7 +170,7 @@ it('writes a Boost guideline by default where Boost is installed', function (str
         ->and(is_file($root.'/.ai/guidelines/sloppy.blade.php'))->toBeTrue()
         ->and(is_file($root.'/CLAUDE.md'))->toBeFalse()
         ->and($output->messages())->toBe([
-            'info: Created .ai/guidelines/sloppy.blade.php for Laravel Boost (25 rule(s)).',
+            'info: Created .ai/guidelines/sloppy.blade.php for Laravel Boost (26 rule(s)).',
             'info: Run `php artisan boost:update` so Boost adds it to your agent files.',
         ]);
 
@@ -203,7 +203,7 @@ it('replaces its own Boost guideline on the next run', function (): void {
 
     expect($code)->toBe(ExitCode::Success)
         ->and(file_get_contents($root.'/.ai/guidelines/sloppy.blade.php'))->toBe($first)
-        ->and($second->messages()[0])->toBe('info: Replaced .ai/guidelines/sloppy.blade.php for Laravel Boost (25 rule(s)).');
+        ->and($second->messages()[0])->toBe('info: Replaced .ai/guidelines/sloppy.blade.php for Laravel Boost (26 rule(s)).');
 
     removeTree($root);
 });

@@ -70,21 +70,21 @@ scan on demand. See [Coding agents](docs/agents.md).
 
 ## What it catches
 
-25 rules. Each one is tested to fire on the pattern *and* to stay silent on
-ordinary Laravel code.
+26 rules, plus two checks that compare your change with its base. Each one is
+tested to fire on the pattern *and* to stay silent on ordinary Laravel code.
 
 | | Rules |
 | --- | --- |
 | **Complexity** | `SL101` God Method · `SL102` God Class · `SL103` Excessive Nesting |
 | **Duplication** | `SL104` Duplicate Logic · `SL111` Copy-Paste Drift, a near-copy whose one difference looks like an unfinished edit |
-| **Dead code & dependencies** | `SL105` Dead Private Method · `SL106` Unused Constructor Dependency |
+| **Dead code & dependencies** | `SL105` Dead Private Method · `SL106` Unused Constructor Dependency · `SL112` Placeholder Implementation, the `// ... existing code ...` or "not implemented" left where a body should be |
 | **Error handling** | `SL107` Swallowed Exception |
 | **Readability** | `SL108` Redundant Condition · `SL109` Narrative Comment · `SL110` Defensive Programming Noise |
 | **Laravel** | `SL201` Business Logic In Controller · `SL202` Inline Validation · `SL208` Direct External API Call · `SL209` Model Doing Too Much |
 | **Performance** | `SL203` Possible N+1 · `SL204` Query Inside Loop · `SL205` Collection Instead Of Query · `SL210` Suspicious `Model::all()` |
 | **Dependencies** | `SL206` Excessive Controller Dependencies · `SL207` Excessive Service Dependencies |
 | **Architecture** (advisory) | `SL301` Abstraction Inflation · `SL302` Empty Wrapper Class · `SL303` Single-Use Abstraction |
-| **Suppression** | `SL501` Unexplained Suppression · `SL502` Baseline Growth, new entries in your PHPStan or Psalm baseline |
+| **Suppression** | `SL501` Unexplained Suppression · `SL502` Baseline Growth, new entries in your PHPStan or Psalm baseline · `SL503` Weakened Test, a test skipped, stripped of assertions or given `assertTrue(true)` to make it pass |
 
 Every finding says **where** it is, **what** was measured, **how sure** the
 analyser is, **why** the pattern costs you, and **what to do** instead. See
@@ -177,7 +177,7 @@ If PHPStan can prove it, Sloppy stays out of it.
 | --- | --- |
 | [Getting started](docs/getting-started.md) | Install options, every command, your first scan, adopting on an existing codebase |
 | [Coding agents](docs/agents.md) | Claude Code hooks, rulesets for every agent, Laravel Boost, the MCP server |
-| [Rules](docs/rules.md) | All 25 rules in detail, and how false positives are kept down |
+| [Rules](docs/rules.md) | Every rule in detail, and how false positives are kept down |
 | [Everyday workflow](docs/workflow.md) | Diff and review, `sloppy fix`, Pest expectations, `watch`, Filament and NativePHP |
 | [CI and code scanning](docs/ci.md) | `sloppy ci`, the GitHub Action, GitLab, SARIF, annotations, exit codes |
 | [Score, severity and risk](docs/scoring.md) | How every number is calculated, and what coverage and PHPStan baselines feed |
@@ -189,8 +189,8 @@ If PHPStan can prove it, Sloppy stays out of it.
 
 Still ahead: inline pull-request review comments, `sloppy explain` for a
 longer write-up of one finding, HTML reports, project architecture policies,
-and rules for the patterns that are specific to agents, such as tests edited
-to pass and placeholder implementations. Anything AI-assisted will be opt-in
+and more rules for the shortcuts agents take, such as configuration keys and
+routes that do not exist. Anything AI-assisted will be opt-in
 and separate: the analyser will always work with no API key, no network and
 no model.
 

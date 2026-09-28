@@ -203,4 +203,22 @@ describe('against a real git repository', function (): void {
         expect($outcome->blocks())->toBeFalse()
             ->and($outcome->stdout)->toBe('');
     });
+
+    it('feeds back a test the edit weakened, though tests are never scanned', function (): void {
+        $repository = TempRepository::create();
+        $repository->write('app/Fine.php', "<?php\n\nclass Fine\n{\n}\n");
+        $repository->write('tests/FineTest.php', "<?php\n\nit('works', function () {\n    expect((new Fine)->ok())->toBeTrue();\n});\n")->commit('first');
+        $repository->write('tests/FineTest.php', "<?php\n\nit('works', function () {\n    expect((new Fine)->ok())->toBeTrue();\n})->skip();\n");
+
+        $edit = (new HookRunner)->run(hookSloppy($repository->path), HookEvent::PostEdit, editPayload($repository, 'tests/FineTest.php'));
+        $stop = (new HookRunner)->run(hookSloppy($repository->path, ['fail_on' => 'high']), HookEvent::Stop, stopPayload());
+
+        $repository->remove();
+
+        expect($edit->blocks())->toBeTrue()
+            ->and($edit->stderr)->toContain('SL503 Weakened Test')
+            ->and($edit->stderr)->toContain('is now skipped')
+            ->and($stop->blocks())->toBeTrue()
+            ->and($stop->stderr)->toContain('SL503');
+    });
 });

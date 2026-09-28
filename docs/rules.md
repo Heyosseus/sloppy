@@ -6,8 +6,13 @@ Every rule Sloppy ships, and how the rule set is kept quiet on ordinary code.
 
 ## Rules
 
-25 rules ship. Every one has tests proving both that it fires on the pattern
-and that it stays quiet on ordinary Laravel code.
+26 rules ship, plus two diff-only checks (`SL502`, `SL503`) that compare your
+change with its base revision. Every one has tests proving both that it fires
+on the pattern and that it stays quiet on ordinary code.
+
+Two of them target the shortcuts coding agents take to call a task done:
+`SL112` catches a body left unwritten, and `SL503` catches a test made to pass
+by checking less.
 
 ### PHP and general
 
@@ -24,6 +29,7 @@ and that it stays quiet on ordinary Laravel code.
 | `SL109` | Narrative Comment | Low | Readability | Short comments whose every meaningful word already appears in the statement directly below them. |
 | `SL110` | Defensive Programming Noise | Low | Readability | A method that guards the same subject the same way twice, with the same outcome and no reassignment in between. |
 | `SL111` | Copy-Paste Drift | High | Duplication | A method body nearly identical to a sibling's, where the one difference looks like an unfinished copy rather than a deliberate variation -- a missing guard, a flipped comparison, the wrong class constructed. Heuristic: the majority is more likely to be right, not automatically right. |
+| `SL112` | Placeholder Implementation | High | Dead code | A body that says it is unfinished: an elided-code comment such as `// ... existing code ...`, a body that only throws "not implemented", or a TODO over an empty or constant return (Medium). A bare `return [];` never fires on its own — default hooks and null objects do that on purpose. |
 
 ### Laravel
 
@@ -54,13 +60,14 @@ not a rule against repositories or interfaces.
 
 ### Suppression
 
-An analyser being silenced is not a style question. These two are about the
+An analyser or a test being silenced is not a style question. These three are about the
 moment somebody decided to stop being told about a problem rather than fix it.
 
 | ID | Rule | Severity | Category | What it looks for |
 | --- | --- | --- | --- | --- |
 | `SL501` | Unexplained Suppression | Medium | Suppression | `@phpstan-ignore`, `@psalm-suppress`, `@mago-expect`, `@noinspection`, `phpcs:ignore` or `@SuppressWarnings` written with no reason after it. Not suppression *density*: a defended suppression is a reviewed decision, and flagging those would train people to delete the explanation rather than the ignore. |
 | `SL502` | Baseline Growth | Medium | Suppression | Entries this change added to `phpstan-baseline.neon` or `psalm-baseline.xml`. Diff mode only — "grew" needs two revisions. Compared per source path, so regenerating a baseline reports nothing. |
+| `SL503` | Weakened Test | High | Suppression | Tests this change skipped (`markTestSkipped`, `markTestIncomplete`, Pest's `->skip()` and `->todo()`), stripped of assertions, or gave an assertion that cannot fail (`assertTrue(true)`, `expect(true)->toBeTrue()`; Medium in a brand-new test, which is weak rather than weakened); a deleted test is Medium at 60% confidence. Diff mode only. Tests are compared by name, PHPUnit and Pest alike; assertions made through a helper in the same file still count, and a test renamed or replaced by one that asserts as much is not a deletion. Reads `tests/` and any `*Test.php` — set `rules.SL503.paths` to change that. |
 
 ## Does it just complain about everything?
 
@@ -77,7 +84,7 @@ test fails on any *new* finding about Sloppy's own code. Four others it found
 were genuine, and they were fixed.
 
 The other half of the answer is `tests/Fixtures/Good`: deliberately ordinary
-Laravel code, with a test asserting that all 25 rules report **zero** findings
+Laravel code, with a test asserting that all 26 rules report **zero** findings
 on it at a score of 100.
 
 ## False positives
@@ -97,7 +104,7 @@ priority the whole rule set is tuned around:
   attributes, reflection, `compact()`, subclasses — anything that could reach a
   member indirectly makes the relevant rule step back rather than guess.
 - **A regression test for silence.** `tests/Fixtures/Good` is ordinary Laravel
-  code, and a test asserts all 25 rules report zero findings on it. If a change
+  code, and a test asserts all 26 rules report zero findings on it. If a change
   to any rule breaks that test, the rule is wrong.
 
 Found a false positive? That is a bug worth reporting, not a threshold to work

@@ -9,6 +9,7 @@ use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Contracts\EvidenceSource;
 use Heyosseus\Sloppy\Git\ChangedFile;
 use Heyosseus\Sloppy\Git\Git;
+use Heyosseus\Sloppy\Support\StringListOption;
 
 /**
  * The evidence sources a diff will use.
@@ -34,7 +35,12 @@ final readonly class EvidenceCollector
     {
         $sources = [];
 
-        foreach ([new BaselineGrowthSource(self::baselinesFrom($config))] as $source) {
+        $candidates = [
+            new BaselineGrowthSource(self::stringsFrom($config, 'SL502', 'files', ['phpstan-baseline.neon', 'psalm-baseline.xml'])),
+            new WeakenedTestSource(self::stringsFrom($config, 'SL503', 'paths', ['tests'])),
+        ];
+
+        foreach ($candidates as $source) {
             if ($config->isRuleEnabled($source->id())) {
                 $sources[] = $source;
             }
@@ -44,33 +50,22 @@ final readonly class EvidenceCollector
     }
 
     /**
-     * Which baseline files `SL502` watches.
+     * A list option of one evidence source: which baseline files `SL502`
+     * watches, or which directories `SL503` treats as tests.
      *
      * Read from the detector's own options, the same place `SL501` reads its
-     * suppression vocabulary. A detector's inputs belong with the detector, and
-     * these are other tools' baselines -- not Sloppy's own, which is
+     * suppression vocabulary. A detector's inputs belong with the detector --
+     * `SL502`'s are other tools' baselines, not Sloppy's own, which is
      * `sloppy.baseline`.
      *
+     * @param  list<string>  $default
      * @return list<string>
      */
-    private static function baselinesFrom(Configuration $config): array
+    private static function stringsFrom(Configuration $config, string $id, string $key, array $default): array
     {
-        $configured = $config->ruleOptions('SL502')['files'] ?? null;
+        $configured = $config->ruleOptions($id)[$key] ?? null;
 
-        if (! is_array($configured)) {
-            return ['phpstan-baseline.neon', 'psalm-baseline.xml'];
-        }
-
-        $files = [];
-
-        /** @var mixed $file */
-        foreach ($configured as $file) {
-            if (is_string($file) && trim($file) !== '') {
-                $files[] = trim($file);
-            }
-        }
-
-        return $files;
+        return is_array($configured) ? StringListOption::from($configured) : $default;
     }
 
     /**

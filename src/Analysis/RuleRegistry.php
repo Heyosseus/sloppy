@@ -28,6 +28,7 @@ use Heyosseus\Sloppy\Rules\Php\ExcessiveNestingRule;
 use Heyosseus\Sloppy\Rules\Php\GodClassRule;
 use Heyosseus\Sloppy\Rules\Php\GodMethodRule;
 use Heyosseus\Sloppy\Rules\Php\NarrativeCommentRule;
+use Heyosseus\Sloppy\Rules\Php\PlaceholderImplementationRule;
 use Heyosseus\Sloppy\Rules\Php\RedundantConditionRule;
 use Heyosseus\Sloppy\Rules\Php\SwallowedExceptionRule;
 use Heyosseus\Sloppy\Rules\Php\UnexplainedSuppressionRule;
@@ -67,6 +68,7 @@ final readonly class RuleRegistry
             NarrativeCommentRule::class,
             DefensiveProgrammingNoiseRule::class,
             CopyPasteDriftRule::class,
+            PlaceholderImplementationRule::class,
             UnexplainedSuppressionRule::class,
 
             BusinessLogicInControllerRule::class,
