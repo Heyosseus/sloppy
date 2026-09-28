@@ -48,7 +48,7 @@ it('says nothing when sloppy is disabled', function (): void {
 
     expect($outcome->blocks())->toBeFalse()
         ->and($outcome->exitCode())->toBe(0)
-        ->and($outcome->stderr)->toBe('');
+        ->and($outcome->feedback)->toBe('');
 
     removeTree($project);
 });
@@ -120,9 +120,9 @@ describe('against a real git repository', function (): void {
         $repository->remove();
 
         expect($outcome->blocks())->toBeTrue()
-            ->and($outcome->exitCode())->toBe(2)
-            ->and($outcome->stderr)->toContain('app/Bad.php:5 SL101 God Method (high)')
-            ->and($outcome->stderr)->toContain('this edit to app/Bad.php introduced 1 finding');
+            ->and($outcome->exitCode())->toBe(0)
+            ->and($outcome->feedback)->toContain('app/Bad.php:5 SL101 God Method (high)')
+            ->and($outcome->feedback)->toContain('this edit to app/Bad.php introduced 1 finding');
     });
 
     it('stays quiet about a finding the file already had', function (): void {
@@ -135,7 +135,7 @@ describe('against a real git repository', function (): void {
         $repository->remove();
 
         expect($outcome->blocks())->toBeFalse()
-            ->and($outcome->stderr)->toBe('');
+            ->and($outcome->feedback)->toBe('');
     });
 
     it('only reports on the file that was edited', function (): void {
@@ -161,9 +161,9 @@ describe('against a real git repository', function (): void {
         $repository->remove();
 
         expect($outcome->blocks())->toBeTrue()
-            ->and($outcome->stderr)->toContain('before you finish')
-            ->and($outcome->stderr)->toContain('at or above high')
-            ->and($outcome->stderr)->toContain('SL101');
+            ->and($outcome->feedback)->toContain('before you finish')
+            ->and($outcome->feedback)->toContain('at or above high')
+            ->and($outcome->feedback)->toContain('SL101');
     });
 
     it('lets the agent finish the second time, and says what is left', function (): void {
@@ -176,7 +176,7 @@ describe('against a real git repository', function (): void {
         $repository->remove();
 
         expect($outcome->blocks())->toBeFalse()
-            ->and($outcome->stderr)->toBe('')
+            ->and($outcome->feedback)->toBe('')
             ->and($outcome->stdout)->toContain('SL101');
     });
 
@@ -216,9 +216,9 @@ describe('against a real git repository', function (): void {
         $repository->remove();
 
         expect($edit->blocks())->toBeTrue()
-            ->and($edit->stderr)->toContain('SL503 Weakened Test')
-            ->and($edit->stderr)->toContain('is now skipped')
+            ->and($edit->feedback)->toContain('SL503 Weakened Test')
+            ->and($edit->feedback)->toContain('is now skipped')
             ->and($stop->blocks())->toBeTrue()
-            ->and($stop->stderr)->toContain('SL503');
+            ->and($stop->feedback)->toContain('SL503');
     });
 });

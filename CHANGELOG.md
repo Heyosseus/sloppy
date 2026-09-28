@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Claude Code hooks now work on Windows without Git Bash.** Claude
+  Code then runs hooks through PowerShell, which read `$CLAUDE_PROJECT_DIR`
+  as an undefined variable of its own, so the hook ran
+  `php "/vendor/bin/sloppy"` and failed, and it reported the hook's exit 2 as
+  a plain failure, so no finding ever blocked. `sloppy agents install` now
+  writes `${CLAUDE_PROJECT_DIR}`, and `sloppy hook` reports a block as
+  Claude Code's JSON decision (`{"decision": "block", "reason": ...}`) with
+  exit 0, which survives any shell. Re-run `sloppy agents install` to update
+  an existing `.claude/settings.json`.
+- SL112 no longer flags a `NotImplemented` exception whose message gives the
+  reason, such as koel's `MethodNotImplementedException('Lambda storage does
+  not support uploading.')`.
+
 ### Added
 
 - **`SL503` Weakened Test catches a test made to pass by checking less.** In

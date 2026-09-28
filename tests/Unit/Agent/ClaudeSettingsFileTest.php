@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Heyosseus\Sloppy\Agent\ClaudeSettingsFile;
 
-const SLOPPY_COMMAND = 'php "$CLAUDE_PROJECT_DIR/vendor/bin/sloppy"';
+const SLOPPY_COMMAND = 'php "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"';
 
 /**
  * @return array<string, mixed>

@@ -24,10 +24,10 @@ use Throwable;
  *
  * It is hidden because nobody types it: `sloppy agents install` writes it
  * into the agent's settings. It speaks the hook protocol rather than the
- * console's -- a payload on standard input, and exit 2 with standard error for
- * findings the model should act on -- so it prints no project-root notice and
- * no styling, and anything that goes wrong before the analysis has even
- * started exits 0 like everything else that is not a finding.
+ * console's -- a payload on standard input, and a JSON block decision on
+ * standard output for findings the model should act on -- so it prints no
+ * project-root notice and no styling. It always exits 0: see HookOutcome for
+ * why the decision does not travel in the exit code.
  */
 #[AsCommand(name: 'hook', description: 'Run Sloppy from inside a coding agent\'s hooks', hidden: true)]
 final class HookCliCommand extends CliCommandBase

@@ -23,7 +23,7 @@ it('wires Claude Code up and writes the ruleset beside it', function (): void {
     $settings = (string) file_get_contents($project.'/.claude/settings.json');
 
     expect($code)->toBe(ExitCode::Success)
-        ->and($settings)->toContain('php \"$CLAUDE_PROJECT_DIR/vendor/bin/sloppy\" hook post-edit')
+        ->and($settings)->toContain('php \"${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy\" hook post-edit')
         ->and($settings)->toContain('hook stop')
         ->and(is_file($project.'/CLAUDE.md'))->toBeTrue()
         ->and($output->messages()[0])->toBe('info: Created .claude/settings.json: Claude Code now runs Sloppy after every edit, and checks the whole change before it finishes.')

@@ -41,11 +41,17 @@ enum AgentHost: string
      * global or phar install has nothing inside the project to point at, so it
      * gets the binary that ran the installer. `php` is spelled out because the
      * binary's shebang means nothing to Windows.
+     *
+     * The variable is braced because Claude Code runs hooks through
+     * PowerShell on Windows when it cannot find Git Bash, and PowerShell
+     * reads a bare `$CLAUDE_PROJECT_DIR` as an undefined variable of its own:
+     * the command became `php "/vendor/bin/sloppy"`. Claude Code substitutes
+     * the braced form itself, and Bash expands it the same way.
      */
     public function command(string $basePath, string $runningBinary): string
     {
         if (is_file($basePath.'/vendor/bin/sloppy')) {
-            return 'php "$CLAUDE_PROJECT_DIR/vendor/bin/sloppy"';
+            return 'php "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"';
         }
 
         return sprintf('php "%s"', str_replace('\\', '/', $runningBinary));

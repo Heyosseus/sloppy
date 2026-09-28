@@ -55,7 +55,7 @@ Installing is safe to repeat. Your permissions, environment and other hooks
 are left exactly as they were. Sloppy's own entries are found by their command
 and replaced in place, and a settings file that is not valid JSON is refused
 rather than rewritten. In a project with Sloppy in `vendor/`, the hooks call
-`php "$CLAUDE_PROJECT_DIR/vendor/bin/sloppy"`, so the committed file works on
+`php "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"`, so the committed file works on
 every checkout. With a global or phar install they call the binary that
 installed them.
 

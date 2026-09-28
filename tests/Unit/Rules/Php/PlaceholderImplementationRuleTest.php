@@ -128,6 +128,22 @@ it('says nothing about a method declined on purpose, with the reason in the mess
     expect($findings)->toBeEmpty();
 });
 
+it('says nothing about a NotImplemented exception whose message gives the reason', function (): void {
+    // From koel: a storage driver declining operations it cannot support.
+    $findings = findings(new PlaceholderImplementationRule, <<<'PHP'
+    <?php
+    class S3LambdaStorage extends SongStorage
+    {
+        public function undoUpload(UploadReference $reference): void
+        {
+            throw new MethodNotImplementedException('Lambda storage does not support uploading.');
+        }
+    }
+    PHP);
+
+    expect($findings)->toBeEmpty();
+});
+
 it('flags a throw of a NotImplemented exception class', function (): void {
     $findings = findings(new PlaceholderImplementationRule, <<<'PHP'
     <?php
