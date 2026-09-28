@@ -36,6 +36,7 @@ final readonly class RuleGuidance
         'SL109' => 'Write comments that say why, not what. If a comment restates the line below it, rename the thing and delete the comment.',
         'SL110' => 'Validate at the boundary once and trust your own types afterwards. Re-checking a typed argument in every method downstream is noise that hides the check that matters.',
         'SL111' => 'Copies drift. When two blocks started identical and one has changed, either re-unify them or make the difference explicit -- a divergence nobody chose is a bug waiting for its turn.',
+        'SL112' => 'Finish the body you were asked for. Never leave "... existing code ...", a "not implemented" throw or a TODO over return []; if you cannot finish it, say so in your reply instead of shipping a stand-in.',
         'SL201' => 'Keep controllers to translating HTTP into one call and back. Put the decision in an action, a service or the model.',
         'SL202' => 'Validate in a FormRequest, or in a single validate() call. Hand-rolled if-blocks drift away from the rules the API documents.',
         'SL203' => 'Eager-load what the loop will touch: with() the relations before you iterate, not inside the iteration.',

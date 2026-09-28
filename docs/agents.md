@@ -29,6 +29,12 @@ Only what the change introduced is ever reported. An agent editing one method
 in a legacy file is not told about the twelve problems the file already had,
 because an agent told about them goes and "fixes" code nobody asked it to touch.
 
+Tests are covered too, although the analyser never scans them. When the agent
+edits a test file, [`SL503`](rules.md#suppression) compares it with `HEAD`, so
+a test skipped, stripped of assertions or given `assertTrue(true)` to make it
+pass is fed back the same way. A method left as `// ... existing code ...` or
+`throw new Exception('Not implemented')` is `SL112`.
+
 The Stop hook blocks **once**. If the agent tries to finish again, Claude Code
 marks the retry and Sloppy lets it through, listing whatever is left in the
 transcript. A false positive costs one round trip, not the session. And every

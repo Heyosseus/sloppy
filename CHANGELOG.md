@@ -6,6 +6,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`SL503` Weakened Test catches a test made to pass by checking less.** In
+  a diff, and so in both Claude Code hooks, each changed test file is compared
+  with its base revision test by test, PHPUnit and Pest alike. A test that is
+  newly skipped, lost assertions or gained one that cannot fail
+  (`assertTrue(true)`, `expect(true)->toBeTrue()`) is High; a brand-new test
+  that asserts nothing that can fail, and a deleted test, are Medium.
+  Assertions made through a helper in the same file still count, and a test
+  renamed or replaced by one that asserts as much is not a deletion. Run over
+  this repository's whole history it reports one finding. Test
+  files are read from `tests/` and any `*Test.php`; `rules.SL503.paths`
+  changes that. The generated `CLAUDE.md`, `AGENTS.md` and Boost rulesets now
+  tell the agent not to weaken tests while SL503 is enabled.
+- **`SL112` Placeholder Implementation catches a body left unwritten:** an
+  elided-code comment such as `// ... existing code ...` (what an agent leaves
+  when an edit collapses a method), a body that only throws "not implemented",
+  or a TODO over an empty or constant return. A bare `return [];` never fires
+  on its own, nor does Laravel's `// ...` for "intentionally empty", nor a
+  message that says who declined the method ("not implemented by Laravel").
+  It reports nothing on the Laravel, Symfony, PHPUnit and Pest sources.
+
+### Changed
+
+- `BaseRule::listOption()` and the evidence sources' list options now share
+  `StringListOption`, the loop SL111 flagged when a second copy appeared.
+
 ## [1.1.1] — 2026-09-26
 
 ### Fixed

@@ -10,11 +10,11 @@ it('respects the configuration rule list', function (): void {
     // SL502 has to be switchable off the same way every other finding is, or a
     // team that disagrees with it has to stop using diff mode.
     expect(EvidenceCollector::fromConfiguration(Configuration::fromArray([], __DIR__))->ids())
-        ->toBe(['SL502']);
+        ->toBe(['SL502', 'SL503']);
 
     expect(EvidenceCollector::fromConfiguration(
         Configuration::fromArray(['rules' => ['SL502' => ['enabled' => false]]], __DIR__),
-    )->ids())->toBe([]);
+    )->ids())->toBe(['SL503']);
 });
 
 it('collects nothing when it has no sources', function (): void {

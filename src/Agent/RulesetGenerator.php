@@ -87,6 +87,7 @@ final readonly class RulesetGenerator
             '',
             'Inherited findings are not yours to fix in passing. New ones are.',
             '',
+            ...$this->testIntegrity(),
             '## This project',
             '',
             sprintf('- Analysed paths: %s', implode(', ', $this->configuration->paths())),
@@ -117,6 +118,28 @@ final readonly class RulesetGenerator
             sprintf('- Flags: %s', $rule->description()),
             sprintf('- Why it costs: %s', $rule->explanation()),
             sprintf('- Write it this way instead: %s', RuleGuidance::for($rule)),
+            '',
+        ];
+    }
+
+    /**
+     * `SL503` is an evidence source, not a rule, so it has no entry in the
+     * list below -- but it is the one an agent most needs to hear about
+     * before it starts, because the shortcut it blocks is the one a model
+     * reaches for when a test will not pass.
+     *
+     * @return list<string>
+     */
+    private function testIntegrity(): array
+    {
+        if (! $this->configuration->isRuleEnabled('SL503')) {
+            return [];
+        }
+
+        return [
+            'Never make a failing test pass by weakening it: do not skip it, delete its assertions, replace them '
+                .'with assertTrue(true) or delete the test. Fix the code, or fix what the test asserts and say why. '
+                .'The diff check reports weakened tests as SL503.',
             '',
         ];
     }
