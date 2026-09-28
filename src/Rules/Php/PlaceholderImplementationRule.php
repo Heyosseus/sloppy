@@ -235,7 +235,10 @@ final class PlaceholderImplementationRule extends BaseRule
             }
         }
 
-        return preg_match('/NotImplemented/i', $class) === 1 ? $class : null;
+        // The exception's name only speaks for the body when nothing else
+        // does. `MethodNotImplementedException('Lambda storage does not
+        // support uploading.')` -- from koel -- is a refusal with its reason.
+        return $text === '' && preg_match('/NotImplemented/i', $class) === 1 ? $class : null;
     }
 
     /**

@@ -100,7 +100,10 @@ describe('against a real git repository', function (): void {
         }
     });
 
-    it('hands a new finding back on standard error with exit 2', function (): void {
+    it('hands a new finding back as a JSON block decision, exiting 0', function (): void {
+        // Not exit 2: through PowerShell -- what Claude Code uses on Windows
+        // without Git Bash -- the exit code does not survive, and the block
+        // became a warning. The JSON decision survives any shell.
         $repository = TempRepository::create();
         $repository->write('composer.json', '{}')->write('app/Fine.php', "<?php\n\nclass Fine\n{\n}\n")->commit('first');
         $repository->write('app/Bad.php', godMethodSource());
@@ -114,9 +117,12 @@ describe('against a real git repository', function (): void {
 
         $repository->remove();
 
-        expect($code)->toBe(2)
-            ->and($tester->getErrorOutput())->toContain('SL101 God Method')
-            ->and($tester->getDisplay())->toBe('');
+        $decision = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+
+        expect($code)->toBe(0)
+            ->and($decision['decision'])->toBe('block')
+            ->and($decision['reason'])->toContain('SL101 God Method')
+            ->and($tester->getErrorOutput())->toBe('');
     });
 
     it('works end to end through the real binary, the way Claude Code runs it', function (): void {
@@ -130,10 +136,12 @@ describe('against a real git repository', function (): void {
 
         $repository->remove();
 
-        expect($process->getExitCode())->toBe(2)
-            ->and($process->getErrorOutput())->toContain('before you finish')
-            ->and($process->getErrorOutput())->toContain('SL101')
-            ->and($process->getOutput())->toBe('');
+        $decision = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+
+        expect($process->getExitCode())->toBe(0)
+            ->and($decision['decision'])->toBe('block')
+            ->and($decision['reason'])->toContain('before you finish')
+            ->and($decision['reason'])->toContain('SL101');
     });
 
     it('reads a payload redirected from a file, not only a pipe', function (): void {
@@ -156,7 +164,8 @@ describe('against a real git repository', function (): void {
 
         $repository->remove();
 
-        expect($process->getExitCode())->toBe(2)
-            ->and($process->getErrorOutput())->toContain('SL101');
+        expect($process->getExitCode())->toBe(0)
+            ->and($process->getOutput())->toContain('"decision":"block"')
+            ->and($process->getOutput())->toContain('SL101');
     });
 });

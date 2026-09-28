@@ -8,7 +8,7 @@ it('points the hooks at the project\'s own copy when it has one', function (): v
     $project = tempProject(['vendor/bin/sloppy' => '<?php']);
 
     expect(AgentHost::ClaudeCode->command($project, '/home/me/.composer/vendor/bin/sloppy'))
-        ->toBe('php "$CLAUDE_PROJECT_DIR/vendor/bin/sloppy"');
+        ->toBe('php "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"');
 
     removeTree($project);
 });
