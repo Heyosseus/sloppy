@@ -64,14 +64,19 @@ one finding:
       "suggestion": "Remove $logger from the constructor, and from any container binding or test that builds this class by hand.",
       "fingerprint": "ReportingService::$logger",
       "identity": "a6166b140b3256d6",
-      "metrics": { "dependency": "Psr\\Log\\LoggerInterface", "promoted": true }
+      "metrics": { "dependency": "Psr\\Log\\LoggerInterface", "promoted": true },
+      "risk": 4.36,
+      "tier": "maintainability"
     }
   ],
   "errors": {}
 }
 ```
 
-`identity` is the stable hash baselines and diff mode match on. `errors` maps
+`identity` is the stable hash baselines and diff mode match on. `risk` is the
+finding's place in the [reading order](scoring.md#risk). `tier` is `defect`,
+`maintainability` or `advisory`, as the console report
+[triages](getting-started.md#a-long-report-triaged) it. `errors` maps
 whatever could not be processed to why — a relative path for a file that would
 not parse, or `"SL101 in app/Foo.php"` for a rule that threw.
 

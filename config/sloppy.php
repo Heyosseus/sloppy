@@ -136,10 +136,17 @@ return [
     | Deterministic, documented in the README, and never a claim about
     | authorship. In short:
     |
-    |   penalty  = Σ weight(severity) × confidence / 100
-    |   density  = penalty / (lines / lines_per_unit)
-    |   coverage = share of analysed lines covered by findings
-    |   score    = 100 − min(100, density × penalty_multiplier × (1 + coverage))
+    |   penalty(rule)   = Σ weight(severity) × confidence / 100
+    |   density(rule)   = penalty(rule) / (lines / lines_per_unit)
+    |   coverage        = share of analysed lines covered by findings,
+    |                     each line counted once
+    |   deduction(rule) = density(rule) × penalty_multiplier × (1 + coverage)
+    |   capped(rule)    = rule_cap × (1 − e^(−deduction(rule) / rule_cap))
+    |   score           = 100 − min(100, Σ capped(rule))
+    |
+    | `rule_cap` gives each rule diminishing returns: no single rule can take
+    | more than that many points off, however often it fires. Set it to 0 to
+    | count every rule in full.
     |
     | `bands` give the minimum score for each label. Anything below the lowest
     | is "Severe slop".
@@ -158,6 +165,8 @@ return [
         'lines_per_unit' => 1000,
 
         'penalty_multiplier' => 1.0,
+
+        'rule_cap' => 30.0,
 
         'bands' => [
             'clean' => 90,
@@ -178,12 +187,13 @@ return [
     | should read next. Nothing here moves a score or a baseline entry.
     |
     |   risk = severity_weight x (confidence / 100) x novelty x proximity
-    |            x reach x exposure
+    |            x reach x exposure x activity
     |
     |   reach     = 1 + log10(1 + blast_radius) x reach_weight
     |   novelty   = new 1.0 | inherited 0.25
     |   proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
     |   exposure  = 1 + (1 - coverage) x exposure_weight
+    |   activity  = 1 + log10(1 + recent changes) x churn_weight
     |
     | Every factor is 1.0 when it cannot be measured, so a project with no
     | coverage report ranks exactly as it did before exposure existed.
@@ -231,6 +241,18 @@ return [
         // artefact that may be absent or stale must not move a number two
         // people are expected to compare.
         'coverage' => null,
+
+        // How much a file that keeps changing outranks one nobody touches:
+        //   activity = 1 + log10(1 + recent changes) x churn_weight
+        // At 0.5, a file changed once ranks 1.15x, ten times 1.52x and a
+        // hundred times 2.0x. Outside git, or at 0.0, it is 1.0 and git is not
+        // asked. Like coverage, history moves the reading order and never the
+        // score.
+        'churn_weight' => 0.5,
+
+        // How many recent commits the history is read from. Commits, not
+        // months, so the same checkout ranks the same way on any day.
+        'churn_commits' => 500,
     ],
 
     /*
@@ -243,10 +265,20 @@ return [
     |
     |   'enabled'  => false        turn it off entirely
     |   'severity' => 'low'        keep the finding, lower the stakes
+    |   'tier'     => 'defect'     where `sloppy scan` puts it: defect,
+    |                              maintainability or advisory
     |
     | plus its own options, listed below with their defaults. Prefer lowering
     | a severity to disabling a rule: the finding stays visible without
     | failing the build.
+    |
+    | Tiers decide only how a scan lays its findings out. Defects -- error
+    | handling, performance, dead code and suppression rules -- are listed
+    | one by one, highest risk first. Maintainability findings -- size,
+    | duplication, readability, dependencies, Laravel structure -- are
+    | summarised per file. Advisory findings -- the architecture rules -- are
+    | counted. Every tier still counts towards the score, the baseline and
+    | fail_on.
     |
     */
 
@@ -256,7 +288,10 @@ return [
 
         'SL101' => [
             // God Method. Fires when two of these are exceeded, or when lines
-            // or complexity are more than double their limit.
+            // or complexity are more than double their limit. max_calls and
+            // max_collaborators are one signal between them: many calls to
+            // many things is one measurement, and a short method that only
+            // delegates is not a god method.
             'max_lines' => 80,
             'max_complexity' => 15,
             'max_statements' => 40,

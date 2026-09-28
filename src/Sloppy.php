@@ -13,6 +13,7 @@ use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Coverage\CoverageLocator;
 use Heyosseus\Sloppy\Coverage\CoverageMap;
 use Heyosseus\Sloppy\Evidence\EvidenceCollector;
+use Heyosseus\Sloppy\Git\ChurnMap;
 use Heyosseus\Sloppy\Git\DiffAnalyzer;
 use Heyosseus\Sloppy\Git\DiffReport;
 use Heyosseus\Sloppy\Git\Git;
@@ -38,7 +39,7 @@ final readonly class Sloppy
      * tool as `dev`. A version string duplicated across surfaces is a version
      * string that disagrees with itself.
      */
-    public const string VERSION = '1.1.1';
+    public const string VERSION = '1.2.0';
 
     public function __construct(
         public Configuration $configuration,
@@ -78,7 +79,18 @@ final readonly class Sloppy
 
     public function risks(): RiskCalculator
     {
-        return new RiskCalculator($this->configuration->risk(), $this->coverage());
+        return new RiskCalculator($this->configuration->risk(), $this->coverage(), $this->churn());
+    }
+
+    /**
+     * How often each file changed recently, if git can say and the risk
+     * configuration wants to know.
+     */
+    public function churn(): ChurnMap
+    {
+        $risk = $this->configuration->risk();
+
+        return $risk->readsHistory() ? ChurnMap::fromGit($this->git(), $risk->churnCommits) : new ChurnMap;
     }
 
     /**

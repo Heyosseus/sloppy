@@ -13,27 +13,37 @@ A single deterministic number for the analysed paths:
 </p>
 
 ```text
-penalty  = Σ  weight(severity) × confidence / 100
-units    = max(1, analysedLines / lines_per_unit)
-density  = penalty / units
-coverage = min(1, Σ affectedLines / analysedLines)
-score    = 100 − min(100, density × penalty_multiplier × (1 + coverage))
+penalty(rule)   = Σ  weight(severity) × confidence / 100
+units           = max(1, analysedLines / lines_per_unit)
+coverage        = min(1, |⋃ affected lines| / analysedLines)
+deduction(rule) = penalty(rule) / units × penalty_multiplier × (1 + coverage)
+capped(rule)    = rule_cap × (1 − e^(−deduction(rule) / rule_cap))
+score           = 100 − min(100, Σ capped(rule))
 ```
 
-- Step 1 makes a finding we are half sure about cost half as much.
-- Step 2 normalises by codebase size, so a large application is not punished
-  merely for being large.
-- Step 4 doubles the penalty when findings blanket the codebase and barely
-  moves it when they are localised.
+- A finding we are half sure about costs half as much.
+- Dividing by `units` normalises by codebase size, so a large application is
+  not punished merely for being large.
+- `coverage` doubles the penalty when findings blanket the codebase and barely
+  moves it when they are localised. Each line counts once: a god method inside
+  a god class is one stretch of code, not two.
+- `rule_cap` gives each rule diminishing returns. A small deduction passes
+  through almost untouched, and no single rule can take more than 30 points
+  however often it fires. Without it, the long methods alone scored two mature
+  70,000-line applications zero. Set `rule_cap` to `0` to count every rule in
+  full.
 
 Default weights are `critical: 20`, `high: 10`, `medium: 4`, `low: 1.5`,
-`info: 0.5`. Weights, the multiplier, `lines_per_unit` and the band thresholds
-are all configurable under `sloppy.score`. Same input, same score — always.
+`info: 0.5`. Weights, the multiplier, `lines_per_unit`, `rule_cap` and the
+band thresholds are all configurable under `sloppy.score`. Same input, same
+score — always.
 
-Because the score is a density, a small codebase full of findings bottoms out
-quickly: the 472-line demo application in
-[the scan screenshot](getting-started.md#scan-a-project) scores 0. That
-is the arithmetic working, not a verdict on 472 lines of anything.
+On eight real Laravel applications (782,578 lines) the scores run from 25 to
+90. Because the score is a density, a small codebase full of findings still
+drops fast: the demo application in
+[the scan screenshot](getting-started.md#scan-a-project) is 405 lines written
+badly on purpose, and it scores 0. That is the arithmetic working, not a
+verdict on 405 lines of anything.
 
 ## Severity and confidence
 
@@ -65,13 +75,24 @@ team to chase the wrong one.
 | Moves a baseline | Yes | Never |
 
 ```
-risk = severity_weight × (confidence / 100) × novelty × proximity × reach × exposure
+risk = severity_weight × (confidence / 100) × novelty × proximity × reach × exposure × activity
 
 reach     = 1 + log10(1 + blast_radius) × reach_weight
 novelty   = new 1.0 | inherited 0.25
 proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
 exposure  = 1 + (1 − coverage) × exposure_weight | 1.0 when no coverage report
+activity  = 1 + log10(1 + recent_changes) × churn_weight | 1.0 outside git
 ```
+
+**Activity is how often the file changed recently:** the number of the last
+`churn_commits` commits (500 by default) that touched it. A 90-line method
+nobody has touched in years costs nothing until someone has to change it.
+The same method in a file that changes every week costs something every week.
+At the default `churn_weight` of 0.5, one change yields 1.15, ten yield 1.52
+and a hundred yield 2.0. The window is counted in commits rather than months,
+so the same checkout ranks the same way on any day. Like coverage, history
+moves the reading order and never the score. `--explain-risk` adds the
+factor to the arithmetic when there was history to read.
 
 Every factor defaults to 1.0 when it cannot be measured, which is what makes
 the model safe to extend: a project with no coverage report ranks exactly as it

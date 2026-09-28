@@ -6,22 +6,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
+## [1.2.0] — 2026-09-28
 
-- **The Claude Code hooks now work on Windows without Git Bash.** Claude
-  Code then runs hooks through PowerShell, which read `$CLAUDE_PROJECT_DIR`
-  as an undefined variable of its own, so the hook ran
-  `php "/vendor/bin/sloppy"` and failed, and it reported the hook's exit 2 as
-  a plain failure, so no finding ever blocked. `sloppy agents install` now
-  writes `${CLAUDE_PROJECT_DIR}`, and `sloppy hook` reports a block as
-  Claude Code's JSON decision (`{"decision": "block", "reason": ...}`) with
-  exit 0, which survives any shell. Re-run `sloppy agents install` to update
-  an existing `.claude/settings.json`.
-- SL112 no longer flags a `NotImplemented` exception whose message gives the
-  reason, such as koel's `MethodNotImplementedException('Lambda storage does
-  not support uploading.')`.
+A first scan of a medium-sized application no longer hands you hundreds of
+findings to read one by one. The console report lists the defects and sums up
+the rest per file, `sloppy fix` clears the narrating comments, and the score
+and SL101 are recalibrated against eight real Laravel applications: 5,097
+findings became 4,075, and the scores now run from 25 to 90 instead of 0 to
+87. Two new checks target the shortcuts coding agents take: SL112 catches a
+body left unwritten, and SL503 catches a test weakened to make it pass. The
+Claude Code hooks also work on Windows without Git Bash.
 
 ### Added
+
+- **A long scan is triaged instead of listed.** Once a run has more than 20
+  findings, `sloppy` lays them out by what each asks of you:
+  - **Fix first** lists the defects (error handling, performance, dead code,
+    suppression), highest risk first, one entry per file and rule.
+  - **Hotspots** sums up the maintainability findings per file.
+  - **By rule** counts every rule.
+  - **Next** names the commands that shorten the list.
+
+  `--all` lists every finding as before, `--top` sets how many defects are
+  listed, and a `--rule` filter always lists. A rule's tier is configurable
+  (`'tier' => 'defect'`) and appears in the JSON as `tier`. Tiers change only
+  the layout; the score, the baseline and `fail_on` see every finding.
+- **Risk reads git history.** A finding in a file that keeps changing ranks
+  above an identical one nobody has touched:
+  `activity = 1 + log10(1 + changes) × churn_weight`, counted over the last
+  `churn_commits` commits (500). The window is in commits rather than months,
+  so a checkout ranks the same way on any day. Outside git the factor is 1.0
+  and nothing moves. It never touches the score.
+- **`sloppy fix` deletes the comments that only restate their code.** No Rector
+  rule knows which ones SL109 found, and deleting them loses nothing the code
+  does not already say. A comment is deleted only when it has its line to
+  itself, exactly as the finding quoted it. Step narration is left for a
+  person, and `--no-comments` keeps every comment.
+- **A long first scan offers to write the baseline.** At a terminal with no
+  baseline yet, Sloppy asks once the report is on screen. A pipeline, a pipe or
+  an agent is never asked.
 
 - **`SL503` Weakened Test catches a test made to pass by checking less.** In
   a diff, and so in both Claude Code hooks, each changed test file is compared
@@ -45,8 +68,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The score gives each rule diminishing returns** (`score.rule_cap`, 30). No
+  single rule can take more than 30 points off, and a small deduction passes
+  through almost untouched. Coverage now counts each affected line once, so a
+  god method inside a god class is one stretch of code, not two. On eight real
+  Laravel applications, Snipe-IT and Pixelfed no longer score 0. Scores
+  recorded in existing baselines were taken under the old formula.
+- **SL101 counts calls and collaborators as one signal.** Counted apart, they
+  produced 41% of its findings on those applications, all of them short, flat
+  methods that only delegate.
+- `ConsoleFormatter` exposes `header()`, `close()` and `renderFinding()`, so
+  the triaged report shares the full report's top, bottom and finding layout.
 - `BaseRule::listOption()` and the evidence sources' list options now share
   `StringListOption`, the loop SL111 flagged when a second copy appeared.
+
+### Fixed
+
+- **The Claude Code hooks now work on Windows without Git Bash.** Claude
+  Code then runs hooks through PowerShell, which read `$CLAUDE_PROJECT_DIR`
+  as an undefined variable of its own, so the hook ran
+  `php "/vendor/bin/sloppy"` and failed, and it reported the hook's exit 2 as
+  a plain failure, so no finding ever blocked. `sloppy agents install` now
+  writes `${CLAUDE_PROJECT_DIR}`, and `sloppy hook` reports a block as
+  Claude Code's JSON decision (`{"decision": "block", "reason": ...}`) with
+  exit 0, which survives any shell. Re-run `sloppy agents install` to update
+  an existing `.claude/settings.json`.
+- SL112 no longer flags a `NotImplemented` exception whose message gives the
+  reason, such as koel's `MethodNotImplementedException('Lambda storage does
+  not support uploading.')`.
+- SL109 no longer reports a comment at the end of a block. The parser holds
+  that comment as an empty statement on the comment's own line, so it always
+  "restated" itself. That was 83 of Snipe-IT's 222 SL109 findings. SL109 also
+  no longer judges one line of a comment that runs over several: "the seats."
+  on its own restates nothing.
 
 ## [1.1.1] — 2026-09-26
 
@@ -889,7 +943,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/heyosseus/sloppy/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/heyosseus/sloppy/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/heyosseus/sloppy/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyosseus/sloppy/compare/v0.9.0...v1.0.0

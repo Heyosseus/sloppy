@@ -174,3 +174,55 @@ it('ignores section headings', function (): void {
     }
     SNIPPET))->toBeEmpty();
 });
+
+it('leaves a comment at the end of a block alone, with no code below it to restate', function (): void {
+    // Regression: the parser holds a trailing comment in an empty statement
+    // on the comment's own line, and the comment was compared with itself.
+    expect(findings(narrative(), <<<'SNIPPET'
+    class ImportLocations
+    {
+        public function run($location): void
+        {
+            if ($location->save()) {
+                $this->info('created');
+
+                // If there's a validation error, display that
+            } else {
+                $this->error('failed '.$location->getErrors());
+            }
+        }
+    }
+    SNIPPET))->toBeEmpty();
+});
+
+it('does not judge one line of a comment that runs over several', function (): void {
+    // Regression: each // line is its own comment to the parser, and the last
+    // line of a paragraph -- "the seats." -- matched the code on its own.
+    expect(findings(narrative(), <<<'SNIPPET'
+    class Licenses
+    {
+        public function checkout($license): void
+        {
+            // One at a time, so the audit log records each of
+            // the seats.
+            $license->seats->each->checkout();
+        }
+    }
+    SNIPPET))->toBeEmpty();
+});
+
+it('ignores an empty comment and a lone divider', function (): void {
+    expect(findings(narrative(), <<<'SNIPPET'
+    class Totals
+    {
+        public function sum(array $items): int
+        {
+            //
+            $total = array_sum($items);
+
+            // ------
+            return $total;
+        }
+    }
+    SNIPPET))->toBeEmpty();
+});

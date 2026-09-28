@@ -96,13 +96,16 @@ php artisan sloppy --path=app/Services
 php artisan sloppy --rule=SL101 --rule=SL107
 php artisan sloppy --min-confidence=80
 php artisan sloppy --explain        # include each rule's "why this matters"
+php artisan sloppy --all            # every finding, not the triage
+php artisan sloppy --top=50         # list more defects before summarising
 ```
 
-![php artisan sloppy](../.github/assets/scan.svg)
+![vendor/bin/sloppy scan --top=2](../.github/assets/scan.svg)
 
 That is the command run against a small application written badly on
-purpose. It ships as `tests/Fixtures/Sloppy`, so
-you can reproduce it.
+purpose. It ships as `tests/Fixtures/Sloppy`, so you can reproduce it with
+`vendor/bin/sloppy scan --project=tests/Fixtures --path=Sloppy --top=2`. With
+31 findings it is long enough to be [triaged](#a-long-report-triaged).
 
 ### Anatomy of a finding
 
@@ -115,10 +118,33 @@ measured, **how sure** the analyser is, **why** the pattern is often a problem,
 and **what to do** about it. The last one is the point — a finding you cannot
 act on is noise with a line number.
 
+### A long report, triaged
+
+On eight real Laravel applications, three quarters of the findings said a
+method was long, a comment narrated or two bodies matched. That's worth
+knowing, but nobody should work through it one line at a time. So once a run
+has more than 20 findings, the report is laid out by what each finding asks of
+you:
+
+| Section | What is in it |
+| --- | --- |
+| **Fix first** | Defects: error handling, performance, dead code and suppression rules. Highest [risk](scoring.md#risk) first, one entry per file and rule, cut off at `--top` (default 20). |
+| **Hotspots** | Maintainability findings (size, duplication, readability, dependencies, Laravel structure), counted per file. In a git repository, a file that keeps changing ranks above an identical one nobody has touched in years. |
+| **By rule** | Every rule's count and tier, so nothing is hidden, only folded. |
+| **Next** | How many findings `sloppy fix` handles by itself, the baseline command if there is no baseline yet, and how to list everything. |
+
+A run with 20 findings or fewer gets the full report, as does `--all` or any
+`--rule=` filter. Move a rule between tiers with `'tier' => 'defect'` in its
+configuration. Tiers change only the layout. The score, the baseline and
+`fail_on` see every finding either way.
+
 ## Adopt on an existing codebase
 
 Turning Sloppy on for the first time should not mean fixing everything first.
-Record what is there today, commit the file, and gate on what comes next:
+Record what is there today, commit the file, and gate on what comes next.
+When you run a long scan yourself in a terminal and there is no baseline yet,
+Sloppy offers to write one once the report is on screen. A pipeline, a pipe or
+an agent is never asked. Or run it directly:
 
 ```bash
 php artisan sloppy:baseline

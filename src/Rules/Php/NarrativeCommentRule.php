@@ -13,6 +13,7 @@ use Heyosseus\Sloppy\Rules\BaseRule;
 use PhpParser\Comment;
 use PhpParser\Comment\Doc;
 use PhpParser\Node\Stmt;
+use PhpParser\Node\Stmt\Nop;
 
 /**
  * SL109 -- comments that restate the line below them.
@@ -96,6 +97,13 @@ final class NarrativeCommentRule extends BaseRule
         $detectSteps = $this->boolOption('detect_step_comments', true);
 
         foreach (NodeHelper::find($context->ast(), Stmt::class) as $statement) {
+            // A comment with no code after it in its block becomes a Nop
+            // statement on the comment's own line, and compared with that
+            // line every comment would restate itself.
+            if ($statement instanceof Nop) {
+                continue;
+            }
+
             $comments = $statement->getComments();
 
             // A block containing a rule of dashes is a section heading, and the
@@ -104,8 +112,13 @@ final class NarrativeCommentRule extends BaseRule
                 continue;
             }
 
-            foreach ($comments as $comment) {
-                if ($comment instanceof Doc) {
+            $comments = array_values($comments);
+
+            foreach ($comments as $index => $comment) {
+                // One line of a comment that runs over several is a fragment
+                // of a sentence, not a comment: "the seats." restates nothing,
+                // and judged alone its last word is always somewhere nearby.
+                if ($comment instanceof Doc || $this->isPartOfRun($comments, $index)) {
                     continue;
                 }
 
@@ -147,6 +160,7 @@ final class NarrativeCommentRule extends BaseRule
                     fingerprint: $this->fingerprintFor($statement, $text),
                     metrics: [
                         'comment' => $text,
+                        'kind' => 'restates',
                         'significant_words' => implode(' ', $significant),
                     ],
                 );
@@ -164,7 +178,7 @@ final class NarrativeCommentRule extends BaseRule
                 .'block and let its name replace the comment.',
             confidence: 70,
             fingerprint: $this->fingerprintFor($statement, $text),
-            metrics: ['comment' => $text],
+            metrics: ['comment' => $text, 'kind' => 'step'],
         );
     }
 
@@ -184,6 +198,22 @@ final class NarrativeCommentRule extends BaseRule
         }
 
         return false;
+    }
+
+    /**
+     * Whether the comment at `$index` shares a paragraph with a comment on the
+     * line directly above or below it.
+     *
+     * @param  list<Comment>  $comments
+     */
+    private function isPartOfRun(array $comments, int $index): bool
+    {
+        $comment = $comments[$index];
+        $before = $comments[$index - 1] ?? null;
+        $after = $comments[$index + 1] ?? null;
+
+        return ($before instanceof Comment && $before->getEndLine() === $comment->getStartLine() - 1)
+            || ($after instanceof Comment && $after->getStartLine() === $comment->getEndLine() + 1);
     }
 
     /**

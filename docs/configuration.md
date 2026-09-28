@@ -38,6 +38,10 @@ return [
         // stays visible without failing the build.
         'SL301' => ['severity' => 'low'],
 
+        // Where `sloppy scan` puts a rule's findings: listed as a defect,
+        // summarised as maintainability, or counted as advisory.
+        'SL201' => ['tier' => 'defect'],
+
         'SL101' => ['max_lines' => 120, 'max_complexity' => 20],
         'SL206' => ['max_dependencies' => 6],
         'SL210' => ['ignore_models' => ['Country', 'Currency', 'Setting']],
@@ -58,5 +62,11 @@ In order of bluntness:
 
 1. `min_confidence: 75` — keep only findings the analyser is fairly sure about.
 2. `'SL109' => ['severity' => 'info']` — keep the finding, stop it mattering.
-3. `php artisan sloppy:baseline` — accept today's debt, gate on tomorrow's.
-4. `'SL109' => ['enabled' => false]` — last resort.
+3. `php artisan sloppy:fix` — delete the comments that only restate their
+   code, and let Rector take the mechanical findings.
+4. `php artisan sloppy:baseline` — accept today's debt, gate on tomorrow's.
+5. `'SL109' => ['enabled' => false]` — last resort.
+
+A long scan is already [triaged](getting-started.md#a-long-report-triaged):
+the defects are listed and the rest is summarised per file, so a noisy run is
+readable before you tune anything.

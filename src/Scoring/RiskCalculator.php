@@ -7,16 +7,18 @@ namespace Heyosseus\Sloppy\Scoring;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Configuration\RiskConfiguration;
 use Heyosseus\Sloppy\Coverage\CoverageMap;
+use Heyosseus\Sloppy\Git\ChurnMap;
 
 /**
  * In what order should a human read this?
  *
- *     risk = severity_weight x (confidence / 100) x novelty x proximity x reach x exposure
+ *     risk = severity_weight x (confidence / 100) x novelty x proximity x reach x exposure x activity
  *
  *     reach     = 1 + log10(1 + blast_radius) x reach_weight
  *     novelty   = new 1.0 | inherited 0.25
  *     proximity = inside a changed hunk 1.0 | elsewhere in a touched file 0.3
  *     exposure  = 1 + (1 - coverage) x exposure_weight | 1.0 when unmeasured
+ *     activity  = 1 + log10(1 + recent_changes) x churn_weight | 1.0 outside git
  *
  * This answers a different question from the slop score and does not touch it.
  * The score is a quality measure: density-normalised, baseline-compatible, and
@@ -33,6 +35,7 @@ final readonly class RiskCalculator
     public function __construct(
         private RiskConfiguration $config = new RiskConfiguration,
         private CoverageMap $coverage = new CoverageMap,
+        private ChurnMap $churn = new ChurnMap,
     ) {}
 
     /**
@@ -67,8 +70,11 @@ final readonly class RiskCalculator
             default => sprintf('%d%% covered', (int) round($covered * 100)),
         };
 
+        $changes = $this->churn->forFile($finding->location->relativePath);
+        $activity = $this->config->activityFor($changes);
+
         return new Risk(
-            value: $severityWeight * $confidence * $novelty * $proximity * $reach * $exposure,
+            value: $severityWeight * $confidence * $novelty * $proximity * $reach * $exposure * $activity,
             severityWeight: $severityWeight,
             severityLabel: $finding->severity->value,
             confidence: $confidence,
@@ -80,6 +86,8 @@ final readonly class RiskCalculator
             blastRadius: $blastRadius,
             exposure: $exposure,
             exposureLabel: $exposureLabel,
+            activity: $activity,
+            changes: $changes,
         );
     }
 

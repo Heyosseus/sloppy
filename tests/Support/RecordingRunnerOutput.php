@@ -22,7 +22,10 @@ final class RecordingRunnerOutput implements RunnerOutput
     /** @var list<string> */
     private array $progressEvents = [];
 
-    public function __construct(private readonly bool $quiet = false) {}
+    /**
+     * @param  list<bool>  $answers  What each question asked is answered, in order; no once they run out.
+     */
+    public function __construct(private readonly bool $quiet = false, private array $answers = []) {}
 
     public function error(string $message): void
     {
@@ -57,6 +60,13 @@ final class RecordingRunnerOutput implements RunnerOutput
     public function isQuiet(): bool
     {
         return $this->quiet;
+    }
+
+    public function confirm(string $question): bool
+    {
+        $this->messages[] = 'confirm: '.$question;
+
+        return array_shift($this->answers) ?? false;
     }
 
     public function startProgress(int $total): void

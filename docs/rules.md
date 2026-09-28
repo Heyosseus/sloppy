@@ -93,7 +93,15 @@ A static analyser that constantly complains gets switched off, so this is the
 priority the whole rule set is tuned around:
 
 - **Multiple signals.** SL101 and SL102 need several independent measurements
-  to be over the line, not one.
+  to be over the line, not one. Measurements that move together count once:
+  SL101 treats "many calls" and "many collaborators" as one signal, because
+  counted separately they carried 41% of its findings on eight real Laravel
+  applications. Those were short, flat methods that only delegate.
+- **Measured on real code.** Rules are checked against eight open-source
+  Laravel applications, 782,578 lines, and what they get wrong there becomes a
+  regression test. That is how SL109 learned that a comment at the end of a
+  block has no code beneath it to restate, and that one line of a paragraph
+  is not a comment on its own.
 - **Hedged language.** "Possible N+1", "may be unnecessary for the current
   usage" — where certainty is impossible, the wording says so and the
   confidence drops.

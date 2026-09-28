@@ -7,6 +7,7 @@ namespace Heyosseus\Sloppy\Console\Commands;
 use Heyosseus\Sloppy\Console\LaravelRunnerOutput;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Support\StringListOption;
+use Heyosseus\Sloppy\Support\Terminal;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 use Throwable;
@@ -33,7 +34,7 @@ abstract class SloppyCommandBase extends Command
      */
     protected function runWith(callable $run): int
     {
-        $output = new LaravelRunnerOutput($this);
+        $output = new LaravelRunnerOutput($this, Terminal::canAsk($this->input));
 
         try {
             return $run($output)->value;

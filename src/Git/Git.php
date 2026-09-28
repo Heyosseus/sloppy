@@ -370,6 +370,36 @@ final readonly class Git
     }
 
     /**
+     * How many of the last `$commits` commits touched each file, with paths
+     * relative to the working directory and limited to what lies beneath it.
+     *
+     * A project analysed from a subdirectory of a larger repository sees its
+     * own files under the names it uses for them, and nothing outside it.
+     *
+     * @return array<string, int>
+     */
+    public function churn(int $commits): array
+    {
+        $output = $this->attempt(['log', '-n', (string) $commits, '--name-only', '--no-renames', '--relative', '--format=']);
+
+        if ($output === null) {
+            return [];
+        }
+
+        $counts = [];
+
+        foreach (explode("\n", $output) as $line) {
+            $path = trim($line);
+
+            if ($path !== '') {
+                $counts[$path] = ($counts[$path] ?? 0) + 1;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
      * @return list<string>
      */
     public function untrackedFiles(): array

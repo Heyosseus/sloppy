@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Configuration;
 
+use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Analysis\Tier;
 use Heyosseus\Sloppy\Contracts\Rule;
 use InvalidArgumentException;
 
@@ -212,6 +214,17 @@ final readonly class Configuration
         }
 
         return $filtered;
+    }
+
+    /**
+     * Which tier a rule's findings belong to: `sloppy.rules.<ID>.tier`, or
+     * the default for the rule's category.
+     */
+    public function tierFor(string $id, Category $category): Tier
+    {
+        $tier = $this->ruleOptions($id)['tier'] ?? null;
+
+        return is_string($tier) && trim($tier) !== '' ? Tier::parse($tier) : Tier::defaultFor($category);
     }
 
     /**

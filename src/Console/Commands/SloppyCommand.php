@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Console\Commands;
 
 use Heyosseus\Sloppy\Console\LaravelRunnerOutput;
+use Heyosseus\Sloppy\Help\Surface;
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Runner\ScanOptions;
@@ -29,7 +30,9 @@ final class SloppyCommand extends SloppyCommandBase
         {--rule=* : Run only these rule IDs, e.g. --rule=SL101}
         {--explain : Include each rule\'s "why this matters" text}
         {--explain-risk : Show the arithmetic behind each risk value}
-        {--no-baseline : Report every finding, including baselined ones}';
+        {--no-baseline : Report every finding, including baselined ones}
+        {--all : List every finding instead of the defects worth fixing first}
+        {--top= : How many defects to list before summarising the rest}';
 
     protected $description = 'Analyse the application for AI-slop code patterns';
 
@@ -47,6 +50,9 @@ final class SloppyCommand extends SloppyCommandBase
                 explain: $this->boolOption('explain'),
                 noBaseline: $this->boolOption('no-baseline'),
                 explainRisk: $this->boolOption('explain-risk'),
+                all: $this->boolOption('all'),
+                top: max(1, $this->intOption('top') ?? ScanOptions::TOP),
+                surface: Surface::Artisan,
             );
 
             return (new ScanRunner)->run($sloppy, $options, $output);

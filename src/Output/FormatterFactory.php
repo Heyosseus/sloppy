@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Output;
 
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Analysis\TierMap;
 use Heyosseus\Sloppy\Contracts\Formatter;
+use Heyosseus\Sloppy\Help\Surface;
+use Heyosseus\Sloppy\Scoring\RiskCalculator;
 use Heyosseus\Sloppy\Sloppy;
 
 /**
@@ -22,6 +25,10 @@ final readonly class FormatterFactory
         private bool $explain = false,
         private bool $explainRisk = false,
         private ?Severity $failOn = null,
+        private bool $all = true,
+        private int $top = 20,
+        private Surface $surface = Surface::Standalone,
+        private bool $hasBaseline = false,
     ) {}
 
     public function for(OutputFormat $format): Formatter
@@ -29,18 +36,42 @@ final readonly class FormatterFactory
         $risk = $this->sloppy->risks();
 
         return match ($format) {
-            OutputFormat::Json => new JsonFormatter(explainRisk: $this->explainRisk, risk: $risk),
+            OutputFormat::Json => new JsonFormatter(explainRisk: $this->explainRisk, risk: $risk, tiers: $this->tiers()),
             OutputFormat::Sarif => new SarifFormatter(Sloppy::VERSION),
             OutputFormat::Github => new GithubFormatter,
             OutputFormat::Gitlab => new GitlabFormatter,
             OutputFormat::Rector => new RectorFormatter,
             OutputFormat::Markdown => new MarkdownFormatter(risk: $risk, explainRisk: $this->explainRisk),
-            OutputFormat::Console => new ConsoleFormatter(
-                explain: $this->explain,
-                failOn: $this->failOn,
-                explainRisk: $this->explainRisk,
-                risk: $risk,
-            ),
+            OutputFormat::Console => $this->console($risk),
         };
+    }
+
+    /**
+     * The full report, or the triage of it when the caller asked for one --
+     * which only `sloppy scan` does. Every other command that renders a run
+     * keeps listing everything, because a CI log is searched, not read.
+     */
+    private function console(RiskCalculator $risk): Formatter
+    {
+        $console = new ConsoleFormatter(
+            explain: $this->explain,
+            failOn: $this->failOn,
+            explainRisk: $this->explainRisk,
+            risk: $risk,
+        );
+
+        return $this->all ? $console : new TriageFormatter(
+            console: $console,
+            tiers: $this->tiers(),
+            risk: $risk,
+            surface: $this->surface,
+            top: $this->top,
+            hasBaseline: $this->hasBaseline,
+        );
+    }
+
+    private function tiers(): TierMap
+    {
+        return new TierMap($this->sloppy->configuration);
     }
 }

@@ -211,3 +211,97 @@ it('reports a configuration it could not write', function (): void {
 
     removeTree($root);
 });
+
+/**
+ * A comment that says what the line below it already says -- SL109, which
+ * `sloppy fix` removes itself.
+ */
+const RESTATING_COMMENT = <<<'PHP'
+<?php
+
+namespace App;
+
+class Guard
+{
+    public function check(?User $user): bool
+    {
+        // Check if the user exists
+        if ($user) {
+            return true;
+        }
+
+        return false;
+    }
+}
+PHP;
+
+it('removes the comments that only restate their code, and formats what it touched', function (): void {
+    [$sloppy, $root] = fixProject(['src/Guard.php' => RESTATING_COMMENT]);
+    $output = new RecordingRunnerOutput;
+    $tools = new RecordingToolRunner;
+
+    $code = (new FixRunner($tools))->run($sloppy, new FixOptions, $output);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and(file_get_contents($root.'/src/Guard.php'))->not->toContain('// Check if the user exists')
+        ->and($output->messages())->toContain('notice: Removed 1 comment(s) that only restated their code, in 1 file(s).')
+        ->and($tools->tools())->toBe(['pint'])
+        ->and($tools->commandFor('pint'))->toContain('src/Guard.php')
+        ->and(implode("\n", $output->messages()))->toContain('info: Findings 1 -> 0.')
+        ->and(implode("\n", $output->messages()))->not->toContain('need a person');
+
+    removeTree($root);
+});
+
+it('says which comments it would remove on a dry run, and removes none', function (): void {
+    [$sloppy, $root] = fixProject(['src/Guard.php' => RESTATING_COMMENT]);
+    $output = new RecordingRunnerOutput;
+
+    (new FixRunner(new RecordingToolRunner))->run($sloppy, new FixOptions(dryRun: true), $output);
+
+    expect(file_get_contents($root.'/src/Guard.php'))->toBe(RESTATING_COMMENT)
+        ->and($output->messages())->toContain('notice: Would remove 1 comment(s) that only restated their code, in 1 file(s).')
+        ->and($output->messages())->toContain('info: Dry run: nothing was written.');
+
+    removeTree($root);
+});
+
+it('keeps the comments when told to', function (): void {
+    [$sloppy, $root] = fixProject(['src/Guard.php' => RESTATING_COMMENT]);
+    $output = new RecordingRunnerOutput;
+    $tools = new RecordingToolRunner;
+
+    (new FixRunner($tools))->run($sloppy, new FixOptions(withComments: false), $output);
+
+    expect(file_get_contents($root.'/src/Guard.php'))->toBe(RESTATING_COMMENT)
+        ->and($output->messages())->toContain('warn: 1 finding(s) need a person: SL109 x1.')
+        ->and($tools->calls())->toBe([]);
+
+    removeTree($root);
+});
+
+it('removes the comments and runs Rector in the same pass', function (): void {
+    [$sloppy, $root] = fixProject(['src/Reporting.php' => DEAD_PRIVATE_METHOD, 'src/Guard.php' => RESTATING_COMMENT]);
+    $output = new RecordingRunnerOutput;
+    $tools = new RecordingToolRunner;
+
+    (new FixRunner($tools))->run($sloppy, new FixOptions, $output);
+
+    expect($tools->tools())->toBe(['rector', 'pint'])
+        ->and($tools->commandFor('pint'))->toContain('src/Guard.php')
+        ->and($tools->commandFor('pint'))->toContain('src/Reporting.php')
+        ->and(implode("\n", $output->messages()))->not->toContain('need a person');
+
+    removeTree($root);
+});
+
+it('fails when the formatting pass after a comment removal fails', function (): void {
+    [$sloppy, $root] = fixProject(['src/Guard.php' => RESTATING_COMMENT]);
+    $output = new RecordingRunnerOutput;
+
+    $code = (new FixRunner(new RecordingToolRunner(['pint' => 1])))->run($sloppy, new FixOptions, $output);
+
+    expect($code)->toBe(ExitCode::Error);
+
+    removeTree($root);
+});

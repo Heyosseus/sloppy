@@ -17,7 +17,10 @@ final class SymfonyRunnerOutput implements RunnerOutput
 {
     private ?ProgressBar $bar = null;
 
-    public function __construct(private readonly SymfonyStyle $style) {}
+    /**
+     * @param  bool  $canAsk  Whether a person is there to answer; see {@see RunnerOutput::confirm()}.
+     */
+    public function __construct(private readonly SymfonyStyle $style, private readonly bool $canAsk = false) {}
 
     public function error(string $message): void
     {
@@ -60,6 +63,11 @@ final class SymfonyRunnerOutput implements RunnerOutput
     public function isQuiet(): bool
     {
         return $this->style->isQuiet();
+    }
+
+    public function confirm(string $question): bool
+    {
+        return $this->canAsk && $this->style->confirm($question, false);
     }
 
     public function startProgress(int $total): void

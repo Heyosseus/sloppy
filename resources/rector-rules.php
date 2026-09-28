@@ -56,7 +56,7 @@ return [
         'SL101' => 'splitting a long method is a design decision, not a rewrite',
         'SL102' => 'which responsibility leaves the class is a design decision',
         'SL104' => 'the shared code has to be named before it can be extracted',
-        'SL109' => 'deleting a comment automatically risks deleting the one that mattered',
+        'SL109' => 'step narration marks a method that wants splitting; comments that only restate their code are removed by the fix command itself',
         'SL111' => 'only you know whether the drift between the copies was deliberate',
     ],
 ];

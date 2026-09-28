@@ -24,7 +24,10 @@ final class LaravelRunnerOutput implements RunnerOutput
 {
     private ?ProgressBar $bar = null;
 
-    public function __construct(private readonly Command $command) {}
+    /**
+     * @param  bool  $canAsk  Whether a person is there to answer; see {@see RunnerOutput::confirm()}.
+     */
+    public function __construct(private readonly Command $command, private readonly bool $canAsk = false) {}
 
     public function error(string $message): void
     {
@@ -81,6 +84,11 @@ final class LaravelRunnerOutput implements RunnerOutput
     public function isQuiet(): bool
     {
         return $this->command->getOutput()->isQuiet();
+    }
+
+    public function confirm(string $question): bool
+    {
+        return $this->canAsk && $this->command->confirm($question, false);
     }
 
     public function startProgress(int $total): void

@@ -50,6 +50,22 @@ final readonly class RiskConfiguration
     public const float EXPOSURE_WEIGHT = 0.5;
 
     /**
+     * How much a file that keeps changing outranks one nobody touches.
+     *
+     * At 0.5 a file changed once in the window ranks 1.15x, ten times 1.52x
+     * and a hundred times 2.0x: enough to put the god method people edit
+     * every week ahead of an identical one in a file untouched for years,
+     * never enough to lift a low finding over a high one on history alone.
+     */
+    public const float CHURN_WEIGHT = 0.5;
+
+    /**
+     * How many recent commits the history is read from. Commits rather than
+     * months, so the same checkout ranks the same way on any day.
+     */
+    public const int CHURN_COMMITS = 500;
+
+    /**
      * @param  array<string, float>  $severityWeights  Severity value => weight.
      * @param  float  $reachWeight  Multiplier on the logarithm of the blast radius.
      */
@@ -64,6 +80,8 @@ final readonly class RiskConfiguration
         private float $reachWeight = 1.0,
         private float $exposureWeight = self::EXPOSURE_WEIGHT,
         private ?string $coveragePath = null,
+        private float $churnWeight = self::CHURN_WEIGHT,
+        public int $churnCommits = self::CHURN_COMMITS,
     ) {}
 
     /**
@@ -100,6 +118,8 @@ final readonly class RiskConfiguration
         $reach = $config['reach_weight'] ?? null;
         $exposure = $config['exposure_weight'] ?? null;
         $coverage = $config['coverage'] ?? null;
+        $churn = $config['churn_weight'] ?? null;
+        $commits = $config['churn_commits'] ?? null;
 
         $defaults = new self;
 
@@ -110,6 +130,8 @@ final readonly class RiskConfiguration
                 ? max(0.0, (float) $exposure)
                 : $defaults->exposureWeight,
             coveragePath: is_string($coverage) && trim($coverage) !== '' ? trim($coverage) : null,
+            churnWeight: is_int($churn) || is_float($churn) ? max(0.0, (float) $churn) : $defaults->churnWeight,
+            churnCommits: is_int($commits) ? max(0, $commits) : $defaults->churnCommits,
         );
     }
 
@@ -159,5 +181,30 @@ final readonly class RiskConfiguration
         }
 
         return 1.0 + (1.0 - max(0.0, min(1.0, $coverage))) * $this->exposureWeight;
+    }
+
+    /**
+     * Whether history is worth reading at all. With no weight it could not
+     * change a single value, and a `git log` nobody uses is still a process.
+     */
+    public function readsHistory(): bool
+    {
+        return $this->churnWeight > 0.0 && $this->churnCommits > 0;
+    }
+
+    /**
+     * Logarithmic for the same reason reach is: the fiftieth change to a file
+     * says less that is new than the second one did.
+     *
+     * Unknown history returns 1.0, so a project outside git ranks exactly as
+     * it did before history was read.
+     */
+    public function activityFor(?int $changes): float
+    {
+        if ($changes === null) {
+            return 1.0;
+        }
+
+        return 1.0 + log10(1 + max(0, $changes)) * $this->churnWeight;
     }
 }

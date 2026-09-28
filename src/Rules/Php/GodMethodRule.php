@@ -81,13 +81,18 @@ final class GodMethodRule extends BaseRule
                     'collaborators' => $collaborators,
                 ] = $this->measure($method);
 
+                // Calls and collaborators are one signal, not two: a method
+                // that makes many calls almost always makes them to many
+                // things. Counted separately they carried 41% of the findings
+                // on eight real Laravel applications on their own -- short,
+                // flat methods that merely delegate -- and "two independent
+                // measurements" was really one measured twice.
                 $signals = [
                     $logicLines > $maxLines,
                     $complexity > $maxComplexity,
                     $statements > $maxStatements,
                     $nesting > $maxNesting,
-                    $calls > $maxCalls,
-                    $collaborators > $maxCollaborators,
+                    $calls > $maxCalls || $collaborators > $maxCollaborators,
                 ];
 
                 $triggered = count(array_filter($signals));
