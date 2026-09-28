@@ -29,7 +29,7 @@ final readonly class HookOutcome
         string $notice,
         public string $feedback,
     ) {
-        $this->stdout = $blocking ? self::decision($feedback) : $notice;
+        $this->stdout = $blocking ? $this->decision($feedback) : $notice;
         $this->stderr = '';
     }
 
@@ -63,7 +63,7 @@ final readonly class HookOutcome
         return 0;
     }
 
-    private static function decision(string $feedback): string
+    private function decision(string $feedback): string
     {
         return json_encode(
             ['decision' => 'block', 'reason' => rtrim($feedback)],
