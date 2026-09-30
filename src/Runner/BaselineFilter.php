@@ -26,22 +26,17 @@ final readonly class BaselineFilter
             return $result;
         }
 
-        $baseline = $sloppy->baselines()->load($sloppy->configuration->baselinePath());
+        $new = $sloppy->baselines()->apply($result, $sloppy->configuration->baselinePath(), $sloppy->scores());
+        $hidden = $result->count() - $new->count();
 
-        if (! $baseline instanceof Baseline) {
-            return $result;
-        }
-
-        $partition = $sloppy->baselines()->partition($result->findings, $baseline);
-
-        if ($partition['baselined'] !== []) {
+        if ($hidden > 0) {
             $output->notice(sprintf(
                 '%d existing finding(s) hidden by %s.',
-                count($partition['baselined']),
+                $hidden,
                 basename($sloppy->configuration->baselinePath()),
             ));
         }
 
-        return $result->withFindings($partition['new'], $sloppy->scores());
+        return $new;
     }
 }

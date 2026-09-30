@@ -54,6 +54,12 @@ interface RunnerOutput
     public function confirm(string $question): bool;
 
     /**
+     * Whether a person is reading at a terminal: what {@see confirm()} needs
+     * before it asks, and what a suggestion needs before it is worth printing.
+     */
+    public function canAsk(): bool;
+
+    /**
      * Begin reporting progress over a known number of items.
      *
      * Progress lives on the port rather than behind a returned reporter

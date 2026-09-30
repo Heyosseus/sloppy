@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Baseline;
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Finding;
+use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use RuntimeException;
 
 /**
@@ -122,6 +123,21 @@ final readonly class BaselineManager
         }
 
         return ['new' => $new, 'baselined' => $baselined];
+    }
+
+    /**
+     * The same result without the findings the baseline at `$path` accepts;
+     * the result itself when there is no baseline there.
+     */
+    public function apply(AnalysisResult $result, string $path, ScoreCalculator $scores): AnalysisResult
+    {
+        $baseline = $this->load($path);
+
+        if (! $baseline instanceof Baseline) {
+            return $result;
+        }
+
+        return $result->withFindings($this->partition($result->findings, $baseline)['new'], $scores);
     }
 
     /**

@@ -98,6 +98,36 @@ final readonly class FileFinder
      * Project-relative path with forward slashes, which is what findings,
      * baselines and reports use everywhere.
      */
+    /**
+     * Which of a run's files another tool named, however it spelled them:
+     * `C:\app\A.php` and `c:/app/A.php` are the same file.
+     *
+     * @param  array<string, string>  $files  Relative path => absolute path, as a run covers them.
+     * @param  list<string>  $absolutePaths
+     * @return list<string> Relative paths.
+     */
+    public function named(array $files, array $absolutePaths): array
+    {
+        $wanted = array_fill_keys(array_map($this->comparable(...), $absolutePaths), true);
+        $named = [];
+
+        foreach ($files as $relative => $absolute) {
+            if (isset($wanted[$this->comparable($absolute)])) {
+                $named[] = $relative;
+            }
+        }
+
+        return $named;
+    }
+
+    private function comparable(string $path): string
+    {
+        $real = realpath($path);
+        $resolved = str_replace('\\', '/', $real === false ? $path : $real);
+
+        return PHP_OS_FAMILY === 'Windows' ? mb_strtolower($resolved) : $resolved;
+    }
+
     public function relative(string $absolutePath): string
     {
         $normalized = str_replace('\\', '/', $absolutePath);

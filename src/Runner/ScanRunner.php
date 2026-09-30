@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Runner;
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Configuration\ComposerJson;
 use Heyosseus\Sloppy\Output\FormatterFactory;
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Sloppy;
@@ -69,6 +70,10 @@ final readonly class ScanRunner
 
         $output->report($this->render($reported, $options, $threshold, $sloppy, $hasBaseline), $options->format);
 
+        if ($options->format === OutputFormat::Console && $output->canAsk() && $this->wantsPhpstanExtension($sloppy)) {
+            $output->notice('Already on PHPStan? composer require --dev heyosseus/phpstan-sloppy reports these in your PHPStan run.');
+        }
+
         if (! $hasBaseline && $this->triaged($reported, $options) && $this->offerBaseline($sloppy, $result, $output)) {
             return ExitCode::Success;
         }
@@ -115,6 +120,19 @@ final readonly class ScanRunner
         ));
 
         return true;
+    }
+
+    /**
+     * A project that already runs PHPStan can have these findings in that run
+     * instead of adding a step. Said only to a person at a terminal, as the
+     * baseline offer is: a pipeline or an agent has no use for advertising.
+     */
+    private function wantsPhpstanExtension(Sloppy $sloppy): bool
+    {
+        $composer = new ComposerJson($sloppy->configuration->basePath);
+
+        return ! $composer->requires('heyosseus/phpstan-sloppy')
+            && ($composer->requires('phpstan/phpstan') || $composer->requires('larastan/larastan'));
     }
 
     /**

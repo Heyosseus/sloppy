@@ -24,8 +24,13 @@ final class RecordingRunnerOutput implements RunnerOutput
 
     /**
      * @param  list<bool>  $answers  What each question asked is answered, in order; no once they run out.
+     * @param  bool  $interactive  Whether a person is at the terminal, for what is only said to one.
      */
-    public function __construct(private readonly bool $quiet = false, private array $answers = []) {}
+    public function __construct(
+        private readonly bool $quiet = false,
+        private array $answers = [],
+        private readonly bool $interactive = false,
+    ) {}
 
     public function error(string $message): void
     {
@@ -67,6 +72,11 @@ final class RecordingRunnerOutput implements RunnerOutput
         $this->messages[] = 'confirm: '.$question;
 
         return array_shift($this->answers) ?? false;
+    }
+
+    public function canAsk(): bool
+    {
+        return $this->interactive;
     }
 
     public function startProgress(int $total): void

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Mcp;
 
 use Heyosseus\Sloppy\Cli\ProjectLocator;
-use Heyosseus\Sloppy\Configuration\ConfigurationLoader;
 use Heyosseus\Sloppy\Sloppy;
 
 /**
@@ -25,6 +24,6 @@ final readonly class ProjectResolver
     {
         $root = (new ProjectLocator)->locate($project, $this->workingDirectory);
 
-        return new Sloppy((new ConfigurationLoader($root))->load());
+        return Sloppy::forProject($root);
     }
 }

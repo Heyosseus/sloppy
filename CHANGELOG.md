@@ -6,6 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-10-01
+
+Sloppy now runs inside PHPStan. The new
+[heyosseus/phpstan-sloppy](https://github.com/heyosseus/phpstan-sloppy)
+extension reports the same findings as PHPStan errors, so a project that already
+runs PHPStan adopts Sloppy with one `composer require` and no new pipeline step.
+This release adds the stable API the extension is built on.
+
+### Added
+
+- **Sloppy inside PHPStan.** The new
+  [heyosseus/phpstan-sloppy](https://github.com/heyosseus/phpstan-sloppy)
+  package reports Sloppy's findings as PHPStan errors, one identifier per rule
+  (`sloppy.SL107`), so `@phpstan-ignore`, `ignoreErrors` and PHPStan baselines
+  work on them. It reports exactly what `sloppy ci` would fail on: the files
+  both tools cover, at or above `fail_on`, less what the Sloppy baseline
+  accepts.
+- **`Sloppy::forProject()` and `Sloppy::analyzePaths()` are a stable API**
+  (`@api`) for tools that decide which files are checked. `analyzePaths()`
+  indexes the whole configured project, so cross-file rules still see
+  everything, and reports only on the given files the configuration covers.
+- At a terminal, a scan of a project that requires `phpstan/phpstan` or
+  `larastan/larastan` ends with one line naming the extension. A pipeline, a
+  pipe, an agent or a machine-readable format never sees it.
+
+### Changed
+
+- `RunnerOutput` has a `canAsk()` method, which says whether a person is at the
+  terminal. A custom implementation of the interface needs to add it.
+- Applying a baseline is `BaselineManager::apply()`, used by `sloppy`,
+  `sloppy ci` and `analyzePaths()` alike.
+
 ## [1.2.0] — 2026-09-28
 
 A first scan of a medium-sized application no longer hands you hundreds of
@@ -943,7 +975,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/heyosseus/sloppy/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/heyosseus/sloppy/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/heyosseus/sloppy/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/heyosseus/sloppy/compare/v1.0.0...v1.1.0

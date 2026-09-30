@@ -10,6 +10,7 @@ use Heyosseus\Sloppy\Analysis\RuleRegistry;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Baseline\BaselineManager;
 use Heyosseus\Sloppy\Configuration\Configuration;
+use Heyosseus\Sloppy\Configuration\ConfigurationLoader;
 use Heyosseus\Sloppy\Coverage\CoverageLocator;
 use Heyosseus\Sloppy\Coverage\CoverageMap;
 use Heyosseus\Sloppy\Evidence\EvidenceCollector;
@@ -39,13 +40,23 @@ final readonly class Sloppy
      * tool as `dev`. A version string duplicated across surfaces is a version
      * string that disagrees with itself.
      */
-    public const string VERSION = '1.2.0';
+    public const string VERSION = '1.3.0';
 
     public function __construct(
         public Configuration $configuration,
         private ?RuleRegistry $registry = null,
         private ?string $coveragePath = null,
     ) {}
+
+    /**
+     * A project's Sloppy, configured exactly as `bin/sloppy` would configure it.
+     *
+     * @api Used by heyosseus/phpstan-sloppy; its signature is kept stable.
+     */
+    public static function forProject(string $basePath, ?string $configPath = null): self
+    {
+        return new self((new ConfigurationLoader($basePath))->load($configPath));
+    }
 
     public function withConfiguration(Configuration $configuration): self
     {
@@ -144,6 +155,34 @@ final readonly class Sloppy
     public function analyze(?callable $onFile = null): AnalysisResult
     {
         return $this->analyzer()->analyze($this->fileMap(), null, $onFile);
+    }
+
+    /**
+     * Analyse the whole configured project, but report only on some of it.
+     *
+     * Another tool decides which files are being checked -- PHPStan hands over
+     * the files it analysed -- while cross-file rules still need every
+     * configured file in the index. A given file the configuration does not
+     * cover is left out, so a caller never sees a finding `sloppy` would not
+     * report.
+     *
+     * @api Used by heyosseus/phpstan-sloppy; its signature is kept stable.
+     *
+     * @param  list<string>  $absolutePaths
+     */
+    public function analyzePaths(array $absolutePaths, bool $useBaseline = true): AnalysisResult
+    {
+        $files = $this->fileMap();
+        $only = $this->files()->named($files, $absolutePaths);
+
+        // Nothing to report on is no reason to parse the whole project.
+        $result = $only === []
+            ? $this->analyzer()->analyzeParsed([])
+            : $this->analyzer()->analyze($files, $only);
+
+        return $useBaseline
+            ? $this->baselines()->apply($result, $this->configuration->baselinePath(), $this->scores())
+            : $result;
     }
 
     /**
