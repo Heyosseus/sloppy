@@ -127,6 +127,17 @@ GitHub Action is three lines:
     diff-branch: main
 ```
 
+**Already on PHPStan?** Get the same findings inside the run you already have:
+
+```bash
+composer require --dev heyosseus/phpstan-sloppy
+```
+
+Each one is a PHPStan error with its own identifier (`sloppy.SL107`), so
+`@phpstan-ignore`, `ignoreErrors` and PHPStan baselines work on it. It reports
+exactly what `sloppy ci` would fail on. See
+[heyosseus/phpstan-sloppy](https://github.com/heyosseus/phpstan-sloppy).
+
 **Fail your tests on new debt.** A Pest plugin ships with the package:
 
 ```php

@@ -220,3 +220,49 @@ it('never offers a baseline to a machine-readable report', function () use ($fix
 
     removeTree(dirname($baseline));
 });
+
+/**
+ * A project with one swallowed exception and the given composer requirements.
+ *
+ * @param  array<string, string>  $requireDev
+ */
+function phpstanProject(array $requireDev): string
+{
+    return tempProject([
+        'composer.json' => json_encode(['require-dev' => $requireDev], JSON_THROW_ON_ERROR),
+        'sloppy.php' => "<?php return ['paths' => ['src']];",
+        'src/Importer.php' => "<?php\nfinal class Importer\n{\n    public function run(): void\n    {\n        try {\n            throw new \RuntimeException('x');\n        } catch (\Throwable \$e) {\n        }\n    }\n}\n",
+    ]);
+}
+
+const PHPSTAN_HINT = 'notice: Already on PHPStan? composer require --dev heyosseus/phpstan-sloppy reports these in your PHPStan run.';
+
+it('points a person at a PHPStan project to the extension', function (array $requireDev): void {
+    $project = phpstanProject($requireDev);
+    $output = new RecordingRunnerOutput(interactive: true);
+
+    (new ScanRunner)->run(Sloppy::forProject($project), new ScanOptions, $output);
+
+    expect($output->messages())->toContain(PHPSTAN_HINT);
+
+    removeTree($project);
+})->with([
+    'phpstan' => [['phpstan/phpstan' => '^2.1']],
+    'larastan' => [['larastan/larastan' => '^3.0']],
+]);
+
+it('keeps the extension hint away from pipelines, other formats and projects that have it', function (array $requireDev, bool $interactive, OutputFormat $format): void {
+    $project = phpstanProject($requireDev);
+    $output = new RecordingRunnerOutput(interactive: $interactive);
+
+    (new ScanRunner)->run(Sloppy::forProject($project), new ScanOptions(format: $format), $output);
+
+    expect($output->messages())->not->toContain(PHPSTAN_HINT);
+
+    removeTree($project);
+})->with([
+    'a pipeline' => [['phpstan/phpstan' => '^2.1'], false, OutputFormat::Console],
+    'json' => [['phpstan/phpstan' => '^2.1'], true, OutputFormat::Json],
+    'already installed' => [['phpstan/phpstan' => '^2.1', 'heyosseus/phpstan-sloppy' => '^1.0'], true, OutputFormat::Console],
+    'no phpstan' => [[], true, OutputFormat::Console],
+]);

@@ -10,7 +10,6 @@ use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ci\BaseRevision;
 use Heyosseus\Sloppy\Ci\CiEnvironment;
 use Heyosseus\Sloppy\Cli\ProjectLocator;
-use Heyosseus\Sloppy\Configuration\ConfigurationLoader;
 use Heyosseus\Sloppy\Git\DiffReport;
 use Heyosseus\Sloppy\Sloppy;
 
@@ -147,7 +146,7 @@ final readonly class SloppyAssertions
     private static function sloppy(?string $project, array $paths, array $rules, ?int $minConfidence): Sloppy
     {
         $root = (new ProjectLocator)->locate($project, (string) getcwd());
-        $sloppy = new Sloppy((new ConfigurationLoader($root))->load());
+        $sloppy = Sloppy::forProject($root);
         $configuration = $sloppy->configuration;
 
         if ($paths !== []) {

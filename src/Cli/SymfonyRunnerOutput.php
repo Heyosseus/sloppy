@@ -70,6 +70,11 @@ final class SymfonyRunnerOutput implements RunnerOutput
         return $this->canAsk && $this->style->confirm($question, false);
     }
 
+    public function canAsk(): bool
+    {
+        return $this->canAsk;
+    }
+
     public function startProgress(int $total): void
     {
         $this->bar = $this->style->createProgressBar($total);

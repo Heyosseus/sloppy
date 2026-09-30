@@ -91,6 +91,11 @@ final class LaravelRunnerOutput implements RunnerOutput
         return $this->canAsk && $this->command->confirm($question, false);
     }
 
+    public function canAsk(): bool
+    {
+        return $this->canAsk;
+    }
+
     public function startProgress(int $total): void
     {
         $this->bar = $this->command->getOutput()->createProgressBar($total);
