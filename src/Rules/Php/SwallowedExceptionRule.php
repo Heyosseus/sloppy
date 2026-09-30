@@ -44,6 +44,11 @@ final class SwallowedExceptionRule extends BaseRule
         'Error',
     ];
 
+    /**
+     * The fewest words a comment needs to read as a reason.
+     */
+    private const int REASON_WORDS = 3;
+
     public function id(): string
     {
         return 'SL107';
@@ -98,6 +103,7 @@ final class SwallowedExceptionRule extends BaseRule
 
                 $broad = array_intersect($types, self::BROAD_TYPES) !== [];
                 $empty = $this->meaningfulStatements($catch) === [];
+                $explained = $this->isExplained($catch);
                 $method = NodeHelper::enclosingMethod($catch);
                 $methodName = $method?->name->toString() ?? 'closure';
 
@@ -126,8 +132,9 @@ final class SwallowedExceptionRule extends BaseRule
                         'caught' => implode('|', $types),
                         'empty_body' => $empty,
                         'broad_type' => $broad,
+                        'explained' => $explained,
                     ],
-                    severity: $this->rejectsByContract($catch, $broad) ? Severity::Low : null,
+                    severity: $explained || $this->rejectsByContract($catch, $broad) ? Severity::Low : null,
                 );
             }
         }
@@ -170,6 +177,29 @@ final class SwallowedExceptionRule extends BaseRule
             'null' => ! $broad && (str_starts_with($type, '?') || in_array('null', explode('|', $type), true)),
             default => false,
         };
+    }
+
+    /**
+     * Whether a comment inside the catch gives a reason for doing nothing.
+     *
+     * The suggestion tells people to say so in a comment when the failure
+     * really is expected, so saying so has to count: the finding stays, at
+     * low severity, where it no longer fails a build but a full scan still
+     * shows it. A word or two -- `// ignore` -- is a shrug, not a reason.
+     */
+    private function isExplained(Catch_ $catch): bool
+    {
+        foreach ($catch->stmts as $statement) {
+            foreach ($statement->getComments() as $comment) {
+                $text = (string) preg_replace('~^\s*(?://|#|/\*+|\*+/?)|\*+/\s*$~m', ' ', $comment->getText());
+
+                if (str_word_count($text) >= self::REASON_WORDS) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

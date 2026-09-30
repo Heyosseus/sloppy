@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-10-01
+
+### Changed
+
+- **SL107 takes its own advice.** Its suggestion has always said to explain
+  an expected failure in a comment, but a commented catch was reported exactly
+  like a bare one. A comment of three words or more inside the catch now lowers
+  the finding to Low, where it no longer fails a build at the default
+  `fail_on` and a full scan still shows it. `// ignore` is not a reason and
+  changes nothing. The finding's metrics say which it was (`explained`).
+
 ## [1.3.0] — 2026-10-01
 
 Sloppy now runs inside PHPStan. The new
@@ -975,7 +986,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/heyosseus/sloppy/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/heyosseus/sloppy/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/heyosseus/sloppy/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/heyosseus/sloppy/compare/v1.1.0...v1.1.1
