@@ -289,3 +289,62 @@ it('never raises a severity the project lowered further', function (): void {
 
     expect($found[0]->severity)->toBe(Severity::Info);
 });
+
+it('lowers a catch whose comment says why the failure is expected to low', function (): void {
+    // The suggestion tells people to say so in a comment; doing it must count.
+    $found = findings(swallowed(), <<<'PHP'
+    class Cache
+    {
+        public function warm(): void
+        {
+            try {
+                $this->load();
+            } catch (\Throwable $e) {
+                // Best effort: a cold cache is rebuilt on the next request.
+            }
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->severity)->toBe(Severity::Low)
+        ->and($found[0]->metrics['explained'])->toBeTrue();
+});
+
+it('counts a comment above the fallback it returns', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    class Settings
+    {
+        public function read(): array
+        {
+            try {
+                return $this->parse();
+            } catch (\Throwable $e) {
+                /* A missing settings file means the defaults apply. */
+                return [];
+            }
+        }
+    }
+    PHP);
+
+    expect($found[0]->severity)->toBe(Severity::Low);
+});
+
+it('does not count a comment too short to be a reason', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    class Importer
+    {
+        public function run(): void
+        {
+            try {
+                $this->load();
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+    }
+    PHP);
+
+    expect($found[0]->severity)->toBe(Severity::High)
+        ->and($found[0]->metrics['explained'])->toBeFalse();
+});
