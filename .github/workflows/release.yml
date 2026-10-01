@@ -69,7 +69,7 @@ jobs:
         run: sha256sum sloppy.phar > sloppy.phar.sha256
 
       - name: Attach to the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             sloppy.phar
