@@ -18,6 +18,7 @@
   <a href="https://packagist.org/packages/heyosseus/sloppy"><img alt="downloads" src="https://img.shields.io/packagist/dt/heyosseus/sloppy.svg"></a>
   <img alt="php" src="https://img.shields.io/packagist/dependency-v/heyosseus/sloppy/php.svg">
   <a href="LICENSE.md"><img alt="license" src="https://img.shields.io/packagist/l/heyosseus/sloppy.svg"></a>
+  <a href="https://ko-fi.com/ratirukhadze"><img alt="ko-fi" src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white"></a>
 </p>
 
 <p align="center">
