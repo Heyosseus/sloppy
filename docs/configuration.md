@@ -150,6 +150,11 @@ A policy says what one role may depend on and what it may do:
   unclassified classes are never judged by it -- forbid those by name.
 - `may_not` forbids capabilities, reported by `SL305`. Outbound `http` is
   reported by `SL208`, so it is never reported twice.
+- `public_methods` and `final` give the role a shape, reported by `SL308`:
+  the public methods a concrete class in the role may declare (names or
+  globs; the constructor and other magic methods always may), and whether it
+  must be final. The `laravel-actions` preset keeps actions to `handle()` and
+  the hooks lorisleiva/laravel-actions calls.
 - `advice` is added to every finding the policy produces. Write it for the
   agent that will read it.
 
@@ -187,6 +192,76 @@ removes or replaces the role.
 being listed, including the next one. A class may name another module's
 classes only if they match `public` (relative to that module) or `shared`.
 Reported by `SL306`. `'boundaries' => false` turns off a preset's boundaries.
+
+#### Where new classes go
+
+```php
+'architecture' => [
+    'covers' => ['app/*'],
+],
+```
+
+`covers` names the paths where every class should play a role. `sloppy diff`,
+and the agent hooks, report a class the change adds there that plays none as
+`SL307`, so a new `app/Services/Helpers/DataUtils.php` is caught on the edit
+that created it. Classes that already exist are never reported, and without
+`covers` the check does not run.
+
+Before creating a class, ask where it belongs:
+
+```bash
+vendor/bin/sloppy architecture place "an action that refunds an order" --name=RefundOrder
+```
+
+The answer names the role, its namespace and directory, the suffix its classes
+share, a class name and file, and what the role may depend on and do. The MCP
+server offers the same answer as `sloppy_place`.
+
+#### Seeing the whole picture
+
+```bash
+vendor/bin/sloppy architecture graph               # Mermaid, for a README or a pull request
+vendor/bin/sloppy architecture graph --format=dot  # Graphviz
+vendor/bin/sloppy architecture graph --format=json
+```
+
+The graph shows how many classes play each role and how many dependencies run
+between roles. An edge with a dependency the policies forbid is drawn in red,
+with the count of forbidden ones, so every red edge is an `SL304` finding.
+
+#### Writing the profile down
+
+A profile can live under `sloppy.architecture`, or in a file of its own:
+`sloppy-architecture.php` in the project root, returning the same array.
+Sloppy reads the file when it exists, and refuses to run when both places
+declare an architecture, so there is never a question of which one is in force.
+
+Three commands write that file for you. Each prints what it would write, asks
+before writing when a person is at the terminal, and otherwise writes only
+with `--write` (`--force` replaces an existing file):
+
+```bash
+vendor/bin/sloppy architecture init      # infer a profile from the code
+vendor/bin/sloppy architecture import    # translate deptrac.yaml (or a file you name)
+vendor/bin/sloppy architecture prompt    # what an agent needs to write one from prose
+```
+
+- **`init`** reads the packages in `composer.json` (`nwidart/laravel-modules`,
+  `lorisleiva/laravel-actions`), the namespaces classes cluster in (`Domain`,
+  `Infrastructure`, `Ports`, `Modules\*`) and the words class names end in. It
+  picks the closest preset, adds a role for every family of three or more
+  classes the preset leaves out (`*Data`, `*Job`), covers the analysed paths
+  once nearly every class has a role, and asks about namespaces it could not
+  place rather than guessing.
+- **`import`** turns deptrac layers into roles, collectors into matchers and
+  the ruleset into `may_depend_on` allow lists. Collectors with no equivalent,
+  and regular expressions no glob can express, are named in the file's
+  comments instead of being guessed at.
+- **`prompt`** prints the profile format, what the code shows and the draft
+  `init` would write, for any agent to turn your `ARCHITECTURE.md` into a
+  profile. The MCP server offers it as `sloppy_architecture_prompt`. Sloppy
+  itself never calls a model: what the agent writes is a file like any other,
+  validated and reviewed.
 
 #### Intended abstractions
 

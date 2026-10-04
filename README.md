@@ -75,7 +75,7 @@ scan on demand. See [Coding agents](docs/agents.md).
 
 ## What it catches
 
-26 rules, plus two checks that compare your change with its base, and three
+26 rules, plus two checks that compare your change with its base, and five
 more that enforce an architecture you describe. Each one is tested to fire on
 the pattern *and* to stay silent on ordinary Laravel code.
 
@@ -90,7 +90,7 @@ the pattern *and* to stay silent on ordinary Laravel code.
 | **Performance** | `SL203` Possible N+1 · `SL204` Query Inside Loop · `SL205` Collection Instead Of Query · `SL210` Suspicious `Model::all()` |
 | **Dependencies** | `SL206` Excessive Controller Dependencies · `SL207` Excessive Service Dependencies |
 | **Architecture** (advisory) | `SL301` Abstraction Inflation · `SL302` Empty Wrapper Class · `SL303` Single-Use Abstraction |
-| **Your architecture** (opt-in) | `SL304` Layer Violation · `SL305` Forbidden Capability, a query in a controller or `env()` in the domain · `SL306` Boundary Violation, one module reaching into another's internals |
+| **Your architecture** (opt-in) | `SL304` Layer Violation · `SL305` Forbidden Capability, a query in a controller or `env()` in the domain · `SL306` Boundary Violation, one module reaching into another's internals · `SL307` Misplaced Class, a new class with no place in the architecture · `SL308` Role Shape, an action with a second public method |
 | **Suppression** | `SL501` Unexplained Suppression · `SL502` Baseline Growth, new entries in your PHPStan or Psalm baseline · `SL503` Weakened Test, a test skipped, stripped of assertions or given `assertTrue(true)` to make it pass |
 
 Every finding says **where** it is, **what** was measured, **how sure** the
@@ -218,9 +218,8 @@ If PHPStan can prove it, Sloppy stays out of it.
 ## Roadmap
 
 Still ahead: inline pull-request review comments, `sloppy explain` for a
-longer write-up of one finding, HTML reports, architecture checks for
-agents before they write a file, and more rules for the shortcuts agents take,
-such as configuration keys and routes that do not exist. Anything AI-assisted
+longer write-up of one finding, HTML reports, and more rules for the shortcuts
+agents take, such as configuration keys and routes that do not exist. Anything AI-assisted
 will be opt-in and separate: the analyser will always work with no API key, no
 network and no model.
 

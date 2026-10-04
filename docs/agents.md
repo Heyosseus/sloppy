@@ -135,6 +135,28 @@ replaces it, and it refuses to replace one it did not write unless you pass
 guidelines through Blade. Pass `--format=claude` to write `CLAUDE.md` as
 before.
 
+### Your architecture, before the first file
+
+A project that [declares its
+architecture](configuration.md#describing-your-architecture) gets one more
+section in every ruleset: each role, where its classes live, what their names
+end in, and the policy it is held to, written as instructions:
+
+```markdown
+### action
+
+One use case, behind one public method. Lives in `App\Actions`, and its names end in `Action`.
+- Never depend on: controller.
+- Public methods: handle, execute, as*, ...
+```
+
+It also names the module boundaries and the paths where every class must play
+a role, and tells the agent to ask `sloppy architecture place` (or the MCP tool
+`sloppy_place`) before creating a file. With the hooks installed, a class the
+agent adds in the wrong place, or a dependency that crosses a layer, is fed
+back on the edit that made it. A project that declares nothing gets the same
+rules file as before.
+
 ### Your custom rules teach the agents too
 
 A custom rule is not a second-class citizen here. When the ruleset is
@@ -178,7 +200,7 @@ Register it with your editor or agent, for example in `.mcp.json`:
 }
 ```
 
-Four tools:
+Seven tools:
 
 | Tool | What it answers |
 | --- | --- |
@@ -186,6 +208,10 @@ Four tools:
 | `sloppy_diff` | What did *this change* introduce, as opposed to inherit |
 | `sloppy_rules` | What does this project flag, and what should I write instead |
 | `sloppy_health` | What shape is this codebase in, before I touch it |
+| `sloppy_architecture` | What role does this class play, what may it touch, and which roles depend on which |
+| `sloppy_place` | Where does the class I am about to create belong, and what is it called |
+| `sloppy_architecture_prompt` | What do I need to write this project's architecture down from the team's own description |
 
 The server's own instructions tell the agent to call `sloppy_diff` before
-reporting a task finished, which is the moment the finding is cheapest to fix.
+reporting a task finished, which is the moment the finding is cheapest to fix,
+and `sloppy_place` before creating a class.

@@ -7,8 +7,10 @@ Every rule Sloppy ships, and how the rule set is kept quiet on ordinary code.
 ## Rules
 
 26 rules ship, plus two diff-only checks (`SL502`, `SL503`) that compare your
-change with its base revision. Every one has tests proving both that it fires
-on the pattern and that it stays quiet on ordinary code.
+change with its base revision, and five more (`SL304` to `SL308`, one of them
+diff-only) that join a run only when a project declares its architecture.
+Every one has tests proving both that it fires on the pattern and that it
+stays quiet on ordinary code.
 
 Two of them target the shortcuts coding agents take to call a task done:
 `SL112` catches a body left unwritten, and `SL503` catches a test made to pass
@@ -60,7 +62,7 @@ not a rule against repositories or interfaces.
 
 ### Architecture policies
 
-These three enforce what a project [declared about its
+These enforce what a project [declared about its
 architecture](configuration.md#describing-your-architecture) -- a preset such
 as `hexagonal` or `modular`, or policies of its own. With nothing declared
 they are not part of the run, and they are not written into agent rulesets.
@@ -71,6 +73,8 @@ They are not advisory: the project asked for them.
 | `SL304` | Layer Violation | Medium | Dependencies | A class that names -- extends, implements, injects, instantiates, calls statically, type-hints -- a class its role's policy forbids, by the role that class plays or by a glob on its name (`Illuminate\*`). Reported once per class and target, at the first mention. An allow list (`may_depend_on`) judges only classes that play a role; the role itself is always allowed. |
 | `SL305` | Forbidden Capability | Medium | Dependencies | A class that queries or writes the database, dispatches, reads the request or the environment, renders a view or resolves from the container where its role's policy forbids it. Reported once per method and capability. Counts only what is unambiguous: static calls on classes the project index knows are Eloquent models, the `DB`, `View`, `App` and dispatching facades, helpers such as `env()` and `request()`, request parameters, and injected framework types. `$order->save()` on a variable is not counted. Outbound HTTP is reported by `SL208`. |
 | `SL306` | Boundary Violation | Medium | Dependencies | A class in one module that names another module's class outside that module's public surface and the shared kernel. |
+| `SL307` | Misplaced Class | Low | Dependencies | A class this change adds, in a path the architecture `covers`, that plays no role. Diff mode only, so existing classes are never reported, and it runs only when `covers` is declared. Moving a class to a new name counts as adding it. |
+| `SL308` | Role Shape | Low | Dependencies | A concrete class with a public method its role's `public_methods` does not allow (magic methods always are), or one left open in a role whose policy says `final`. Abstract base classes are never judged. |
 
 ### Suppression
 
