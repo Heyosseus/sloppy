@@ -69,7 +69,7 @@ final class BusinessLogicInControllerRule extends LaravelRule
         $minStatements = max(1, $this->intOption('min_statements', 8));
 
         foreach ($context->classLikes() as $classLike) {
-            if (! NodeHelper::isController($classLike)) {
+            if (! $context->hasRole($classLike, 'controller')) {
                 continue;
             }
 

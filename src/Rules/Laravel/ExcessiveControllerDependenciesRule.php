@@ -57,7 +57,7 @@ final class ExcessiveControllerDependenciesRule extends LaravelRule
         $max = max(1, $this->intOption('max_dependencies', 4));
 
         foreach ($context->classLikes() as $classLike) {
-            if (! NodeHelper::isController($classLike)) {
+            if (! $context->hasRole($classLike, 'controller')) {
                 continue;
             }
 

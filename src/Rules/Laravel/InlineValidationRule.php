@@ -63,14 +63,14 @@ final class InlineValidationRule extends LaravelRule
         $controllersOnly = $this->boolOption('controllers_only', true);
 
         foreach ($context->classLikes() as $classLike) {
-            $isController = NodeHelper::isController($classLike);
+            $isController = $context->hasRole($classLike, 'controller');
 
             if ($controllersOnly && ! $isController) {
                 continue;
             }
 
             // A FormRequest is already the extracted form of this pattern.
-            if (NodeHelper::isFormRequest($classLike)) {
+            if ($context->hasRole($classLike, 'form-request')) {
                 continue;
             }
 

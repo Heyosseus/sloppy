@@ -71,7 +71,7 @@ final class DirectExternalApiRule extends LaravelRule
     public function analyze(AnalysisContext $context): iterable
     {
         foreach ($context->classLikes() as $classLike) {
-            $layer = $this->layerOf($classLike);
+            $layer = $this->layerOf($context, $classLike);
 
             if ($layer === null || $this->isBoundary($classLike)) {
                 continue;
@@ -129,13 +129,13 @@ final class DirectExternalApiRule extends LaravelRule
      * The layer this class belongs to, or null when the rule has no opinion
      * about it.
      */
-    private function layerOf(ClassLike $classLike): ?string
+    private function layerOf(AnalysisContext $context, ClassLike $classLike): ?string
     {
-        return match (true) {
-            NodeHelper::isController($classLike) => 'a controller',
-            NodeHelper::isEloquentModel($classLike) => 'an Eloquent model',
-            NodeHelper::isFormRequest($classLike) => 'a form request',
-            NodeHelper::isMiddleware($classLike) => 'middleware',
+        return match ($context->roleOf($classLike)) {
+            'controller' => 'a controller',
+            'model' => 'an Eloquent model',
+            'form-request' => 'a form request',
+            'middleware' => 'middleware',
             default => null,
         };
     }
