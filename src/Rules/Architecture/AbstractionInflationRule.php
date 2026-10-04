@@ -87,7 +87,8 @@ final class AbstractionInflationRule extends BaseRule
             $fqn = NodeHelper::className($classLike);
             $shortName = NodeHelper::shortName($classLike);
 
-            if ($fqn === null || $shortName === null) {
+            // Layers the architecture declares as intended are not inflation.
+            if ($fqn === null || $shortName === null || $context->role($classLike)?->intendedAbstraction === true) {
                 continue;
             }
 

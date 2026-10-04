@@ -6,18 +6,15 @@ namespace Heyosseus\Sloppy\Architecture;
 
 /**
  * One part of a declaration compared against one or more patterns; any
- * pattern matching is enough.
- *
- * In a glob, `*` stands for any run of characters, backslashes included, so
- * `*Http\Controllers*` means "the name contains `Http\Controllers`". Nothing
- * else is special: a backslash is a namespace separator, never an escape.
+ * pattern matching is enough. Patterns are {@see Glob}s, except for a suffix
+ * and a kind, which are compared as written.
  */
 final readonly class PatternMatcher implements Matcher
 {
     /**
-     * @var list<string>
+     * @var list<Glob>
      */
-    private array $expressions;
+    private array $globs;
 
     /**
      * @param  list<string>  $patterns
@@ -26,8 +23,8 @@ final readonly class PatternMatcher implements Matcher
         public MatchKey $key,
         public array $patterns,
     ) {
-        $this->expressions = $key->isGlob()
-            ? array_map($this->compile(...), $patterns)
+        $this->globs = $key->isGlob()
+            ? array_map(static fn (string $pattern): Glob => new Glob($pattern), $patterns)
             : [];
     }
 
@@ -63,22 +60,12 @@ final readonly class PatternMatcher implements Matcher
             return in_array($subject, $this->patterns, true);
         }
 
-        foreach ($this->expressions as $expression) {
-            if (preg_match($expression, $subject) === 1) {
+        foreach ($this->globs as $glob) {
+            if ($glob->matches($subject)) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    private function compile(string $glob): string
-    {
-        $parts = array_map(
-            static fn (string $part): string => preg_quote($part, '/'),
-            explode('*', $glob),
-        );
-
-        return '/^'.implode('.*', $parts).'$/s';
     }
 }

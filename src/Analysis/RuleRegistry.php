@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Analysis;
 
+use Heyosseus\Sloppy\Architecture\PolicyRule;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Rules\Architecture\AbstractionInflationRule;
+use Heyosseus\Sloppy\Rules\Architecture\BoundaryViolationRule;
 use Heyosseus\Sloppy\Rules\Architecture\EmptyWrapperClassRule;
+use Heyosseus\Sloppy\Rules\Architecture\ForbiddenCapabilityRule;
+use Heyosseus\Sloppy\Rules\Architecture\LayerViolationRule;
 use Heyosseus\Sloppy\Rules\Architecture\SingleUseAbstractionRule;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use Heyosseus\Sloppy\Rules\Laravel\BusinessLogicInControllerRule;
@@ -85,6 +89,9 @@ final readonly class RuleRegistry
             AbstractionInflationRule::class,
             EmptyWrapperClassRule::class,
             SingleUseAbstractionRule::class,
+            LayerViolationRule::class,
+            ForbiddenCapabilityRule::class,
+            BoundaryViolationRule::class,
         ];
     }
 
@@ -97,12 +104,16 @@ final readonly class RuleRegistry
     {
         $rules = [];
         $skipped = [];
+        $profile = $config->architecture();
 
         foreach ([...self::shipped(), ...$config->customRules()] as $class) {
             $rule = new $class;
             $id = $rule->id();
 
-            if (! $config->isRuleEnabled($id)) {
+            // A policy rule with no policy to enforce is left out silently,
+            // like a disabled one: it is not missing anything, it has nothing
+            // to check.
+            if (! $config->isRuleEnabled($id) || ($rule instanceof PolicyRule && ! $rule->appliesTo($profile))) {
                 continue;
             }
 

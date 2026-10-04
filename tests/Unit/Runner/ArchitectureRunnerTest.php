@@ -170,3 +170,58 @@ it('writes only console or json', function (): void {
     expect(static fn (): ArchitectureOptions => new ArchitectureOptions(format: OutputFormat::Sarif))
         ->toThrow(InvalidArgumentException::class, 'sloppy architecture writes console or json, not sarif.');
 });
+
+it('lists the policies and boundaries it enforces, and where each came from', function (): void {
+    [$sloppy, $root] = architectureProject(['architecture' => [
+        'policies' => ['controller' => ['may_depend_on' => ['service'], 'may_not_depend_on' => ['model'], 'may_not' => ['db']]],
+        'boundaries' => ['modules' => 'App\Modules\{module}\*'],
+    ]]);
+    $output = new RecordingRunnerOutput;
+
+    (new ArchitectureRunner)->run($sloppy, new ArchitectureOptions, $output);
+
+    expect($output->reportBody())->toContain('Policies:')
+        ->and($output->reportBody())->toMatch('/controller\s+may depend only on: service; may not depend on: model; may not: db\.read, db\.write \(sloppy\.php\)/')
+        ->and($output->reportBody())->toContain('Boundaries: modules App\Modules\{module}\*; public nothing; shared nothing (sloppy.php)');
+
+    removeTree($root);
+});
+
+it('writes policies and boundaries into the json', function (): void {
+    [$sloppy, $root] = architectureProject(['architecture' => ['preset' => 'modular', 'policies' => ['controller' => ['may_not' => ['env'], 'advice' => 'Read config.']]]]);
+    $output = new RecordingRunnerOutput;
+
+    (new ArchitectureRunner)->run($sloppy, new ArchitectureOptions(format: OutputFormat::Json), $output);
+
+    /** @var array{roles: list<array{name: string, policy: array<string, mixed>|null}>, boundaries: array<string, mixed>} $decoded */
+    $decoded = json_decode($output->reportBody(), true, flags: JSON_THROW_ON_ERROR);
+    $policies = array_column($decoded['roles'], 'policy', 'name');
+
+    expect($policies['controller'])->toBe(['may_depend_on' => null, 'may_not_depend_on' => [], 'may_not' => ['env'], 'advice' => 'Read config.', 'origin' => 'sloppy.php'])
+        ->and($policies['model'])->toBeNull()
+        ->and($decoded['boundaries'])->toBe([
+            'modules' => ['Modules\{module}\*', 'App\Modules\{module}\*'],
+            'public' => ['Contracts\*', 'Events\*', 'Data\*', 'Enums\*'],
+            'shared' => ['Modules\Shared\*', 'App\Modules\Shared\*'],
+            'origin' => 'preset modular',
+        ]);
+
+    removeTree($root);
+});
+
+it('names the policy a class is held to when it explains it', function (): void {
+    [$sloppy, $root] = architectureProject(['architecture' => ['policies' => ['controller' => ['may_not' => ['db']]]]]);
+    $text = new RecordingRunnerOutput;
+    $json = new RecordingRunnerOutput;
+
+    (new ArchitectureRunner)->run($sloppy, new ArchitectureOptions(class: 'OrderController'), $text);
+    (new ArchitectureRunner)->run($sloppy, new ArchitectureOptions(class: 'OrderService', format: OutputFormat::Json), $json);
+
+    /** @var array{policy: mixed} $decoded */
+    $decoded = json_decode($json->reportBody(), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($text->reportBody())->toContain('Policy:   may not: db.read, db.write (sloppy.php)')
+        ->and($decoded['policy'])->toBeNull();
+
+    removeTree($root);
+});

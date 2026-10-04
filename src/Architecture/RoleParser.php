@@ -16,6 +16,8 @@ final readonly class RoleParser
 {
     private const string DESCRIPTION = 'description';
 
+    private const string INTENDED = 'intended_abstraction';
+
     private const string ANY = 'any';
 
     private const string NOT = 'not';
@@ -38,7 +40,16 @@ final readonly class RoleParser
             throw new ProfileException(sprintf('%s.%s must be a string.', $path, self::DESCRIPTION));
         }
 
-        return new Role($name, self::matcher($definition, $path), $origin, $description);
+        $intended = $definition[self::INTENDED] ?? false;
+
+        if (! is_bool($intended)) {
+            throw new ProfileException(sprintf('%s.%s must be true or false.', $path, self::INTENDED));
+        }
+
+        $matchers = $definition;
+        unset($matchers[self::DESCRIPTION], $matchers[self::INTENDED]);
+
+        return new Role($name, self::matcher($matchers, $path), $origin, $description, $intended);
     }
 
     /**
@@ -50,10 +61,6 @@ final readonly class RoleParser
 
         /** @var mixed $value */
         foreach ($definition as $key => $value) {
-            if ($key === self::DESCRIPTION) {
-                continue;
-            }
-
             $matchers[] = match ($key) {
                 self::ANY => self::any($value, $path.'.'.self::ANY),
                 self::NOT => new NotMatcher(self::nested($value, $path.'.'.self::NOT)),

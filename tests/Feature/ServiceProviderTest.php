@@ -43,7 +43,9 @@ it('binds the entry point with every rule wired up', function (): void {
 
     expect($sloppy)->toBeInstanceOf(Sloppy::class)
         ->and($sloppy->rules()->count())->toBe(26)
-        ->and($sloppy->rules()->ids())->toBe(RuleRegistry::withDefaults()->ids());
+        // SL304 to SL306 enforce a declared architecture, and the default
+        // profile declares no policies or boundaries.
+        ->and($sloppy->rules()->ids())->toBe(array_values(array_diff(RuleRegistry::withDefaults()->ids(), ['SL304', 'SL305', 'SL306'])));
 });
 
 it('resolves the same instances on repeat lookups', function (): void {

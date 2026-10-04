@@ -67,18 +67,7 @@ final class SingleUseAbstractionRule extends BaseRule
         $stacks = $skipInflated ? LayerStack::group($context->index) : [];
 
         foreach ($context->classLikes() as $classLike) {
-            $isInterface = $classLike instanceof Interface_;
-            $isAbstract = $classLike instanceof Class_ && $classLike->isAbstract();
-
-            if (! $isInterface && ! $isAbstract) {
-                continue;
-            }
-
-            // An abstraction that declares nothing has no signature to
-            // duplicate, so the cost this rule measures is not there. It is an
-            // attachment point -- Laravel's scaffolded Controller, a marker
-            // interface -- and flagging it teaches people to ignore reports.
-            if ($this->declaresNothing($classLike)) {
+            if (! $this->isCandidate($context, $classLike)) {
                 continue;
             }
 
@@ -123,7 +112,7 @@ final class SingleUseAbstractionRule extends BaseRule
                 at: $classLike,
                 message: sprintf(
                     '%s %s declares %d method(s), is implemented only by %s, and is referenced by %s.',
-                    $isInterface ? 'Interface' : 'Abstract class',
+                    $classLike instanceof Interface_ ? 'Interface' : 'Abstract class',
                     $name,
                     $summary->methodCount,
                     $implementation,
@@ -146,6 +135,25 @@ final class SingleUseAbstractionRule extends BaseRule
                 ],
             );
         }
+    }
+
+    /**
+     * An interface or abstract class this rule should weigh at all.
+     *
+     * An abstraction that declares nothing has no signature to duplicate, so
+     * the cost this rule measures is not there. It is an attachment point --
+     * Laravel's scaffolded Controller, a marker interface -- and flagging it
+     * teaches people to ignore reports. And a port with one adapter is a port,
+     * not indirection, when the architecture says abstractions in its role are
+     * the design.
+     */
+    private function isCandidate(AnalysisContext $context, ClassLike $classLike): bool
+    {
+        $isAbstraction = $classLike instanceof Interface_ || ($classLike instanceof Class_ && $classLike->isAbstract());
+
+        return $isAbstraction
+            && ! $this->declaresNothing($classLike)
+            && $context->role($classLike)?->intendedAbstraction !== true;
     }
 
     /**

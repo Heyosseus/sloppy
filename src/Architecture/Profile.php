@@ -6,7 +6,8 @@ namespace Heyosseus\Sloppy\Architecture;
 
 /**
  * What this project's architecture is: the roles its classes play, in the
- * order they are tried.
+ * order they are tried, what each role may depend on and do, and which
+ * modules may see which.
  *
  * Read from `sloppy.architecture`:
  *
@@ -16,22 +17,34 @@ namespace Heyosseus\Sloppy\Architecture;
  *             'action' => ['namespace' => 'App\Actions\*', 'suffix' => 'Action'],
  *             'service' => false,
  *         ],
+ *         'policies' => [
+ *             'controller' => ['may_not' => ['db']],
+ *         ],
+ *         'boundaries' => ['modules' => 'App\Modules\{module}\*'],
  *     ],
  *
  * The project's own roles come first, in the order written, then whatever the
- * preset defines that the project did not. A project role with a preset
- * role's name replaces it; `false` removes it.
+ * preset defines that the project did not. A project role or policy with the
+ * preset's name replaces it; `false` removes it. Project boundaries replace
+ * the preset's, and `false` turns them off.
  */
 final readonly class Profile
 {
+    public const string ROLE_NAME = '/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/';
+
     private const string PATH = 'sloppy.architecture';
+
+    private const array KEYS = ['preset', 'roles', 'policies', 'boundaries'];
 
     /**
      * @param  list<Role>  $roles  In the order they are tried.
+     * @param  array<string, Policy>  $policies  Keyed by role.
      */
     public function __construct(
         public string $preset,
         public array $roles,
+        public array $policies = [],
+        public ?Boundaries $boundaries = null,
     ) {}
 
     public static function default(): self
@@ -44,13 +57,14 @@ final readonly class Profile
      */
     public static function fromArray(array $config): self
     {
-        $unknown = array_diff(array_map(strval(...), array_keys($config)), ['preset', 'roles']);
+        $unknown = array_diff(array_map(strval(...), array_keys($config)), self::KEYS);
 
         if ($unknown !== []) {
             throw new ProfileException(sprintf(
-                '%s has an unknown key [%s]. Use preset or roles.',
+                '%s has an unknown key [%s]. Use any of: %s.',
                 self::PATH,
                 implode(', ', $unknown),
+                implode(', ', self::KEYS),
             ));
         }
 
@@ -61,37 +75,18 @@ final readonly class Profile
         }
 
         $preset = mb_strtolower(trim($preset));
-        $own = $config['roles'] ?? [];
-
-        if (! is_array($own) || ($own !== [] && array_is_list($own))) {
-            throw new ProfileException(sprintf(
-                '%s.roles must map role names to matchers, such as [\'action\' => [\'suffix\' => \'Action\']].',
-                self::PATH,
-            ));
-        }
-
-        $roles = [];
-
-        /** @var mixed $definition */
-        foreach ($own as $name => $definition) {
-            $name = self::roleName($name);
-
-            if ($definition === false) {
-                continue;
-            }
-
-            $roles[$name] = RoleParser::parse($name, $definition, 'sloppy.php', self::PATH.'.roles.'.$name);
-        }
-
+        $definition = Presets::definition($preset);
         $origin = 'preset '.$preset;
 
-        foreach (Presets::roles($preset) as $name => $definition) {
-            if (! array_key_exists($name, $own)) {
-                $roles[$name] = RoleParser::parse($name, $definition, $origin, $origin.': '.$name);
-            }
-        }
+        $roles = self::roles(self::map($config, 'roles'), $definition['roles'] ?? [], $origin);
+        $names = array_map(static fn (Role $role): string => $role->name, $roles);
 
-        return new self($preset, array_values($roles));
+        return new self(
+            preset: $preset,
+            roles: $roles,
+            policies: self::policies(self::map($config, 'policies'), $definition['policies'] ?? [], $origin, $names),
+            boundaries: self::boundaries($config, $definition['boundaries'] ?? null, $origin),
+        );
     }
 
     public function role(string $name): ?Role
@@ -105,16 +100,148 @@ final readonly class Profile
         return null;
     }
 
-    private static function roleName(int|string $name): string
+    public function policyFor(?string $role): ?Policy
     {
-        if (! is_string($name) || preg_match('/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/', $name) !== 1) {
+        return $role === null ? null : $this->policies[$role] ?? null;
+    }
+
+    /**
+     * Whether any role's policy limits what it may depend on.
+     */
+    public function constrainsDependencies(): bool
+    {
+        foreach ($this->policies as $policy) {
+            if ($policy->constrainsDependencies()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any role's policy forbids a capability.
+     */
+    public function constrainsCapabilities(): bool
+    {
+        foreach ($this->policies as $policy) {
+            if ($policy->mayNot !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $own
+     * @param  array<string, array<string, mixed>>  $preset
+     * @return list<Role>
+     */
+    private static function roles(array $own, array $preset, string $origin): array
+    {
+        $roles = [];
+
+        /** @var mixed $definition */
+        foreach ($own as $name => $definition) {
+            self::roleName($name, 'roles');
+
+            if ($definition !== false) {
+                $roles[$name] = RoleParser::parse($name, $definition, 'sloppy.php', self::PATH.'.roles.'.$name);
+            }
+        }
+
+        foreach ($preset as $name => $definition) {
+            if (! array_key_exists($name, $own)) {
+                $roles[$name] = RoleParser::parse($name, $definition, $origin, $origin.': '.$name);
+            }
+        }
+
+        return array_values($roles);
+    }
+
+    /**
+     * @param  array<string, mixed>  $own
+     * @param  array<string, array<string, mixed>>  $preset
+     * @param  list<string>  $roles
+     * @return array<string, Policy>
+     */
+    private static function policies(array $own, array $preset, string $origin, array $roles): array
+    {
+        $policies = [];
+
+        /** @var mixed $definition */
+        foreach ($own as $role => $definition) {
+            self::roleName($role, 'policies');
+
+            if ($definition === false) {
+                continue;
+            }
+
+            $path = self::PATH.'.policies.'.$role;
+
+            if (! in_array($role, $roles, true)) {
+                throw new ProfileException(sprintf('%s is a policy for a role that does not exist. Roles: %s.', $path, implode(', ', $roles)));
+            }
+
+            $policies[$role] = PolicyParser::policy($role, $definition, 'sloppy.php', $path, $roles);
+        }
+
+        foreach ($preset as $role => $definition) {
+            // A preset policy goes with its role: a project that removed or
+            // replaced the role has said the preset's opinion does not apply.
+            if (! array_key_exists($role, $own) && in_array($role, $roles, true)) {
+                $policies[$role] = PolicyParser::policy($role, $definition, $origin, $origin.': policies.'.$role, $roles);
+            }
+        }
+
+        return $policies;
+    }
+
+    /**
+     * @param  array<mixed>  $config
+     * @param  array<string, mixed>|null  $preset
+     */
+    private static function boundaries(array $config, ?array $preset, string $origin): ?Boundaries
+    {
+        if (array_key_exists('boundaries', $config)) {
+            return $config['boundaries'] === false
+                ? null
+                : PolicyParser::boundaries($config['boundaries'], 'sloppy.php', self::PATH.'.boundaries');
+        }
+
+        return $preset === null ? null : PolicyParser::boundaries($preset, $origin, $origin.': boundaries');
+    }
+
+    /**
+     * @param  array<mixed>  $config
+     * @return array<string, mixed>
+     */
+    private static function map(array $config, string $key): array
+    {
+        $value = $config[$key] ?? [];
+
+        if (! is_array($value) || ($value !== [] && array_is_list($value))) {
             throw new ProfileException(sprintf(
-                '%s.roles has a role named [%s]. Role names are lower-case words joined by hyphens, such as "form-request".',
+                '%s.%s must map role names to definitions, such as [\'action\' => [...]].',
                 self::PATH,
-                (string) $name,
+                $key,
             ));
         }
 
-        return $name;
+        /** @var array<string, mixed> $value */
+        return $value;
+    }
+
+    private static function roleName(int|string $name, string $key): void
+    {
+        if (! is_string($name) || preg_match(self::ROLE_NAME, $name) !== 1) {
+            throw new ProfileException(sprintf(
+                '%s.%s has a role named [%s]. Role names are lower-case words joined by hyphens, such as "form-request".',
+                self::PATH,
+                $key,
+                (string) $name,
+            ));
+        }
     }
 }

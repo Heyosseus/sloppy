@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Analysis;
 
 use Heyosseus\Sloppy\Architecture\ArchitectureMap;
+use Heyosseus\Sloppy\Architecture\Role;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 use PhpParser\Node;
@@ -55,7 +56,18 @@ final readonly class AnalysisContext
      */
     public function roleOf(ClassLike $class): ?string
     {
-        return $this->architecture->matchNode($class, $this->file->relativePath, $this->index)->name();
+        return $this->role($class)?->name;
+    }
+
+    /**
+     * The full role a declaration plays, with where it was defined and
+     * whether its abstractions are intended.
+     *
+     * @api
+     */
+    public function role(ClassLike $class): ?Role
+    {
+        return $this->architecture->matchNode($class, $this->file->relativePath, $this->index)->role;
     }
 
     /**

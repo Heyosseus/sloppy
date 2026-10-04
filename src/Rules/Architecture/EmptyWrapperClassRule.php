@@ -69,7 +69,9 @@ final class EmptyWrapperClassRule extends BaseRule
         $ratio = min(1.0, max(0.1, $this->floatOption('min_delegation_ratio', 0.8)));
 
         foreach ($context->classLikes() as $classLike) {
-            if (! $classLike instanceof Class_ || $classLike->isAbstract()) {
+            // An adapter that forwards to an SDK is what the architecture
+            // asked for when it marks the role's abstractions as intended.
+            if (! $classLike instanceof Class_ || $classLike->isAbstract() || $context->role($classLike)?->intendedAbstraction === true) {
                 continue;
             }
 

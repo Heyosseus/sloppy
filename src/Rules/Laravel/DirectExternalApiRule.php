@@ -7,6 +7,7 @@ namespace Heyosseus\Sloppy\Rules\Laravel;
 use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Architecture\Capability;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Expr\FuncCall;
@@ -127,16 +128,22 @@ final class DirectExternalApiRule extends LaravelRule
 
     /**
      * The layer this class belongs to, or null when the rule has no opinion
-     * about it.
+     * about it. Beyond the four Laravel layers, any role whose policy forbids
+     * `http` is one: this rule reports outbound HTTP for the architecture
+     * rules, so a forbidden request is reported once.
      */
     private function layerOf(AnalysisContext $context, ClassLike $classLike): ?string
     {
-        return match ($context->roleOf($classLike)) {
+        $role = $context->roleOf($classLike);
+
+        return match ($role) {
             'controller' => 'a controller',
             'model' => 'an Eloquent model',
             'form-request' => 'a form request',
             'middleware' => 'middleware',
-            default => null,
+            default => $context->architecture->profile->policyFor($role)?->forbids(Capability::Http) === true
+                ? sprintf('a class in the %s role', $role)
+                : null,
         };
     }
 
