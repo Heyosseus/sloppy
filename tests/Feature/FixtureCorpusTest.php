@@ -52,7 +52,7 @@ it('recognises the sloppy fixtures without crashing on any rule', function (): v
         ->and($result->score->value)->toBeLessThan(60);
 });
 
-it('exercises all but five rules on the sloppy fixtures', function (): void {
+it('exercises all but six rules on the sloppy fixtures', function (): void {
     $result = RuleTester::runAll(sloppyCorpus());
     $fired = array_values(array_unique(ruleIds($result->findings)));
     sort($fired);
@@ -63,10 +63,10 @@ it('exercises all but five rules on the sloppy fixtures', function (): void {
     // here too: `Drift/RefundTbcPayment.php` is missing the failure guard its
     // sibling has, and `Drift/GatewayFamily.php` news up a `PaypalGateway`
     // where its two siblings both use `StripeGateway` -- the masked-value
-    // divergence structural hashing alone cannot see. SL304 to SL306 enforce
+    // divergence structural hashing alone cannot see. SL304 to SL306 and SL308 enforce
     // a declared architecture, and the fixtures declare none.
     expect(array_values(array_diff(RuleRegistry::withDefaults()->ids(), $fired)))
-        ->toBe(['SL102', 'SL207', 'SL304', 'SL305', 'SL306']);
+        ->toBe(['SL102', 'SL207', 'SL304', 'SL305', 'SL306', 'SL308']);
 });
 
 it('finds the same things every time it runs', function (): void {

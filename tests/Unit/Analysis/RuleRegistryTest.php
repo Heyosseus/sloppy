@@ -47,13 +47,13 @@ final class NeverFiresRule extends BaseRule
     }
 }
 
-it('ships twenty-nine rules with unique ids', function (): void {
+it('ships thirty rules with unique ids', function (): void {
     $registry = RuleRegistry::withDefaults();
     $ids = $registry->ids();
 
-    expect($ids)->toHaveCount(29)
-        ->and(array_unique($ids))->toHaveCount(29)
-        ->and($registry->count())->toBe(29);
+    expect($ids)->toHaveCount(30)
+        ->and(array_unique($ids))->toHaveCount(30)
+        ->and($registry->count())->toBe(30);
 });
 
 it('gives every rule an id, name, description, explanation and category', function (): void {
@@ -153,7 +153,8 @@ it('has an entry in the shipped config for every shipped detector', function ():
     // same way, so it belongs to the same invariant.
     $detectors = [
         ...RuleRegistry::withDefaults()->ids(),
-        ...EvidenceCollector::fromConfiguration(Configuration::fromArray([], __DIR__))->ids(),
+        // SL307 joins only where the architecture covers paths.
+        ...EvidenceCollector::fromConfiguration(Configuration::fromArray(['architecture' => ['covers' => 'app/*']], __DIR__))->ids(),
     ];
 
     foreach ($detectors as $id) {

@@ -108,8 +108,8 @@ it('refuses a policy or boundary it cannot use, naming the key and the fix', fun
     'policies as a list' => [['policies' => [['may_not' => ['db']]]], 'sloppy.architecture.policies must map role names to definitions'],
     'a badly named policy' => [['policies' => ['Controller' => ['may_not' => ['db']]]], 'sloppy.architecture.policies has a role named [Controller].'],
     'a policy for a missing role' => [['policies' => ['action' => ['may_not' => ['db']]]], 'sloppy.architecture.policies.action is a policy for a role that does not exist. Roles: form-request, model, controller, middleware, service.'],
-    'an empty policy' => [['policies' => ['controller' => []]], 'sloppy.architecture.policies.controller must be an array with any of: may_depend_on, may_not_depend_on, may_not, advice.'],
-    'a misspelt policy key' => [['policies' => ['controller' => ['may_dependon' => ['model']]]], 'sloppy.architecture.policies.controller has an unknown key [may_dependon]. Use any of: may_depend_on, may_not_depend_on, may_not, advice.'],
+    'an empty policy' => [['policies' => ['controller' => []]], 'sloppy.architecture.policies.controller must be an array with any of: may_depend_on, may_not_depend_on, may_not, public_methods, final, advice.'],
+    'a misspelt policy key' => [['policies' => ['controller' => ['may_dependon' => ['model']]]], 'sloppy.architecture.policies.controller has an unknown key [may_dependon]. Use any of: may_depend_on, may_not_depend_on, may_not, public_methods, final, advice.'],
     'a target that is not a role' => [['policies' => ['controller' => ['may_not_depend_on' => ['repository']]]], 'sloppy.architecture.policies.controller.may_not_depend_on names [repository], which is not a role.'],
     'a target that is not a string' => [['policies' => ['controller' => ['may_depend_on' => [1]]]], 'sloppy.architecture.policies.controller.may_depend_on must be a string or a list of strings.'],
     'an unknown capability' => [['policies' => ['controller' => ['may_not' => ['telepathy']]]], 'sloppy.architecture.policies.controller.may_not has an unknown capability [telepathy]. Use any of: db, db.read, db.write, http, dispatch, request, env, view, container.'],
@@ -121,3 +121,37 @@ it('refuses a policy or boundary it cannot use, naming the key and the fix', fun
     'a misspelt boundary key' => [['boundaries' => ['modules' => 'App\{module}\*', 'internal' => []]], 'sloppy.architecture.boundaries has an unknown key [internal]. Use any of: modules, public, shared.'],
     'intended that is not a boolean' => [['roles' => ['port' => ['kind' => 'interface', 'intended_abstraction' => 'yes']]], 'sloppy.architecture.roles.port.intended_abstraction must be true or false.'],
 ]);
+
+it('refuses a shape it cannot use', function (array $architecture, string $message): void {
+    expect(static fn (): Profile => Profile::fromArray($architecture))
+        ->toThrow(ProfileException::class, $message);
+})->with([
+    'final that is not a boolean' => [['policies' => ['controller' => ['final' => 'yes']]], 'sloppy.architecture.policies.controller.final must be true or false.'],
+    'public methods that are not strings' => [['policies' => ['controller' => ['public_methods' => [1]]]], 'sloppy.architecture.policies.controller.public_methods must be a string or a list of strings.'],
+    'covers that is not a path' => [['covers' => [['app']]], 'sloppy.architecture.covers must be a string or a list of strings.'],
+]);
+
+it('reads a role\'s shape and describes it', function (): void {
+    $policy = Profile::fromArray(['policies' => ['controller' => ['public_methods' => ['__invoke', 'show*'], 'final' => true]]])->policyFor('controller');
+
+    expect($policy?->constrainsShape())->toBeTrue()
+        ->and($policy?->constrainsDependencies())->toBeFalse()
+        ->and($policy?->allowsPublicMethod('__construct'))->toBeTrue()
+        ->and($policy?->allowsPublicMethod('showOrder'))->toBeTrue()
+        ->and($policy?->allowsPublicMethod('store'))->toBeFalse()
+        ->and($policy?->describe())->toBe('public methods: __invoke, show*; final')
+        ->and(Profile::fromArray(['policies' => ['controller' => ['final' => true]]])->policyFor('controller')?->allowsPublicMethod('anything'))->toBeTrue()
+        ->and(Profile::fromArray(['policies' => ['controller' => ['public_methods' => []]]])->policyFor('controller')?->describe())->toBe('public methods: none besides magic methods')
+        ->and(Profile::fromArray(['preset' => 'laravel-actions'])->constrainsShape())->toBeTrue()
+        ->and(Profile::default()->constrainsShape())->toBeFalse();
+});
+
+it('reads the paths where every class should play a role', function (): void {
+    $profile = Profile::fromArray(['covers' => ['app/*', 'src/Domain/*']]);
+
+    expect($profile->covers('app/Support/Str.php'))->toBeTrue()
+        ->and($profile->covers('src/Domain/Order.php'))->toBeTrue()
+        ->and($profile->covers('src/Kernel.php'))->toBeFalse()
+        ->and(Profile::fromArray(['covers' => 'app/*'])->covers('app/A.php'))->toBeTrue()
+        ->and(Profile::default()->covers('app/A.php'))->toBeFalse();
+});

@@ -101,7 +101,14 @@ final readonly class Presets
             ],
             'action' => [
                 'may_not_depend_on' => ['controller'],
-                'advice' => 'Controllers, jobs and commands call actions; an action never calls back into a controller.',
+                // One use case behind one entry point. The rest are the hooks
+                // lorisleiva/laravel-actions calls when an action runs as a
+                // controller, a job, a listener or a command.
+                'public_methods' => [
+                    'handle', 'execute', 'as*', 'get*', 'configure*', 'rules', 'authorize',
+                    'prepareForValidation', 'withValidator', 'afterValidator', 'jsonResponse', 'htmlResponse',
+                ],
+                'advice' => 'Controllers, jobs and commands call actions; an action never calls back into a controller, and does one thing behind handle().',
             ],
             'model' => [
                 'may_not_depend_on' => ['controller', 'action'],

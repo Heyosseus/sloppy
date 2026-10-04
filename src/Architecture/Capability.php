@@ -56,6 +56,23 @@ enum Capability: string
     }
 
     /**
+     * What it is, for an instruction: "no database reads".
+     */
+    public function noun(): string
+    {
+        return match ($this) {
+            self::DatabaseRead => 'database reads',
+            self::DatabaseWrite => 'database writes',
+            self::Http => 'outbound HTTP',
+            self::Dispatch => 'dispatching jobs, events, notifications or mail',
+            self::Request => 'reading the HTTP request',
+            self::Env => 'env() reads',
+            self::View => 'rendering views',
+            self::Container => 'resolving from the service container',
+        };
+    }
+
+    /**
      * @return list<string>
      */
     public static function names(): array

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Analysis;
 
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Scoring\Score;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 
@@ -20,6 +21,7 @@ final readonly class AnalysisResult
      * @param  list<string>  $analyzedFiles  Relative paths, sorted.
      * @param  array<string, string>  $errors  Keyed by what failed: a relative path for a parse error, or "SL101 in app/Foo.php" for a rule that threw.
      * @param  list<string>  $skippedRules  IDs left out because the analysed project does not use their framework.
+     * @param  ProjectIndex|null  $index  The index the run built, for a question about the project the findings cannot answer. Never serialised.
      */
     public function __construct(
         public array $findings,
@@ -28,6 +30,7 @@ final readonly class AnalysisResult
         public Score $score,
         public array $errors = [],
         public array $skippedRules = [],
+        public ?ProjectIndex $index = null,
     ) {}
 
     /**
@@ -43,6 +46,7 @@ final readonly class AnalysisResult
         ScoreCalculator $calculator,
         array $errors = [],
         array $skippedRules = [],
+        ?ProjectIndex $index = null,
     ): self {
         $sorted = self::sort($findings);
 
@@ -53,6 +57,7 @@ final readonly class AnalysisResult
             score: $calculator->calculate($sorted, $analyzedLines),
             errors: $errors,
             skippedRules: $skippedRules,
+            index: $index,
         );
     }
 
@@ -71,6 +76,7 @@ final readonly class AnalysisResult
             calculator: $calculator,
             errors: $this->errors,
             skippedRules: $this->skippedRules,
+            index: $this->index,
         );
     }
 

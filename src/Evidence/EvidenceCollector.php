@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Evidence;
 
 use Heyosseus\Sloppy\Analysis\Finding;
+use Heyosseus\Sloppy\Architecture\PolicyRule;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Contracts\EvidenceSource;
 use Heyosseus\Sloppy\Git\ChangedFile;
@@ -35,13 +37,18 @@ final readonly class EvidenceCollector
     {
         $sources = [];
 
+        $profile = $config->architecture();
+
         $candidates = [
             new BaselineGrowthSource(self::stringsFrom($config, 'SL502', 'files', ['phpstan-baseline.neon', 'psalm-baseline.xml'])),
             new WeakenedTestSource(self::stringsFrom($config, 'SL503', 'paths', ['tests'])),
+            new MisplacedClassSource($profile),
         ];
 
         foreach ($candidates as $source) {
-            if ($config->isRuleEnabled($source->id())) {
+            // Like a policy rule, SL307 joins only when the architecture
+            // declares where classes are expected to play a role.
+            if ($config->isRuleEnabled($source->id()) && (! $source instanceof PolicyRule || $source->appliesTo($profile))) {
                 $sources[] = $source;
             }
         }
@@ -80,7 +87,7 @@ final readonly class EvidenceCollector
      * @param  list<ChangedFile>  $changedFiles
      * @return list<Finding>
      */
-    public function collect(Git $git, string $baseRevision, array $changedFiles): array
+    public function collect(Git $git, string $baseRevision, array $changedFiles, ?ProjectIndex $index = null): array
     {
         if ($this->sources === []) {
             return [];
@@ -91,6 +98,7 @@ final readonly class EvidenceCollector
             basePath: $this->basePath,
             baseRevision: $baseRevision,
             changedFiles: $changedFiles,
+            index: $index,
         );
 
         $findings = [];
