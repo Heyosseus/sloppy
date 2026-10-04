@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-10-04
+
 ### Added
 
 - **Describe your architecture.** The rules about where code belongs no
@@ -23,6 +25,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   console or JSON.
 - Custom rules can ask for a class's role with `$context->roleOf($class)` and
   `$context->hasRole($class, 'controller')`.
+- **Architecture policies.** A role can say what it may depend on and what
+  it may do: `'controller' => ['may_not' => ['db'], 'may_not_depend_on' =>
+  ['repository']]`. Three new rules enforce them. **SL304 Layer Violation**
+  reports a dependency a role may not have, by role or by a glob such as
+  `Illuminate\*`. **SL305 Forbidden Capability** reports a database query or
+  write, a dispatch, a request or environment read, a view or a container
+  lookup where the role forbids it; it counts only unambiguous evidence, so
+  `$order->save()` on a variable is never a finding. **SL208** now also reports
+  outbound HTTP for any role whose policy forbids `http`.
+- **Module boundaries.** `'boundaries' => ['modules' => 'App\Modules\{module}\*',
+  'public' => ['Contracts\*']]` keeps modules apart: **SL306 Boundary
+  Violation** reports a class that uses another module's internals instead of
+  its public surface or the shared kernel. `{module}` covers every module
+  without listing them.
+- **Presets** for common architectures: `laravel-actions`,
+  `service-repository`, `ddd`, `hexagonal` and `modular`, each with roles,
+  policies or boundaries a project can override one by one.
+- **Intended abstractions.** `'intended_abstraction' => true` on a role tells
+  SL301 to SL303 that its interfaces and wrappers are the design, so a port
+  with one adapter is not reported as indirection.
+- `sloppy architecture` lists every policy and boundary in force and where it
+  came from, and explaining a class names the policy it is held to.
+- The architecture rules join a run only when the profile declares something
+  for them to enforce, so a project that declares nothing gets the same 26
+  rules, and the same agent rulesets, as before.
 
 ### Changed
 
@@ -1012,7 +1039,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/heyosseus/sloppy/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/heyosseus/sloppy/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/heyosseus/sloppy/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/heyosseus/sloppy/compare/v1.1.1...v1.2.0
