@@ -6,6 +6,61 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-10-04
+
+The architecture a project declares now reaches the agents writing its code:
+before they write (an architecture section in every ruleset, and
+`sloppy architecture place` to ask where a new class goes), and on the edit
+that breaks it (SL307 for a class with no place, SL308 for a role's shape).
+Writing the architecture down got easier too: `init` drafts it from the code,
+`import` translates deptrac, and `graph` draws it.
+
+### Added
+
+- **Agents learn the architecture before they write.** A project that
+  declares an architecture gets an "Architecture of this project" section in
+  every ruleset `sloppy rules` writes -- the Boost guideline included: each
+  role, where its classes live, what their names end in and the policy it is
+  held to, written as instructions. A project that declares nothing gets the
+  same file as before.
+- **`sloppy architecture place "an action that refunds an order"`** says
+  where a new class belongs: its role, namespace, directory, naming, a class
+  name and file, and what it may depend on and do. Deterministic, matched on
+  the project's own roles.
+- **MCP tools** `sloppy_architecture` (the architecture, one class explained,
+  or the graph), `sloppy_place` and `sloppy_architecture_prompt`. The server
+  now tells agents to ask `sloppy_place` before creating a class.
+- **SL307 Misplaced Class**, reported by `sloppy diff` and the agent hooks
+  only: a class the change adds, in a path `sloppy.architecture.covers` names,
+  that plays no role. Existing classes are never reported, and without
+  `covers` the check does not run.
+- **SL308 Role Shape**: a policy can give a role its shape with
+  `public_methods` (names or globs; magic methods always allowed) and
+  `final`. The `laravel-actions` preset now keeps actions to `handle()` and
+  the hooks lorisleiva/laravel-actions calls.
+- **`sloppy architecture graph`** draws which roles depend on which, as
+  Mermaid, Graphviz or JSON, with forbidden edges in red.
+- **`sloppy architecture init`** drafts a profile from the code: the closest
+  preset, a role for each family of classes it leaves out, `covers` once nearly
+  every class has a role, and a question about each namespace it could not
+  place. **`sloppy architecture import`** translates a `deptrac.yaml`: layers
+  to roles, collectors to matchers, the ruleset to allow lists, and whatever
+  does not translate named in the file. Both print the profile, ask before
+  writing it at a terminal, and otherwise write only with `--write`.
+- **`sloppy architecture prompt`** prints the profile format, what the code
+  shows and the draft `init` would write, for an agent to turn a team's
+  `ARCHITECTURE.md` into a profile. Sloppy never calls a model itself.
+- A profile can live in `sloppy-architecture.php` in the project root, which
+  is what `init` and `import` write. Sloppy refuses to run when both it and
+  `sloppy.architecture` declare an architecture.
+
+### Changed
+
+- `symfony/yaml` is a runtime dependency, to read deptrac configuration.
+- `AnalysisResult` carries the project index it was built from, and evidence
+  sources receive it, so a diff-only check judges classes exactly as the rules
+  do.
+
 ## [1.4.0] — 2026-10-04
 
 ### Added
@@ -1039,7 +1094,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/heyosseus/sloppy/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/heyosseus/sloppy/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/heyosseus/sloppy/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/heyosseus/sloppy/compare/v1.2.0...v1.3.0
