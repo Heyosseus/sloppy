@@ -61,7 +61,7 @@ it('refuses an architecture it cannot use, naming the key and the fix', function
     expect(static fn (): Profile => Profile::fromArray($architecture))
         ->toThrow(ProfileException::class, $message);
 })->with([
-    'an unknown top-level key' => [['presets' => 'laravel'], 'sloppy.architecture has an unknown key [presets]. Use any of: preset, roles, policies, boundaries.'],
+    'an unknown top-level key' => [['presets' => 'laravel'], 'sloppy.architecture has an unknown key [presets]. Use any of: preset, roles, policies, boundaries, covers.'],
     'an unknown preset' => [['preset' => 'symfony'], 'sloppy.architecture.preset [symfony] is not a preset. Use one of: laravel, laravel-actions, service-repository, ddd, hexagonal, modular, none.'],
     'a preset that is not a string' => [['preset' => ['laravel']], 'sloppy.architecture.preset must be a string'],
     'roles as a list' => [['roles' => [['suffix' => 'Action']]], 'sloppy.architecture.roles must map role names to definitions'],
@@ -84,4 +84,33 @@ it('refuses an architecture it cannot use, naming the key and the fix', function
 it('refuses an architecture setting that is not an array', function (): void {
     expect(static fn (): Profile => Configuration::fromArray(['architecture' => 'laravel'], '/p')->architecture())
         ->toThrow(ProfileException::class, 'sloppy.architecture must be an array with a preset, roles, or both.');
+});
+
+it('reads the architecture from sloppy-architecture.php when the project keeps one', function (): void {
+    $root = tempProject(['sloppy-architecture.php' => "<?php return ['preset' => 'none', 'roles' => ['action' => ['suffix' => 'Action']], 'policies' => ['action' => ['final' => true]]];"]);
+
+    $profile = Configuration::fromArray(['architecture' => ['preset' => 'laravel', 'roles' => [], 'policies' => []]], $root)->architecture();
+
+    expect(roleNames($profile))->toBe(['action'])
+        ->and($profile->source)->toBe('sloppy-architecture.php')
+        ->and($profile->role('action')?->origin)->toBe('sloppy-architecture.php')
+        ->and($profile->policyFor('action')?->origin)->toBe('sloppy-architecture.php')
+        ->and(Configuration::fromArray([], $root)->architecture()->preset)->toBe('none');
+
+    removeTree($root);
+});
+
+it('refuses an architecture declared in both places, or a file that returns no array', function (): void {
+    $both = tempProject(['sloppy-architecture.php' => "<?php return ['preset' => 'ddd'];"]);
+    $broken = tempProject(['sloppy-architecture.php' => '<?php return "ddd";']);
+
+    expect(static fn (): Profile => Configuration::fromArray(['architecture' => ['preset' => 'hexagonal']], $both)->architecture())
+        ->toThrow(ProfileException::class, 'The architecture is declared twice: in sloppy.architecture and in sloppy-architecture.php. Keep one of them.')
+        ->and(static fn (): Profile => Configuration::fromArray(['architecture' => ['roles' => ['a' => ['suffix' => 'A']]]], $both)->architecture())
+        ->toThrow(ProfileException::class, 'declared twice')
+        ->and(static fn (): Profile => Configuration::fromArray([], $broken)->architecture())
+        ->toThrow(ProfileException::class, 'sloppy-architecture.php must return an array with a preset, roles, or both.');
+
+    removeTree($both);
+    removeTree($broken);
 });

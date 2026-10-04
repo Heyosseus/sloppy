@@ -12,6 +12,9 @@ it('respects the configuration rule list', function (): void {
     expect(EvidenceCollector::fromConfiguration(Configuration::fromArray([], __DIR__))->ids())
         ->toBe(['SL502', 'SL503']);
 
+    expect(EvidenceCollector::fromConfiguration(Configuration::fromArray(['architecture' => ['covers' => 'app/*']], __DIR__))->ids())
+        ->toBe(['SL502', 'SL503', 'SL307']);
+
     expect(EvidenceCollector::fromConfiguration(
         Configuration::fromArray(['rules' => ['SL502' => ['enabled' => false]]], __DIR__),
     )->ids())->toBe(['SL503']);

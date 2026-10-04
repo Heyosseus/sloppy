@@ -11,6 +11,8 @@ namespace Heyosseus\Sloppy\Architecture;
  *         'may_depend_on' => ['action', 'form-request'],
  *         'may_not_depend_on' => ['Illuminate\Support\Facades\DB'],
  *         'may_not' => ['db', 'http'],
+ *         'public_methods' => ['__invoke'],
+ *         'final' => true,
  *         'advice' => 'Controllers hand the work to one action.',
  *     ],
  *
@@ -19,6 +21,10 @@ namespace Heyosseus\Sloppy\Architecture;
  * on the role itself). Classes no role covers -- the framework, vendor code,
  * unclassified helpers -- are never judged by the allow list; forbid them by
  * name with a glob.
+ *
+ * `public_methods` and `final` describe the role's shape (SL308): the public
+ * methods a class in the role may declare, by name or glob -- the constructor
+ * and the other magic methods always may -- and whether it must be final.
  */
 final readonly class Policy
 {
@@ -26,6 +32,7 @@ final readonly class Policy
      * @param  list<DependencyTarget>|null  $mayDependOn  Null when the policy has no allow list.
      * @param  list<DependencyTarget>  $mayNotDependOn
      * @param  list<Capability>  $mayNot
+     * @param  list<Glob>|null  $publicMethods  Null when the policy does not limit public methods.
      */
     public function __construct(
         public string $role,
@@ -34,11 +41,49 @@ final readonly class Policy
         public array $mayNotDependOn = [],
         public array $mayNot = [],
         public ?string $advice = null,
+        public ?array $publicMethods = null,
+        public bool $final = false,
     ) {}
 
     public function constrainsDependencies(): bool
     {
         return $this->mayDependOn !== null || $this->mayNotDependOn !== [];
+    }
+
+    public function constrainsShape(): bool
+    {
+        return $this->publicMethods !== null || $this->final;
+    }
+
+    /**
+     * Whether a class in this role may declare a public method of this name.
+     * Magic methods -- the constructor, `__invoke`, `__toString` -- always may.
+     */
+    public function allowsPublicMethod(string $name): bool
+    {
+        if ($this->publicMethods === null || str_starts_with($name, '__')) {
+            return true;
+        }
+
+        foreach ($this->publicMethods as $allowed) {
+            if ($allowed->matches($name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The public methods the role allows, for a message: `handle, as*`.
+     */
+    public function publicMethodList(): string
+    {
+        $methods = $this->publicMethods ?? [];
+
+        return $methods === []
+            ? 'none besides magic methods'
+            : implode(', ', array_map(static fn (Glob $glob): string => $glob->pattern, $methods));
     }
 
     /**
@@ -96,7 +141,41 @@ final readonly class Policy
             $parts[] = 'may not: '.implode(', ', array_map(static fn (Capability $capability): string => $capability->value, $this->mayNot));
         }
 
+        if ($this->publicMethods !== null) {
+            $parts[] = 'public methods: '.$this->publicMethodList();
+        }
+
+        if ($this->final) {
+            $parts[] = 'final';
+        }
+
         return implode('; ', $parts);
+    }
+
+    /**
+     * The policy as instructions for whoever writes the next class in the
+     * role, its advice first.
+     *
+     * @return list<string>
+     */
+    public function instructions(): array
+    {
+        $targets = static fn (array $list): string => implode(', ', array_map(static fn (DependencyTarget $target): string => $target->describe(), $list));
+        $nouns = array_map(static fn (Capability $capability): string => $capability->noun(), $this->mayNot);
+        $last = array_pop($nouns);
+
+        return array_values(array_filter([
+            $this->advice,
+            match ($this->mayDependOn) {
+                null => null,
+                [] => 'Depend on no other role.',
+                default => sprintf('Depend on no other role than: %s.', $targets($this->mayDependOn)),
+            },
+            $this->mayNotDependOn === [] ? null : sprintf('Never depend on: %s.', $targets($this->mayNotDependOn)),
+            $last === null ? null : sprintf('No %s.', $nouns === [] ? $last : implode(', ', $nouns).' or '.$last),
+            $this->publicMethods === null ? null : sprintf('Public methods: %s.', $this->publicMethodList()),
+            $this->final ? 'Declare the class final.' : null,
+        ]));
     }
 
     /**

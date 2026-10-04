@@ -70,12 +70,22 @@ return [
     |   ],
     |
     | Capabilities: db (db.read, db.write), http, dispatch, request, env,
-    | view, container. Boundaries keep modules apart (SL306):
+    | view, container. A policy can also give a role its shape (SL308):
+    | 'public_methods' => ['handle'] and 'final' => true. Boundaries keep
+    | modules apart (SL306):
     |
     |   'boundaries' => ['modules' => 'App\Modules\{module}\*', 'public' => ['Contracts\*']],
     |
+    | "covers" names the paths where every class should play a role; sloppy
+    | diff reports a new class there that plays none (SL307):
+    |
+    |   'covers' => ['app/*'],
+    |
     | Run `sloppy architecture` to see every role, policy and boundary in
-    | force, and what each role matched.
+    | force, and what each role matched. `sloppy architecture init` drafts a
+    | profile from the code, and `sloppy architecture import` translates a
+    | deptrac.yaml; both write sloppy-architecture.php, which Sloppy reads
+    | instead of this key.
     |
     | Presets: "laravel", "laravel-actions", "service-repository", "ddd",
     | "hexagonal", "modular", "none"
@@ -582,6 +592,16 @@ return [
         'SL306' => [
             // Boundary Violation. Runs only when sloppy.architecture declares
             // module boundaries.
+        ],
+
+        'SL307' => [
+            // Misplaced Class, reported by sloppy diff only: a class the change
+            // adds in a path sloppy.architecture.covers names, playing no role.
+        ],
+
+        'SL308' => [
+            // Role Shape. Runs only when a policy declares public_methods or
+            // final for a role.
         ],
 
         // ---- Suppression -----------------------------------------------

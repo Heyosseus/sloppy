@@ -21,7 +21,11 @@ namespace Heyosseus\Sloppy\Architecture;
  *             'controller' => ['may_not' => ['db']],
  *         ],
  *         'boundaries' => ['modules' => 'App\Modules\{module}\*'],
+ *         'covers' => ['app/*'],
  *     ],
+ *
+ * `covers` names the paths where every class is expected to play a role: a
+ * change that adds a class there matching none is SL307.
  *
  * The project's own roles come first, in the order written, then whatever the
  * preset defines that the project did not. A project role or policy with the
@@ -32,19 +36,30 @@ final readonly class Profile
 {
     public const string ROLE_NAME = '/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/';
 
+    public const string SOURCE = 'sloppy.php';
+
+    /**
+     * A profile kept in a file of its own, in the project root.
+     */
+    public const string FILE = 'sloppy-architecture.php';
+
     private const string PATH = 'sloppy.architecture';
 
-    private const array KEYS = ['preset', 'roles', 'policies', 'boundaries'];
+    private const array KEYS = ['preset', 'roles', 'policies', 'boundaries', 'covers'];
 
     /**
      * @param  list<Role>  $roles  In the order they are tried.
      * @param  array<string, Policy>  $policies  Keyed by role.
+     * @param  list<Glob>  $covers  Globs on project-relative paths.
+     * @param  string  $source  The file the project's own definitions came from.
      */
     public function __construct(
         public string $preset,
         public array $roles,
         public array $policies = [],
         public ?Boundaries $boundaries = null,
+        public array $covers = [],
+        public string $source = self::SOURCE,
     ) {}
 
     public static function default(): self
@@ -54,8 +69,9 @@ final readonly class Profile
 
     /**
      * @param  array<mixed>  $config  The `sloppy.architecture` array.
+     * @param  string  $source  Where it was written, named as the origin of the project's own roles and policies.
      */
-    public static function fromArray(array $config): self
+    public static function fromArray(array $config, string $source = self::SOURCE): self
     {
         $unknown = array_diff(array_map(strval(...), array_keys($config)), self::KEYS);
 
@@ -78,15 +94,64 @@ final readonly class Profile
         $definition = Presets::definition($preset);
         $origin = 'preset '.$preset;
 
-        $roles = self::roles(self::map($config, 'roles'), $definition['roles'] ?? [], $origin);
+        $roles = self::roles(self::map($config, 'roles'), $definition['roles'] ?? [], $origin, $source);
         $names = array_map(static fn (Role $role): string => $role->name, $roles);
 
         return new self(
             preset: $preset,
             roles: $roles,
-            policies: self::policies(self::map($config, 'policies'), $definition['policies'] ?? [], $origin, $names),
-            boundaries: self::boundaries($config, $definition['boundaries'] ?? null, $origin),
+            policies: self::policies(self::map($config, 'policies'), $definition['policies'] ?? [], $origin, $source, $names),
+            boundaries: self::boundaries($config, $definition['boundaries'] ?? null, $origin, $source),
+            covers: array_key_exists('covers', $config) ? PolicyParser::globs($config['covers'], self::PATH.'.covers') : [],
+            source: $source,
         );
+    }
+
+    /**
+     * Whether a project-relative path is one where every class should play a role.
+     */
+    public function covers(string $relativePath): bool
+    {
+        foreach ($this->covers as $glob) {
+            if ($glob->matches($relativePath)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the project said anything about its architecture beyond the
+     * default preset -- which is when agents are told about it.
+     */
+    public function isDeclared(): bool
+    {
+        if ($this->preset !== Presets::DEFAULT || $this->policies !== [] || $this->boundaries instanceof Boundaries || $this->covers !== []) {
+            return true;
+        }
+
+        foreach ($this->roles as $role) {
+            if ($role->origin === $this->source) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether any role's policy describes its shape.
+     */
+    public function constrainsShape(): bool
+    {
+        foreach ($this->policies as $policy) {
+            if ($policy->constrainsShape()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function role(string $name): ?Role
@@ -138,7 +203,7 @@ final readonly class Profile
      * @param  array<string, array<string, mixed>>  $preset
      * @return list<Role>
      */
-    private static function roles(array $own, array $preset, string $origin): array
+    private static function roles(array $own, array $preset, string $origin, string $source): array
     {
         $roles = [];
 
@@ -147,7 +212,7 @@ final readonly class Profile
             self::roleName($name, 'roles');
 
             if ($definition !== false) {
-                $roles[$name] = RoleParser::parse($name, $definition, 'sloppy.php', self::PATH.'.roles.'.$name);
+                $roles[$name] = RoleParser::parse($name, $definition, $source, self::PATH.'.roles.'.$name);
             }
         }
 
@@ -166,7 +231,7 @@ final readonly class Profile
      * @param  list<string>  $roles
      * @return array<string, Policy>
      */
-    private static function policies(array $own, array $preset, string $origin, array $roles): array
+    private static function policies(array $own, array $preset, string $origin, string $source, array $roles): array
     {
         $policies = [];
 
@@ -184,7 +249,7 @@ final readonly class Profile
                 throw new ProfileException(sprintf('%s is a policy for a role that does not exist. Roles: %s.', $path, implode(', ', $roles)));
             }
 
-            $policies[$role] = PolicyParser::policy($role, $definition, 'sloppy.php', $path, $roles);
+            $policies[$role] = PolicyParser::policy($role, $definition, $source, $path, $roles);
         }
 
         foreach ($preset as $role => $definition) {
@@ -202,12 +267,12 @@ final readonly class Profile
      * @param  array<mixed>  $config
      * @param  array<string, mixed>|null  $preset
      */
-    private static function boundaries(array $config, ?array $preset, string $origin): ?Boundaries
+    private static function boundaries(array $config, ?array $preset, string $origin, string $source): ?Boundaries
     {
         if (array_key_exists('boundaries', $config)) {
             return $config['boundaries'] === false
                 ? null
-                : PolicyParser::boundaries($config['boundaries'], 'sloppy.php', self::PATH.'.boundaries');
+                : PolicyParser::boundaries($config['boundaries'], $source, self::PATH.'.boundaries');
         }
 
         return $preset === null ? null : PolicyParser::boundaries($preset, $origin, $origin.': boundaries');

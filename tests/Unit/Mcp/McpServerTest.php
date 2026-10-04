@@ -189,11 +189,11 @@ it('reports a response it could not encode rather than writing half of one', fun
         ->and($response['error']['message'])->toBe('The response could not be encoded.');
 });
 
-it('ships the four tools a coding agent needs', function (): void {
+it('ships the tools a coding agent needs', function (): void {
     $names = array_map(
         static fn (McpTool $tool): string => $tool->name(),
         McpServer::default(dirname(__DIR__, 3))->tools(),
     );
 
-    expect($names)->toBe(['sloppy_scan', 'sloppy_diff', 'sloppy_rules', 'sloppy_health']);
+    expect($names)->toBe(['sloppy_scan', 'sloppy_diff', 'sloppy_rules', 'sloppy_health', 'sloppy_architecture', 'sloppy_place', 'sloppy_architecture_prompt']);
 });

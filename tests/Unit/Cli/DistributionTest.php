@@ -88,6 +88,9 @@ it('keeps the runtime dependencies small enough to ship in one file', function (
         'symfony/console',
         'symfony/finder',
         'symfony/process',
+        // Only to read a deptrac.yaml for `sloppy architecture import`. A
+        // hand-written YAML reader would be the larger risk.
+        'symfony/yaml',
     ]);
 });
 

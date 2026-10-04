@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Git;
 
 use Heyosseus\Sloppy\Analysis\Analyzer;
 use Heyosseus\Sloppy\Analysis\Finding;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Evidence\EvidenceCollector;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use Heyosseus\Sloppy\Support\FileFinder;
@@ -43,9 +44,9 @@ final readonly class DiffAnalyzer
      * @param  list<ChangedFile>  $changed
      * @return list<Finding>
      */
-    private function evidenceFor(string $base, array $changed): array
+    private function evidenceFor(string $base, array $changed, ?ProjectIndex $index = null): array
     {
-        return $this->evidence?->collect($this->git, $base, $changed) ?? [];
+        return $this->evidence?->collect($this->git, $base, $changed, $index) ?? [];
     }
 
     public function compare(string $base): DiffReport
@@ -115,7 +116,7 @@ final readonly class DiffAnalyzer
             currentScore: $this->calculator->calculate($current->findings, $current->analyzedLines),
             baseScore: $this->calculator->calculate($previous->findings, $previous->analyzedLines),
             errors: [...$previous->errors, ...$current->errors],
-        ))->withExtraFindings($this->evidenceFor($base, $changed));
+        ))->withExtraFindings($this->evidenceFor($base, $changed, $current->index));
     }
 
     /**

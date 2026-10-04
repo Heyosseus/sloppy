@@ -12,6 +12,7 @@ use Heyosseus\Sloppy\Rules\Architecture\BoundaryViolationRule;
 use Heyosseus\Sloppy\Rules\Architecture\EmptyWrapperClassRule;
 use Heyosseus\Sloppy\Rules\Architecture\ForbiddenCapabilityRule;
 use Heyosseus\Sloppy\Rules\Architecture\LayerViolationRule;
+use Heyosseus\Sloppy\Rules\Architecture\RoleShapeRule;
 use Heyosseus\Sloppy\Rules\Architecture\SingleUseAbstractionRule;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use Heyosseus\Sloppy\Rules\Laravel\BusinessLogicInControllerRule;
@@ -92,6 +93,7 @@ final readonly class RuleRegistry
             LayerViolationRule::class,
             ForbiddenCapabilityRule::class,
             BoundaryViolationRule::class,
+            RoleShapeRule::class,
         ];
     }
 

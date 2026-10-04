@@ -53,6 +53,7 @@ final readonly class RuleGuidance
         'SL304' => 'Respect the layers this project declares. Before you import a class, check that the role of the class you are in may depend on it; if not, go through the layer in between.',
         'SL305' => 'Keep side effects where the architecture puts them. Do not query, dispatch, read the request or the environment, render or resolve from the container in a role whose policy forbids it -- call a class that may.',
         'SL306' => 'Use another module only through its public surface -- its contracts, events and data objects. Never import its internals; if what you need is not public, add it to the surface instead.',
+        'SL308' => 'Give a class the shape its role declares: only the public methods the role allows, and final where the role is final. A second public entry point is a second class.',
         'SL501' => 'Fix the error rather than silencing it. If you must suppress, say why in the same comment -- an ignore with no reason can never be removed, because nobody can tell what it was protecting.',
     ];
 

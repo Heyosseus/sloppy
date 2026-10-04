@@ -82,7 +82,7 @@ final readonly class CommandCatalogue
                 CommandGroup::Everyday,
                 'architecture',
                 'sloppy:architecture',
-                'Which role each class plays, and why one class got the role it did.',
+                'Which role each class plays and why; the role graph, where a new class goes, and a profile drafted from the code or deptrac.',
                 'a finding names the wrong layer, or you are describing your own architecture.',
             ),
             new CommandSummary(

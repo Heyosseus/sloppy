@@ -6,6 +6,8 @@ namespace Heyosseus\Sloppy\Agent;
 
 use Heyosseus\Sloppy\Analysis\RuleRegistry;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Architecture\AgentBrief;
+use Heyosseus\Sloppy\Architecture\ArchitectureSnapshot;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Sloppy;
@@ -30,11 +32,20 @@ final readonly class RulesetGenerator
         private RuleRegistry $registry,
         private Configuration $configuration,
         private string $version = Sloppy::VERSION,
+        private ?AgentBrief $architecture = null,
     ) {}
 
+    /**
+     * The architecture is described only where the project declared one, so
+     * a project that never mentioned it gets the rules file it always got.
+     */
     public static function for(Sloppy $sloppy): self
     {
-        return new self($sloppy->rules(), $sloppy->configuration);
+        $brief = $sloppy->configuration->architecture()->isDeclared()
+            ? new AgentBrief(ArchitectureSnapshot::of($sloppy))
+            : null;
+
+        return new self($sloppy->rules(), $sloppy->configuration, architecture: $brief);
     }
 
     /**
@@ -88,6 +99,7 @@ final readonly class RulesetGenerator
             'Inherited findings are not yours to fix in passing. New ones are.',
             '',
             ...$this->testIntegrity(),
+            ...$this->architecture?->markdown() ?? [],
             '## This project',
             '',
             sprintf('- Analysed paths: %s', implode(', ', $this->configuration->paths())),
@@ -182,6 +194,8 @@ final readonly class RulesetGenerator
             ];
         }
 
+        $architecture = $this->architecture instanceof AgentBrief ? ['architecture' => $this->architecture->toArray()] : [];
+
         $encoded = json_encode([
             'schema' => 1,
             'tool' => 'sloppy',
@@ -195,6 +209,7 @@ final readonly class RulesetGenerator
             ],
             'rules' => $rules,
             'rules_not_in_force' => $this->registry->skipped(),
+            ...$architecture,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return ($encoded === false ? '{}' : $encoded)."\n";

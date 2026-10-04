@@ -11,7 +11,7 @@ namespace Heyosseus\Sloppy\Architecture;
  */
 final readonly class PolicyParser
 {
-    private const array POLICY_KEYS = ['may_depend_on', 'may_not_depend_on', 'may_not', 'advice'];
+    private const array POLICY_KEYS = ['may_depend_on', 'may_not_depend_on', 'may_not', 'public_methods', 'final', 'advice'];
 
     private const array BOUNDARY_KEYS = ['modules', 'public', 'shared'];
 
@@ -36,6 +36,12 @@ final readonly class PolicyParser
             throw new ProfileException(sprintf('%s.advice must be a sentence.', $path));
         }
 
+        $final = $definition['final'] ?? false;
+
+        if (! is_bool($final)) {
+            throw new ProfileException(sprintf('%s.final must be true or false.', $path));
+        }
+
         return new Policy(
             role: $role,
             origin: $origin,
@@ -49,6 +55,10 @@ final readonly class PolicyParser
                 ? self::capabilities($definition['may_not'], $path.'.may_not')
                 : [],
             advice: is_string($advice) ? trim($advice) : null,
+            publicMethods: array_key_exists('public_methods', $definition)
+                ? self::globs($definition['public_methods'], $path.'.public_methods')
+                : null,
+            final: $final,
         );
     }
 
@@ -75,14 +85,22 @@ final readonly class PolicyParser
         return new Boundaries(
             origin: $origin,
             modules: $modules,
-            public: array_map(
-                static fn (string $pattern): Glob => new Glob($pattern),
-                self::strings($definition['public'] ?? [], $path.'.public', allowEmpty: true),
-            ),
-            shared: array_map(
-                static fn (string $pattern): Glob => new Glob($pattern),
-                self::strings($definition['shared'] ?? [], $path.'.shared', allowEmpty: true),
-            ),
+            public: self::globs($definition['public'] ?? [], $path.'.public'),
+            shared: self::globs($definition['shared'] ?? [], $path.'.shared'),
+        );
+    }
+
+    /**
+     * A string or a list of strings as globs. Empty is allowed: no public
+     * surface, no shared kernel, no public method beyond the magic ones.
+     *
+     * @return list<Glob>
+     */
+    public static function globs(mixed $value, string $path): array
+    {
+        return array_map(
+            static fn (string $pattern): Glob => new Glob($pattern),
+            self::strings($value, $path, allowEmpty: true),
         );
     }
 
