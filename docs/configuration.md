@@ -107,6 +107,100 @@ class got, what matched, and which roles it would also have matched. A
 mistake in the profile stops the run with a message naming the key, rather
 than silently matching nothing.
 
+#### Presets
+
+| Preset | For | What it enforces |
+| --- | --- | --- |
+| `laravel` | The default | Nothing new: the five roles Sloppy has always used, with no policies. |
+| `laravel-actions` | One class per use case | Adds an `action` role. Controllers don't query the database; actions never call controllers; models never call actions or controllers. |
+| `service-repository` | Controllers, services, repositories | Adds `repository` and `repository-contract` roles. Only repositories query; controllers never reach a repository directly. |
+| `ddd` | Domain, application, infrastructure | The domain never depends on application, infrastructure or HTTP, and never makes HTTP calls, reads the request or the environment, renders, or resolves from the container. Application never depends on infrastructure or HTTP. The domain may use Eloquent. |
+| `hexagonal` | Ports and adapters | The domain is plain PHP: no `Illuminate\*`, no database, HTTP, dispatching, request, environment, views or container. Use cases talk to ports, never adapters. Ports and adapters are intended abstractions. |
+| `modular` | A modular monolith | Module boundaries for `Modules\{module}` and `App\Modules\{module}`: other modules are reached only through `Contracts`, `Events`, `Data` and `Enums`, or the `Shared` module. |
+| `none` | Starting from nothing | No roles at all. |
+
+`sloppy architecture` lists every role, policy and boundary in force and
+where each came from, so a preset is never a black box.
+
+#### Policies
+
+A policy says what one role may depend on and what it may do:
+
+```php
+'architecture' => [
+    'preset' => 'laravel',
+    'policies' => [
+        'controller' => [
+            'may_not' => ['db', 'env'],
+            'may_not_depend_on' => ['App\Infrastructure\*'],
+            'advice' => 'A controller hands the work to a service.',
+        ],
+        'service' => [
+            'may_depend_on' => ['model', 'service'],
+        ],
+    ],
+],
+```
+
+- `may_not_depend_on` forbids what it names: a role, or a glob on class
+  names for code no role covers (`Illuminate\*`, a vendor SDK). Reported by
+  `SL304`.
+- `may_depend_on` is an allow list: a dependency on a class that plays a role
+  must be on a role listed here, or on the same role. Framework, vendor and
+  unclassified classes are never judged by it -- forbid those by name.
+- `may_not` forbids capabilities, reported by `SL305`. Outbound `http` is
+  reported by `SL208`, so it is never reported twice.
+- `advice` is added to every finding the policy produces. Write it for the
+  agent that will read it.
+
+| Capability | Counted from |
+| --- | --- |
+| `db.read`, `db.write` (`db` for both) | Static calls on a class the project index knows is an Eloquent model, judged by the whole chain (`Order::where()->update()` writes); the `DB` facade; an injected `DatabaseManager` or connection |
+| `http` | The `Http` facade, Guzzle, `curl_*`, `file_get_contents('http…')`, an injected HTTP client |
+| `dispatch` | The `Mail`, `Notification`, `Bus`, `Queue`, `Event` and `Broadcast` facades, `X::dispatch()`, `dispatch()`, `event()`, `->notify()`, an injected dispatcher or mailer |
+| `request` | `request()`, the `Request` facade, a `Request` or form request parameter |
+| `env` | `env()` |
+| `view` | `view()`, the `View` facade, `Inertia::render()`, an injected view factory |
+| `container` | `app()`, `resolve()`, the `App` facade, `Container::getInstance()`, an injected container or application |
+
+Detection is tuned for precision: a policy finding says "your architecture
+forbids this" and has to be right. `$order->save()` on a variable is not
+counted, because nothing can tell it from any other object's `save()`.
+
+A project policy replaces the preset's policy for that role, and `false`
+removes it. A preset policy also disappears with its role, when the project
+removes or replaces the role.
+
+#### Module boundaries
+
+```php
+'architecture' => [
+    'boundaries' => [
+        'modules' => 'App\Modules\{module}\*',
+        'public' => ['Contracts\*', 'Events\*'],
+        'shared' => ['App\Modules\Shared\*'],
+    ],
+],
+```
+
+`{module}` captures the module's name, so every module is covered without
+being listed, including the next one. A class may name another module's
+classes only if they match `public` (relative to that module) or `shared`.
+Reported by `SL306`. `'boundaries' => false` turns off a preset's boundaries.
+
+#### Intended abstractions
+
+`'intended_abstraction' => true` on a role tells `SL301`, `SL302` and `SL303`
+that interfaces and wrappers in that role are the design: a port with one
+adapter is a port, not indirection. The `hexagonal` and `service-repository`
+presets set it on their ports, adapters and repositories.
+
+```php
+'roles' => [
+    'gateway' => ['suffix' => 'Gateway', 'intended_abstraction' => true],
+],
+```
+
 ### Tuning a noisy first run
 
 In order of bluntness:
