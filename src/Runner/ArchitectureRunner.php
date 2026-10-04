@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Runner;
 
 use Heyosseus\Sloppy\Architecture\ArchitectureMap;
+use Heyosseus\Sloppy\Architecture\Boundaries;
+use Heyosseus\Sloppy\Architecture\Capability;
+use Heyosseus\Sloppy\Architecture\DependencyTarget;
+use Heyosseus\Sloppy\Architecture\Glob;
+use Heyosseus\Sloppy\Architecture\Policy;
 use Heyosseus\Sloppy\Architecture\Role;
 use Heyosseus\Sloppy\Architecture\RoleMatch;
 use Heyosseus\Sloppy\Ast\ClassSummary;
@@ -116,6 +121,22 @@ final readonly class ArchitectureRunner
 
         $lines[] = sprintf('  %s  %5d  No role: no rule about where code belongs reports these.', str_pad('unclassified', $width), count($unclassified));
         $lines[] = '';
+
+        if ($profile->policies !== []) {
+            $lines[] = 'Policies:';
+
+            foreach ($profile->policies as $role => $policy) {
+                $lines[] = sprintf('  %s  %s (%s)', str_pad($role, $width), $policy->describe(), $policy->origin);
+            }
+
+            $lines[] = '';
+        }
+
+        if ($profile->boundaries instanceof Boundaries) {
+            $lines[] = sprintf('Boundaries: %s (%s)', $profile->boundaries->describe(), $profile->boundaries->origin);
+            $lines[] = '';
+        }
+
         $lines[] = 'Roles are tried in this order, and a class takes the first one it matches.';
         $lines[] = 'Explain one class: sloppy architecture "App\Http\Controllers\OrderController"';
 
@@ -131,14 +152,21 @@ final readonly class ArchitectureRunner
         return $this->json([
             'schema' => 1,
             'preset' => $map->profile->preset,
-            'roles' => array_map(static fn (Role $role): array => [
+            'roles' => array_map(fn (Role $role): array => [
                 'name' => $role->name,
                 'origin' => $role->origin,
                 'description' => $role->description,
                 'matches' => $role->matcher->describe(),
                 'classes' => $byRole[$role->name],
+                'policy' => $this->policyJson($map->profile->policyFor($role->name)),
             ], $map->profile->roles),
             'unclassified' => $unclassified,
+            'boundaries' => $map->profile->boundaries instanceof Boundaries ? [
+                'modules' => $map->profile->boundaries->modules,
+                'public' => array_map(static fn (Glob $glob): string => $glob->pattern, $map->profile->boundaries->public),
+                'shared' => array_map(static fn (Glob $glob): string => $glob->pattern, $map->profile->boundaries->shared),
+                'origin' => $map->profile->boundaries->origin,
+            ] : null,
         ]);
     }
 
@@ -156,10 +184,11 @@ final readonly class ArchitectureRunner
 
         $summary = $candidates[0];
         $match = $map->matchSummary($summary, $index);
+        $policy = $map->profile->policyFor($match->name());
 
         $output->report($format === OutputFormat::Json
-            ? $this->explanationJson($summary, $match)
-            : $this->explanationText($summary, $match), $format);
+            ? $this->explanationJson($summary, $match, $policy)
+            : $this->explanationText($summary, $match, $policy), $format);
 
         return ExitCode::Success;
     }
@@ -188,7 +217,23 @@ final readonly class ArchitectureRunner
         return $found;
     }
 
-    private function explanationText(ClassSummary $summary, RoleMatch $match): string
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function policyJson(?Policy $policy): ?array
+    {
+        $targets = static fn (array $list): array => array_map(static fn (DependencyTarget $target): string => $target->describe(), $list);
+
+        return $policy instanceof Policy ? [
+            'may_depend_on' => $policy->mayDependOn === null ? null : $targets($policy->mayDependOn),
+            'may_not_depend_on' => $targets($policy->mayNotDependOn),
+            'may_not' => array_map(static fn (Capability $capability): string => $capability->value, $policy->mayNot),
+            'advice' => $policy->advice,
+            'origin' => $policy->origin,
+        ] : null;
+    }
+
+    private function explanationText(ClassSummary $summary, RoleMatch $match, ?Policy $policy): string
     {
         $lines = [sprintf('%s (%s:%d)', $summary->fqn, $summary->relativePath, $summary->line), ''];
 
@@ -202,12 +247,16 @@ final readonly class ArchitectureRunner
             foreach ($match->alsoMatched as $loser) {
                 $lines[] = sprintf('  Also matched %s (%s), which is tried later.', $loser->name, $loser->origin);
             }
+
+            $lines[] = $policy instanceof Policy
+                ? sprintf('  Policy:   %s (%s)', $policy->describe(), $policy->origin)
+                : '  Policy:   none, so SL304 and SL305 have nothing to hold it to';
         }
 
         return implode("\n", $lines)."\n";
     }
 
-    private function explanationJson(ClassSummary $summary, RoleMatch $match): string
+    private function explanationJson(ClassSummary $summary, RoleMatch $match, ?Policy $policy): string
     {
         return $this->json([
             'schema' => 1,
@@ -218,6 +267,7 @@ final readonly class ArchitectureRunner
             'origin' => $match->role?->origin,
             'matches' => $match->role?->matcher->describe(),
             'also_matched' => array_map(static fn (Role $role): string => $role->name, $match->alsoMatched),
+            'policy' => $this->policyJson($policy),
         ]);
     }
 

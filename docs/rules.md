@@ -42,7 +42,7 @@ by checking less.
 | `SL205` | Collection Instead Of Database Query | Medium | Performance | A full table load followed immediately by a collection operation the database could have performed. |
 | `SL206` | Excessive Controller Dependencies | Medium | Dependencies | Controllers whose constructor injects more collaborators than the configured limit. |
 | `SL207` | Excessive Service Dependencies | Medium | Dependencies | Service, action and manager classes whose constructor injects more collaborators than the configured limit. |
-| `SL208` | Direct External API Call | Medium | Laravel | Outbound HTTP requests made directly from controllers, models, form requests or middleware. |
+| `SL208` | Direct External API Call | Medium | Laravel | Outbound HTTP requests made directly from controllers, models, form requests or middleware -- and from any role whose [architecture policy](configuration.md#policies) forbids `http`. |
 | `SL209` | Model Doing Too Much | Medium | Laravel | Eloquent models that make outbound calls, dispatch notifications or jobs, or contain long business workflows. |
 | `SL210` | Suspicious `Model::all()` | Medium | Performance | `Model::all()` whose result is iterated in the same method, or which is called from inside a loop. |
 
@@ -57,6 +57,20 @@ not a rule against repositories or interfaces.
 | `SL301` | Abstraction Inflation | Medium | Architecture | Concepts wrapped in several layers where at least one layer is trivial, singly implemented or singly used. |
 | `SL302` | Empty Wrapper Class | Medium | Architecture | Classes whose public methods almost all forward their arguments unchanged to a single injected collaborator. |
 | `SL303` | Single-Use Abstraction | Low | Architecture | Small interfaces and abstract classes that have exactly one implementation and at most one calling file. Ones that declare nothing at all — Laravel's scaffolded `Controller`, a marker interface — are not reported: there is no signature to duplicate. |
+
+### Architecture policies
+
+These three enforce what a project [declared about its
+architecture](configuration.md#describing-your-architecture) -- a preset such
+as `hexagonal` or `modular`, or policies of its own. With nothing declared
+they are not part of the run, and they are not written into agent rulesets.
+They are not advisory: the project asked for them.
+
+| ID | Rule | Severity | Category | What it looks for |
+| --- | --- | --- | --- | --- |
+| `SL304` | Layer Violation | Medium | Dependencies | A class that names -- extends, implements, injects, instantiates, calls statically, type-hints -- a class its role's policy forbids, by the role that class plays or by a glob on its name (`Illuminate\*`). Reported once per class and target, at the first mention. An allow list (`may_depend_on`) judges only classes that play a role; the role itself is always allowed. |
+| `SL305` | Forbidden Capability | Medium | Dependencies | A class that queries or writes the database, dispatches, reads the request or the environment, renders a view or resolves from the container where its role's policy forbids it. Reported once per method and capability. Counts only what is unambiguous: static calls on classes the project index knows are Eloquent models, the `DB`, `View`, `App` and dispatching facades, helpers such as `env()` and `request()`, request parameters, and injected framework types. `$order->save()` on a variable is not counted. Outbound HTTP is reported by `SL208`. |
+| `SL306` | Boundary Violation | Medium | Dependencies | A class in one module that names another module's class outside that module's public surface and the shared kernel. |
 
 ### Suppression
 

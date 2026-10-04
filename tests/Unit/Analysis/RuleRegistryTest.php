@@ -47,13 +47,13 @@ final class NeverFiresRule extends BaseRule
     }
 }
 
-it('ships twenty-six rules with unique ids', function (): void {
+it('ships twenty-nine rules with unique ids', function (): void {
     $registry = RuleRegistry::withDefaults();
     $ids = $registry->ids();
 
-    expect($ids)->toHaveCount(26)
-        ->and(array_unique($ids))->toHaveCount(26)
-        ->and($registry->count())->toBe(26);
+    expect($ids)->toHaveCount(29)
+        ->and(array_unique($ids))->toHaveCount(29)
+        ->and($registry->count())->toBe(29);
 });
 
 it('gives every rule an id, name, description, explanation and category', function (): void {
@@ -178,7 +178,7 @@ it('skips the laravel rules in a project that is not laravel, and names them', f
     removeTree($project);
 });
 
-it('runs every rule in a laravel project', function (): void {
+it('runs every rule in a laravel project, except the architecture rules with nothing declared to enforce', function (): void {
     $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
     $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project));
 
@@ -190,4 +190,20 @@ it('runs every rule in a laravel project', function (): void {
 
 it('ships SL501', function (): void {
     expect(RuleRegistry::withDefaults()->ids())->toContain('SL501');
+});
+
+it('runs the architecture rules once the profile declares something for them to enforce', function (): void {
+    $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
+
+    $hexagonal = RuleRegistry::fromConfiguration(Configuration::fromArray(['architecture' => ['preset' => 'hexagonal']], $project));
+    $modular = RuleRegistry::fromConfiguration(Configuration::fromArray(['architecture' => ['preset' => 'modular']], $project));
+
+    expect($hexagonal->ids())->toContain('SL304')
+        ->and($hexagonal->ids())->toContain('SL305')
+        ->and($hexagonal->ids())->not->toContain('SL306')
+        ->and($modular->ids())->toContain('SL306')
+        ->and($modular->ids())->not->toContain('SL304')
+        ->and($modular->skipped())->toBe([]);
+
+    removeTree($project);
 });

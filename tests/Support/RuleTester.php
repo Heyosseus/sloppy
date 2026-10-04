@@ -9,6 +9,8 @@ use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Analyzer;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\RuleRegistry;
+use Heyosseus\Sloppy\Architecture\ArchitectureMap;
+use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Contracts\Rule;
@@ -35,9 +37,10 @@ final class RuleTester
      * Run a rule over several files, which is what the cross-file rules need.
      *
      * @param  array<string, string>  $files  Relative path => source.
+     * @param  Profile|null  $architecture  The architecture to judge against; the Laravel preset when null.
      * @return list<Finding>
      */
-    public static function runAcross(Rule $rule, array $files): array
+    public static function runAcross(Rule $rule, array $files, ?Profile $architecture = null): array
     {
         $parser = new Parser;
         $parsed = [];
@@ -53,10 +56,11 @@ final class RuleTester
         }
 
         $index = ProjectIndex::build($parsed);
+        $map = new ArchitectureMap($architecture);
         $findings = [];
 
         foreach ($parsed as $file) {
-            foreach ($rule->analyze(new AnalysisContext($file, $index)) as $finding) {
+            foreach ($rule->analyze(new AnalysisContext($file, $index, $map)) as $finding) {
                 $findings[] = $finding;
             }
         }

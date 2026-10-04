@@ -62,15 +62,30 @@ return [
     | attribute take globs ("*" is any text); suffix and kind ("class",
     | "interface", "trait", "enum") are compared as written. Keys in one role
     | must all match; "any" takes a list of alternatives and "not" negates.
-    | Run `sloppy architecture` to see what each role matched.
     |
-    | Presets: "laravel", "none"
+    | Policies say what a role may depend on and do (SL304, SL305):
+    |
+    |   'policies' => [
+    |       'controller' => ['may_not' => ['db'], 'may_not_depend_on' => ['App\Infrastructure\*']],
+    |   ],
+    |
+    | Capabilities: db (db.read, db.write), http, dispatch, request, env,
+    | view, container. Boundaries keep modules apart (SL306):
+    |
+    |   'boundaries' => ['modules' => 'App\Modules\{module}\*', 'public' => ['Contracts\*']],
+    |
+    | Run `sloppy architecture` to see every role, policy and boundary in
+    | force, and what each role matched.
+    |
+    | Presets: "laravel", "laravel-actions", "service-repository", "ddd",
+    | "hexagonal", "modular", "none"
     |
     */
 
     'architecture' => [
         'preset' => 'laravel',
         'roles' => [],
+        'policies' => [],
     ],
 
     /*
@@ -551,6 +566,22 @@ return [
             'max_methods' => 3,
             'max_usages' => 1,
             'skip_layer_stacks' => true,
+        ],
+
+        'SL304' => [
+            // Layer Violation. Runs only when sloppy.architecture declares a
+            // policy that limits what a role may depend on.
+        ],
+
+        'SL305' => [
+            // Forbidden Capability. Runs only when a policy forbids a
+            // capability (db, dispatch, request, env, view, container).
+            // Outbound HTTP is reported by SL208.
+        ],
+
+        'SL306' => [
+            // Boundary Violation. Runs only when sloppy.architecture declares
+            // module boundaries.
         ],
 
         // ---- Suppression -----------------------------------------------

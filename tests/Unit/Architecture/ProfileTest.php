@@ -61,11 +61,11 @@ it('refuses an architecture it cannot use, naming the key and the fix', function
     expect(static fn (): Profile => Profile::fromArray($architecture))
         ->toThrow(ProfileException::class, $message);
 })->with([
-    'an unknown top-level key' => [['presets' => 'laravel'], 'sloppy.architecture has an unknown key [presets]. Use preset or roles.'],
-    'an unknown preset' => [['preset' => 'symfony'], 'sloppy.architecture.preset [symfony] is not a preset. Use one of: laravel, none.'],
+    'an unknown top-level key' => [['presets' => 'laravel'], 'sloppy.architecture has an unknown key [presets]. Use any of: preset, roles, policies, boundaries.'],
+    'an unknown preset' => [['preset' => 'symfony'], 'sloppy.architecture.preset [symfony] is not a preset. Use one of: laravel, laravel-actions, service-repository, ddd, hexagonal, modular, none.'],
     'a preset that is not a string' => [['preset' => ['laravel']], 'sloppy.architecture.preset must be a string'],
-    'roles as a list' => [['roles' => [['suffix' => 'Action']]], 'sloppy.architecture.roles must map role names to matchers'],
-    'roles as a string' => [['roles' => 'action'], 'sloppy.architecture.roles must map role names to matchers'],
+    'roles as a list' => [['roles' => [['suffix' => 'Action']]], 'sloppy.architecture.roles must map role names to definitions'],
+    'roles as a string' => [['roles' => 'action'], 'sloppy.architecture.roles must map role names to definitions'],
     'a badly named role' => [['roles' => ['Action' => ['suffix' => 'Action']]], 'has a role named [Action]. Role names are lower-case words joined by hyphens'],
     'a role that is not an array' => [['roles' => ['action' => 'Action']], 'sloppy.architecture.roles.action must be an array of matchers, or false to remove a preset role.'],
     'a role with no matchers' => [['roles' => ['action' => ['description' => 'x']]], 'sloppy.architecture.roles.action has no matchers, so it would match nothing.'],

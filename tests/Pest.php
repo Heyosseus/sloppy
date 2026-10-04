@@ -7,6 +7,7 @@ use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Location;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\Parser;
@@ -115,6 +116,18 @@ function findings(Rule $rule, string $code, string $path = 'app/Example.php'): a
 function findingsAcross(Rule $rule, array $files): array
 {
     return RuleTester::runAcross($rule, $files);
+}
+
+/**
+ * Run one rule over several files, judged against an architecture.
+ *
+ * @param  array<string, string>  $files
+ * @param  array<string, mixed>  $architecture  As `sloppy.architecture`.
+ * @return list<Finding>
+ */
+function findingsUnder(Rule $rule, array $files, array $architecture): array
+{
+    return RuleTester::runAcross($rule, $files, Profile::fromArray($architecture));
 }
 
 /**
