@@ -7,6 +7,8 @@ namespace Heyosseus\Sloppy\Configuration;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Analysis\Tier;
+use Heyosseus\Sloppy\Architecture\Profile;
+use Heyosseus\Sloppy\Architecture\ProfileException;
 use Heyosseus\Sloppy\Contracts\Rule;
 use InvalidArgumentException;
 
@@ -162,6 +164,23 @@ final readonly class Configuration
         }
 
         return (new FrameworkDetector($this->basePath))->has($framework);
+    }
+
+    /**
+     * The roles this project's classes play: `sloppy.architecture`, or the
+     * Laravel preset when the key is absent.
+     *
+     * @throws ProfileException When the profile cannot be used as written.
+     */
+    public function architecture(): Profile
+    {
+        $value = $this->config['architecture'] ?? [];
+
+        if (! is_array($value)) {
+            throw new ProfileException('sloppy.architecture must be an array with a preset, roles, or both.');
+        }
+
+        return Profile::fromArray($value);
     }
 
     /**

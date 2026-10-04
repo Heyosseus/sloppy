@@ -134,6 +134,7 @@ final readonly class Sloppy
             registry: $this->rules(),
             calculator: $this->scores(),
             minConfidence: $this->configuration->minConfidence(),
+            architecture: $this->configuration->architecture(),
         );
     }
 

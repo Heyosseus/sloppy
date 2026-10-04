@@ -40,6 +40,41 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Architecture
+    |--------------------------------------------------------------------------
+    |
+    | Which role each class plays. The rules about where code belongs read
+    | these roles rather than guessing from names: SL201, SL202 and SL206 look
+    | at "controller", SL207 at "service", and SL208 at "controller", "model",
+    | "form-request" and "middleware".
+    |
+    | The "laravel" preset defines those five the way Sloppy always has. Add
+    | your own roles under "roles"; they are tried first, in the order you
+    | write them, and a class takes the first role it matches. A role with a
+    | preset role's name replaces it, and false removes it:
+    |
+    |   'roles' => [
+    |       'controller' => ['namespace' => 'App\Ui\Http\*', 'suffix' => 'Controller'],
+    |       'service' => false,
+    |   ],
+    |
+    | Matchers: namespace, path, parent, extends, implements, uses and
+    | attribute take globs ("*" is any text); suffix and kind ("class",
+    | "interface", "trait", "enum") are compared as written. Keys in one role
+    | must all match; "any" takes a list of alternatives and "not" negates.
+    | Run `sloppy architecture` to see what each role matched.
+    |
+    | Presets: "laravel", "none"
+    |
+    */
+
+    'architecture' => [
+        'preset' => 'laravel',
+        'roles' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | What to analyse
     |--------------------------------------------------------------------------
     |
