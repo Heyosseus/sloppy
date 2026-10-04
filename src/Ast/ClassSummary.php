@@ -21,6 +21,7 @@ final readonly class ClassSummary
      * @param  list<string>  $propertyReads  Traits only: every `$this->name` the body reads.
      * @param  list<string>  $calledNames  Traits only: lower-cased method names it calls or names in a string.
      * @param  bool  $isValueObject  A `readonly` class, or one whose constructor only promotes readonly properties.
+     * @param  list<string>  $attributes  Fully qualified names of the attributes on the declaration.
      */
     public function __construct(
         public string $fqn,
@@ -41,6 +42,7 @@ final readonly class ClassSummary
         public array $calledNames = [],
         public bool $hasDynamicAccess = false,
         public bool $isValueObject = false,
+        public array $attributes = [],
     ) {}
 
     /**

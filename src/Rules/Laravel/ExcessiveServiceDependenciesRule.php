@@ -78,8 +78,9 @@ final class ExcessiveServiceDependenciesRule extends LaravelRule
         $max = max(1, $this->intOption('max_dependencies', 7));
 
         foreach ($context->classLikes() as $classLike) {
-            // Controllers have their own, stricter rule.
-            if (NodeHelper::isController($classLike) || ! NodeHelper::isServiceClass($classLike)) {
+            // A class plays one role, so controllers -- which have their own,
+            // stricter rule -- never get here.
+            if (! $context->hasRole($classLike, 'service')) {
                 continue;
             }
 
@@ -87,9 +88,7 @@ final class ExcessiveServiceDependenciesRule extends LaravelRule
             $constructor = NodeHelper::constructor($classLike);
 
             // Collaborators are counted from constructor parameters, so a class
-            // over the limit has a constructor by definition -- and a class
-            // only counts as a service because of its name, so it has one of
-            // those too.
+            // over the limit has a constructor by definition.
             if ($count <= $max || ! $constructor instanceof ClassMethod) {
                 continue;
             }

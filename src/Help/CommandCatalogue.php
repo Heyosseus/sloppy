@@ -79,6 +79,13 @@ final readonly class CommandCatalogue
                 'you want the agent to know the rules before it writes.',
             ),
             new CommandSummary(
+                CommandGroup::Everyday,
+                'architecture',
+                'sloppy:architecture',
+                'Which role each class plays, and why one class got the role it did.',
+                'a finding names the wrong layer, or you are describing your own architecture.',
+            ),
+            new CommandSummary(
                 CommandGroup::Agents,
                 'agents',
                 'sloppy:agents',

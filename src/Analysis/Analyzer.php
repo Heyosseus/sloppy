@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Analysis;
 
+use Heyosseus\Sloppy\Architecture\ArchitectureMap;
+use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
@@ -24,6 +26,7 @@ final readonly class Analyzer
         private RuleRegistry $registry,
         private ScoreCalculator $calculator,
         private int $minConfidence = 0,
+        private ?Profile $architecture = null,
     ) {}
 
     /**
@@ -104,6 +107,7 @@ final readonly class Analyzer
     public function analyzeParsed(array $files, array $errors = [], ?array $only = null): AnalysisResult
     {
         $index = ProjectIndex::build($files);
+        $architecture = new ArchitectureMap($this->architecture);
         $reportable = $only === null ? null : array_fill_keys($only, true);
         $findings = [];
         $lines = 0;
@@ -117,7 +121,7 @@ final readonly class Analyzer
             $analyzed[] = $file->relativePath;
             $lines += $file->codeLineCount();
 
-            $findings = [...$findings, ...$this->inspect(new AnalysisContext($file, $index), $errors)];
+            $findings = [...$findings, ...$this->inspect(new AnalysisContext($file, $index, $architecture), $errors)];
         }
 
         sort($analyzed);

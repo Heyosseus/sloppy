@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Analysis;
 
+use Heyosseus\Sloppy\Architecture\ArchitectureMap;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 use PhpParser\Node;
@@ -21,6 +22,7 @@ final readonly class AnalysisContext
     public function __construct(
         public ParsedFile $file,
         public ProjectIndex $index,
+        public ArchitectureMap $architecture = new ArchitectureMap,
     ) {}
 
     public function relativePath(): string
@@ -42,6 +44,26 @@ final readonly class AnalysisContext
     public function classLikes(): array
     {
         return $this->file->classLikes();
+    }
+
+    /**
+     * The role a declaration in this file plays in the project's architecture
+     * -- `controller`, `model`, or whatever the project named it -- or null
+     * when no role matches.
+     *
+     * @api
+     */
+    public function roleOf(ClassLike $class): ?string
+    {
+        return $this->architecture->matchNode($class, $this->file->relativePath, $this->index)->name();
+    }
+
+    /**
+     * @api
+     */
+    public function hasRole(ClassLike $class, string $role): bool
+    {
+        return $this->roleOf($class) === $role;
     }
 
     /**

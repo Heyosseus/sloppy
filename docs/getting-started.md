@@ -75,6 +75,7 @@ code, so use whichever your project has.
 | `sloppy:review` | `sloppy review` | The same change, ordered by risk rather than by file |
 | `sloppy:baseline` | `sloppy baseline` | Accept what is already there, so only new findings fail |
 | `sloppy:watch` | `sloppy watch` | Keep the score on screen, redrawing as files change |
+| `sloppy:architecture` | `sloppy architecture` | Which role each class plays, and why one class got the role it did |
 | `sloppy:help` | `sloppy guide` | This list |
 | **In a pipeline** | | |
 | `sloppy:ci` | `sloppy ci` | Analyse a change the way the surrounding CI system reports it |

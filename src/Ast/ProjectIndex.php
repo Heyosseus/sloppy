@@ -19,7 +19,6 @@ use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Interface_;
 use PhpParser\Node\Stmt\Trait_;
-use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\Node\UseItem;
 
 /**
@@ -308,11 +307,12 @@ final readonly class ProjectIndex
             lineSpan: NodeHelper::lineSpan($classLike),
             dependencyCount: NodeHelper::countDependencies($classLike),
             isAbstract: $classLike instanceof Class_ && $classLike->isAbstract(),
-            traits: self::traitNames($classLike),
+            traits: NodeHelper::traitNames($classLike),
             propertyReads: $classLike instanceof Trait_ ? self::propertyReads($classLike) : [],
             calledNames: $classLike instanceof Trait_ ? self::calledNames($classLike) : [],
             hasDynamicAccess: $classLike instanceof Trait_ && NodeHelper::hasDynamicAccess($classLike),
             isValueObject: $classLike instanceof Class_ && self::isValueObject($classLike),
+            attributes: NodeHelper::attributeNames($classLike),
         );
     }
 
@@ -335,26 +335,6 @@ final readonly class ProjectIndex
         }
 
         return $params !== [];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private static function traitNames(ClassLike $classLike): array
-    {
-        $names = [];
-
-        foreach ($classLike->stmts as $statement) {
-            if (! $statement instanceof TraitUse) {
-                continue;
-            }
-
-            foreach ($statement->traits as $trait) {
-                $names[] = $trait->toString();
-            }
-        }
-
-        return $names;
     }
 
     /**

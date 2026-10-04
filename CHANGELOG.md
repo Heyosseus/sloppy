@@ -6,6 +6,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Describe your architecture.** The rules about where code belongs no
+  longer guess from names alone. A new `architecture` setting gives each class
+  a role -- `controller`, `model`, `form-request`, `middleware`, `service`, or
+  your own -- matched by namespace, path, suffix, parent, ancestors,
+  interfaces, traits, attributes or kind. SL201, SL202, SL206, SL207 and
+  SL208 read those roles, so a project that keeps its controllers in
+  `App\Ui\Http` or has no service layer says so once and every rule follows.
+  The `laravel` preset recognises the five roles exactly as before. See
+  [Describing your architecture](docs/configuration.md#describing-your-architecture).
+- **`sloppy architecture`** (`php artisan sloppy:architecture`) counts the
+  classes in each role, and `sloppy architecture OrderController` explains
+  one class: its role, what matched, and which roles it lost. Both write
+  console or JSON.
+- Custom rules can ask for a class's role with `$context->roleOf($class)` and
+  `$context->hasRole($class, 'controller')`.
+
+### Changed
+
+- A class plays one role. Where the old checks overlapped, the more reliable
+  signal now wins: a FormRequest kept under `Http\Controllers` is a form
+  request, and an Eloquent model whose name ends in `Action` or sits in
+  `App\Domain` is a model rather than a service. Across the eight-application
+  corpus (7,485 declarations) this changed one class's role and no finding.
+
 ## [1.3.1] — 2026-10-01
 
 ### Changed

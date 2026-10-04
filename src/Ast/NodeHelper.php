@@ -48,6 +48,7 @@ use PhpParser\Node\Stmt\Property;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\Stmt\Switch_;
 use PhpParser\Node\Stmt\Trait_;
+use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\Node\Stmt\TryCatch;
 use PhpParser\Node\Stmt\While_;
 use PhpParser\NodeFinder;
@@ -211,6 +212,47 @@ final class NodeHelper
         if ($class instanceof Interface_) {
             foreach ($class->extends as $interface) {
                 $names[] = $interface->toString();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Fully qualified names of the traits a class `use`s directly.
+     *
+     * @return list<string>
+     */
+    public static function traitNames(ClassLike $class): array
+    {
+        $names = [];
+
+        foreach ($class->stmts as $statement) {
+            if (! $statement instanceof TraitUse) {
+                continue;
+            }
+
+            foreach ($statement->traits as $trait) {
+                $names[] = $trait->toString();
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Fully qualified names of the attributes on a declaration itself, not on
+     * its members.
+     *
+     * @return list<string>
+     */
+    public static function attributeNames(ClassLike $class): array
+    {
+        $names = [];
+
+        foreach ($class->attrGroups as $group) {
+            foreach ($group->attrs as $attribute) {
+                $names[] = $attribute->name->toString();
             }
         }
 

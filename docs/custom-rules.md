@@ -98,6 +98,24 @@ Rules must be deterministic and side-effect free: no disk writes, no network,
 no clock. A rule that throws is caught, recorded in `errors`, and does not stop
 the run.
 
+A rule about where code belongs should ask for a class's role rather than
+guessing from its name, so it agrees with the built-in rules and follows the
+project's [architecture](configuration.md#describing-your-architecture):
+
+```php
+foreach ($context->classLikes() as $class) {
+    if (! $context->hasRole($class, 'controller')) {
+        continue;
+    }
+
+    // ...
+}
+```
+
+`$context->roleOf($class)` returns the role's name, or null when no role
+matches. Roles a project defines itself work the same way, so a rule can
+enforce something about, say, its `gateway` classes.
+
 ### Where a custom rule shows up
 
 Once registered, it is a rule like any other: it scores, it appears in diffs
