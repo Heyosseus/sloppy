@@ -4,22 +4,21 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Runner;
 
-use Heyosseus\Sloppy\Architecture\ArchitectureMap;
-use Heyosseus\Sloppy\Architecture\Boundaries;
-use Heyosseus\Sloppy\Architecture\Capability;
-use Heyosseus\Sloppy\Architecture\DependencyTarget;
-use Heyosseus\Sloppy\Architecture\Glob;
-use Heyosseus\Sloppy\Architecture\Policy;
-use Heyosseus\Sloppy\Architecture\Role;
-use Heyosseus\Sloppy\Architecture\RoleMatch;
+use Heyosseus\Sloppy\Architecture\ArchitectureSnapshot;
+use Heyosseus\Sloppy\Architecture\DependencyGraph;
+use Heyosseus\Sloppy\Architecture\DeptracImporter;
+use Heyosseus\Sloppy\Architecture\Placement;
+use Heyosseus\Sloppy\Architecture\ProfileException;
+use Heyosseus\Sloppy\Architecture\ProfileInference;
+use Heyosseus\Sloppy\Architecture\ProfilePrompt;
 use Heyosseus\Sloppy\Ast\ClassSummary;
-use Heyosseus\Sloppy\Ast\Parser;
-use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Sloppy;
 
 /**
- * Show the architecture as Sloppy reads it: which role every class plays.
+ * Show the architecture as Sloppy reads it -- which role every class plays,
+ * which roles depend on which, where a new class belongs -- and help a
+ * project write one down.
  *
  * Every rule about where code belongs stands on these answers, so they have to
  * be visible. A finding that calls a class "a controller" is only as good as
@@ -27,69 +26,54 @@ use Heyosseus\Sloppy\Sloppy;
  */
 final readonly class ArchitectureRunner
 {
-    private const int EXAMPLES = 3;
+    public function __construct(private ArchitectureReport $report = new ArchitectureReport) {}
 
     public function run(Sloppy $sloppy, ArchitectureOptions $options, RunnerOutput $output): ExitCode
     {
-        $map = new ArchitectureMap($sloppy->configuration->architecture());
-        $index = $this->index($sloppy);
+        try {
+            return match ($options->action) {
+                'init' => (new ProposalWriter)->write($sloppy, ProfileInference::for($sloppy)->propose(), $options, $output, 'sloppy architecture init'),
+                'import' => $this->import($sloppy, $options, $output),
+                'prompt' => $this->prompt($sloppy, $options, $output),
+                default => $this->describe($sloppy, $options, $output),
+            };
+        } catch (ProfileException $exception) {
+            $output->error($exception->getMessage());
 
-        if ($options->class === null) {
-            return $this->overview($map, $index, $options->format, $output);
+            return ExitCode::Error;
         }
-
-        return $this->explain($map, $index, $options->class, $options->format, $output);
     }
 
-    /**
-     * The configured project indexed but not analysed: roles need the index,
-     * not a single rule's verdict. Files that do not parse are left out, as
-     * they are from a scan.
-     */
-    private function index(Sloppy $sloppy): ProjectIndex
+    private function describe(Sloppy $sloppy, ArchitectureOptions $options, RunnerOutput $output): ExitCode
     {
-        $parser = new Parser;
-        $parsed = [];
+        $snapshot = ArchitectureSnapshot::of($sloppy);
 
-        foreach ($sloppy->fileMap() as $relative => $absolute) {
-            $file = $parser->parseFile($absolute, $relative);
-
-            if ($file->isParsed()) {
-                $parsed[] = $file;
-            }
-        }
-
-        return ProjectIndex::build($parsed);
-    }
-
-    private function overview(ArchitectureMap $map, ProjectIndex $index, OutputFormat $format, RunnerOutput $output): ExitCode
-    {
-        $byRole = array_fill_keys(array_map(static fn (Role $role): string => $role->name, $map->profile->roles), []);
-        $unclassified = [];
-
-        foreach ($index->classes() as $fqn => $summary) {
-            $role = $map->matchSummary($summary, $index)->name();
-
-            if ($role === null) {
-                $unclassified[] = $fqn;
-            } else {
-                $byRole[$role][] = $fqn;
-            }
-        }
-
-        $byRole = array_map($this->sorted(...), $byRole);
-        $unclassified = $this->sorted($unclassified);
-
-        if ($format === OutputFormat::Json) {
-            $output->report($this->overviewJson($map, $byRole, $unclassified), $format);
+        if ($options->action === 'graph') {
+            $output->report(DependencyGraph::of($snapshot)->render($options->graphFormat), $options->graphFormat === 'json' ? OutputFormat::Json : OutputFormat::Markdown);
 
             return ExitCode::Success;
         }
 
-        $output->report($this->overviewText($map, $byRole, $unclassified, count($index->classes())), $format);
+        if ($options->action === 'place') {
+            $placement = new Placement($snapshot);
+            $answer = $placement->answer((string) $options->query, $options->name);
 
-        foreach ($map->profile->roles as $role) {
-            if ($role->origin === 'sloppy.php' && $byRole[$role->name] === []) {
+            $output->report($options->format === OutputFormat::Json ? $this->report->json($answer) : $placement->text($answer), $options->format);
+
+            return ExitCode::Success;
+        }
+
+        return $options->class === null
+            ? $this->overview($snapshot, $options->format, $output)
+            : $this->explain($snapshot, $options->class, $options->format, $output);
+    }
+
+    private function overview(ArchitectureSnapshot $snapshot, OutputFormat $format, RunnerOutput $output): ExitCode
+    {
+        $output->report($this->report->overview($snapshot, $format), $format);
+
+        if ($format === OutputFormat::Console) {
+            foreach ($this->report->emptyRoles($snapshot) as $role) {
                 $output->warn(sprintf('Role [%s] matches no class in the analysed paths. Check its matchers: %s.', $role->name, $role->matcher->describe()));
             }
         }
@@ -97,82 +81,9 @@ final readonly class ArchitectureRunner
         return ExitCode::Success;
     }
 
-    /**
-     * @param  array<string, list<string>>  $byRole
-     * @param  list<string>  $unclassified
-     */
-    private function overviewText(ArchitectureMap $map, array $byRole, array $unclassified, int $total): string
+    private function explain(ArchitectureSnapshot $snapshot, string $name, OutputFormat $format, RunnerOutput $output): ExitCode
     {
-        $profile = $map->profile;
-        $width = max(12, ...array_map(mb_strlen(...), array_keys($byRole)));
-        $lines = [
-            sprintf('Architecture: preset %s, %d role(s), %d declaration(s).', $profile->preset, count($profile->roles), $total),
-            '',
-        ];
-
-        foreach ($profile->roles as $role) {
-            $classes = $byRole[$role->name];
-            $lines[] = sprintf('  %s  %5d  %s', str_pad($role->name, $width), count($classes), $role->description ?? $role->matcher->describe());
-
-            if ($classes !== []) {
-                $lines[] = sprintf('  %s         e.g. %s', str_repeat(' ', $width), $this->examples($classes));
-            }
-        }
-
-        $lines[] = sprintf('  %s  %5d  No role: no rule about where code belongs reports these.', str_pad('unclassified', $width), count($unclassified));
-        $lines[] = '';
-
-        if ($profile->policies !== []) {
-            $lines[] = 'Policies:';
-
-            foreach ($profile->policies as $role => $policy) {
-                $lines[] = sprintf('  %s  %s (%s)', str_pad($role, $width), $policy->describe(), $policy->origin);
-            }
-
-            $lines[] = '';
-        }
-
-        if ($profile->boundaries instanceof Boundaries) {
-            $lines[] = sprintf('Boundaries: %s (%s)', $profile->boundaries->describe(), $profile->boundaries->origin);
-            $lines[] = '';
-        }
-
-        $lines[] = 'Roles are tried in this order, and a class takes the first one it matches.';
-        $lines[] = 'Explain one class: sloppy architecture "App\Http\Controllers\OrderController"';
-
-        return implode("\n", $lines)."\n";
-    }
-
-    /**
-     * @param  array<string, list<string>>  $byRole
-     * @param  list<string>  $unclassified
-     */
-    private function overviewJson(ArchitectureMap $map, array $byRole, array $unclassified): string
-    {
-        return $this->json([
-            'schema' => 1,
-            'preset' => $map->profile->preset,
-            'roles' => array_map(fn (Role $role): array => [
-                'name' => $role->name,
-                'origin' => $role->origin,
-                'description' => $role->description,
-                'matches' => $role->matcher->describe(),
-                'classes' => $byRole[$role->name],
-                'policy' => $this->policyJson($map->profile->policyFor($role->name)),
-            ], $map->profile->roles),
-            'unclassified' => $unclassified,
-            'boundaries' => $map->profile->boundaries instanceof Boundaries ? [
-                'modules' => $map->profile->boundaries->modules,
-                'public' => array_map(static fn (Glob $glob): string => $glob->pattern, $map->profile->boundaries->public),
-                'shared' => array_map(static fn (Glob $glob): string => $glob->pattern, $map->profile->boundaries->shared),
-                'origin' => $map->profile->boundaries->origin,
-            ] : null,
-        ]);
-    }
-
-    private function explain(ArchitectureMap $map, ProjectIndex $index, string $name, OutputFormat $format, RunnerOutput $output): ExitCode
-    {
-        $candidates = $this->find($index, $name);
+        $candidates = $this->report->find($snapshot, $name);
 
         if (count($candidates) !== 1) {
             $output->error($candidates === []
@@ -182,122 +93,42 @@ final readonly class ArchitectureRunner
             return ExitCode::Error;
         }
 
-        $summary = $candidates[0];
-        $match = $map->matchSummary($summary, $index);
-        $policy = $map->profile->policyFor($match->name());
-
-        $output->report($format === OutputFormat::Json
-            ? $this->explanationJson($summary, $match, $policy)
-            : $this->explanationText($summary, $match, $policy), $format);
+        $output->report($this->report->explain($snapshot, $candidates[0], $format), $format);
 
         return ExitCode::Success;
     }
 
-    /**
-     * An exact fully qualified name, or else every class with that short name.
-     *
-     * @return list<ClassSummary>
-     */
-    private function find(ProjectIndex $index, string $name): array
+    private function import(Sloppy $sloppy, ArchitectureOptions $options, RunnerOutput $output): ExitCode
     {
-        $name = ltrim(trim($name), '\\');
-        $exact = $index->class($name);
+        $base = $sloppy->configuration->basePath;
+        $file = $options->query ?? DeptracImporter::find($base);
 
-        if ($exact instanceof ClassSummary) {
-            return [$exact];
+        if ($file === null) {
+            $output->error(sprintf('No deptrac configuration found. Name the file: sloppy architecture import path/to/deptrac.yaml (looked for %s).', implode(', ', DeptracImporter::FILES)));
+
+            return ExitCode::Error;
         }
 
-        $found = array_values(array_filter(
-            $index->classes(),
-            static fn (ClassSummary $summary): bool => $summary->shortName === $name,
-        ));
+        $path = is_file($file) ? $file : $base.'/'.$file;
 
-        usort($found, static fn (ClassSummary $a, ClassSummary $b): int => $a->fqn <=> $b->fqn);
+        if (! is_file($path)) {
+            $output->error(sprintf('%s does not exist.', $file));
 
-        return $found;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function policyJson(?Policy $policy): ?array
-    {
-        $targets = static fn (array $list): array => array_map(static fn (DependencyTarget $target): string => $target->describe(), $list);
-
-        return $policy instanceof Policy ? [
-            'may_depend_on' => $policy->mayDependOn === null ? null : $targets($policy->mayDependOn),
-            'may_not_depend_on' => $targets($policy->mayNotDependOn),
-            'may_not' => array_map(static fn (Capability $capability): string => $capability->value, $policy->mayNot),
-            'advice' => $policy->advice,
-            'origin' => $policy->origin,
-        ] : null;
-    }
-
-    private function explanationText(ClassSummary $summary, RoleMatch $match, ?Policy $policy): string
-    {
-        $lines = [sprintf('%s (%s:%d)', $summary->fqn, $summary->relativePath, $summary->line), ''];
-
-        if (! $match->role instanceof Role) {
-            $lines[] = '  Role:  none';
-            $lines[] = '  No role matched, so no rule about where code belongs reports this class.';
-        } else {
-            $lines[] = sprintf('  Role:     %s, from %s', $match->role->name, $match->role->origin);
-            $lines[] = sprintf('  Matched:  %s', $match->role->matcher->describe());
-
-            foreach ($match->alsoMatched as $loser) {
-                $lines[] = sprintf('  Also matched %s (%s), which is tried later.', $loser->name, $loser->origin);
-            }
-
-            $lines[] = $policy instanceof Policy
-                ? sprintf('  Policy:   %s (%s)', $policy->describe(), $policy->origin)
-                : '  Policy:   none, so SL304 and SL305 have nothing to hold it to';
+            return ExitCode::Error;
         }
 
-        return implode("\n", $lines)."\n";
+        return (new ProposalWriter)->write($sloppy, (new DeptracImporter)->import($path, $file), $options, $output, 'sloppy architecture import');
     }
 
-    private function explanationJson(ClassSummary $summary, RoleMatch $match, ?Policy $policy): string
+    private function prompt(Sloppy $sloppy, ArchitectureOptions $options, RunnerOutput $output): ExitCode
     {
-        return $this->json([
-            'schema' => 1,
-            'class' => $summary->fqn,
-            'file' => $summary->relativePath,
-            'line' => $summary->line,
-            'role' => $match->role?->name,
-            'origin' => $match->role?->origin,
-            'matches' => $match->role?->matcher->describe(),
-            'also_matched' => array_map(static fn (Role $role): string => $role->name, $match->alsoMatched),
-            'policy' => $this->policyJson($policy),
-        ]);
-    }
+        $prompt = new ProfilePrompt(ProfileInference::for($sloppy));
 
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private function json(array $data): string
-    {
-        return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
-    }
+        $output->report(
+            $options->format === OutputFormat::Json ? $this->report->json($prompt->toArray()) : $prompt->markdown(),
+            $options->format === OutputFormat::Json ? OutputFormat::Json : OutputFormat::Markdown,
+        );
 
-    /**
-     * @param  list<string>  $classes
-     */
-    private function examples(array $classes): string
-    {
-        $shown = implode(', ', array_slice($classes, 0, self::EXAMPLES));
-        $more = count($classes) - self::EXAMPLES;
-
-        return $more > 0 ? sprintf('%s and %d more', $shown, $more) : $shown;
-    }
-
-    /**
-     * @param  list<string>  $names
-     * @return list<string>
-     */
-    private function sorted(array $names): array
-    {
-        sort($names);
-
-        return $names;
+        return ExitCode::Success;
     }
 }

@@ -203,3 +203,26 @@ it('shows and explains the architecture through artisan', function (): void {
 
     removeTree($root);
 });
+
+it('draws the graph, places a class and writes the prompt through artisan', function (): void {
+    $root = artisanProject(['app/Http/Controllers/OrderController.php' => '<?php namespace App\Http\Controllers; class OrderController {}']);
+
+    $this->artisan('sloppy:architecture graph')
+        ->expectsOutputToContain('flowchart LR')
+        ->assertExitCode(ExitCode::Success->value);
+
+    $this->artisan('sloppy:architecture place a controller for orders --name=Refund --format=json')
+        ->expectsOutputToContain('"directory": "app/Http/Controllers"')
+        ->assertExitCode(ExitCode::Success->value);
+
+    $this->artisan('sloppy:architecture prompt')
+        ->expectsOutputToContain('# Describe this project\'s architecture for Sloppy')
+        ->assertExitCode(ExitCode::Success->value);
+
+    $this->artisan('sloppy:architecture init --write --force')
+        ->assertExitCode(ExitCode::Success->value);
+
+    expect(is_file($root.'/sloppy-architecture.php'))->toBeTrue();
+
+    removeTree($root);
+});

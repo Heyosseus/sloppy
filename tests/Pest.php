@@ -204,3 +204,23 @@ function godMethodSource(): string
 
     return "<?php\n\nclass Bad\n{\n    public function run(): void\n    {\n".$body."    }\n}\n";
 }
+
+/**
+ * A project sorted into roles, from source strings rather than files.
+ *
+ * @param  array<string, string>  $files  Relative path => source.
+ * @param  array<string, mixed>  $architecture  The `sloppy.architecture` array.
+ */
+function architectureSnapshotOf(array $files, array $architecture = []): Heyosseus\Sloppy\Architecture\ArchitectureSnapshot
+{
+    $parser = new Parser;
+
+    return Heyosseus\Sloppy\Architecture\ArchitectureSnapshot::fromFiles(
+        new Heyosseus\Sloppy\Architecture\ArchitectureMap(Profile::fromArray($architecture)),
+        array_values(array_map(
+            static fn (string $source, string $path): ParsedFile => $parser->parse($path, $source),
+            $files,
+            array_keys($files),
+        )),
+    );
+}

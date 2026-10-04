@@ -289,3 +289,26 @@ it('refuses an architecture it cannot use, with exit code 2', function (): void 
 
     removeTree($project);
 });
+
+it('draws the graph, places a class and drafts a profile from the command line', function (): void {
+    $project = automationProject([
+        'src/Http/Controllers/OrderController.php' => '<?php namespace App\Http\Controllers; class OrderController { public function __construct(private \App\Services\OrderService $orders) {} }',
+        'src/Services/OrderService.php' => '<?php namespace App\Services; class OrderService {}',
+    ]);
+    $graph = automationTester();
+    $place = automationTester();
+    $init = automationTester();
+
+    $graphCode = $graph->run(['command' => 'architecture', 'class' => 'graph', '--project' => $project, '--format' => 'dot'], ['capture_stderr_separately' => true]);
+    $placeCode = $place->run(['command' => 'architecture', 'class' => 'place', 'words' => ['a', 'service', 'for', 'refunds'], '--name' => 'Refund', '--project' => $project], ['capture_stderr_separately' => true]);
+    $initCode = $init->run(['command' => 'architecture', 'class' => 'init', '--project' => $project, '--write' => true], ['capture_stderr_separately' => true]);
+
+    expect($graphCode)->toBe(ExitCode::Success->value)
+        ->and($graph->getDisplay())->toContain('"controller" -> "service" [label="1"];')
+        ->and($placeCode)->toBe(ExitCode::Success->value)
+        ->and($place->getDisplay())->toContain('- File: src/Services/Refund.php')
+        ->and($initCode)->toBe(ExitCode::Success->value)
+        ->and(is_file($project.'/sloppy-architecture.php'))->toBeTrue();
+
+    removeTree($project);
+});

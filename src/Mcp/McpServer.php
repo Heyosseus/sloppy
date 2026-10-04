@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Mcp;
 
+use Heyosseus\Sloppy\Mcp\Tools\ArchitecturePromptTool;
+use Heyosseus\Sloppy\Mcp\Tools\ArchitectureTool;
 use Heyosseus\Sloppy\Mcp\Tools\DiffTool;
 use Heyosseus\Sloppy\Mcp\Tools\HealthTool;
+use Heyosseus\Sloppy\Mcp\Tools\PlaceTool;
 use Heyosseus\Sloppy\Mcp\Tools\RulesTool;
 use Heyosseus\Sloppy\Mcp\Tools\ScanTool;
 use Heyosseus\Sloppy\Sloppy;
@@ -56,6 +59,9 @@ final readonly class McpServer
             new DiffTool($projects),
             new RulesTool($projects),
             new HealthTool($projects),
+            new ArchitectureTool($projects),
+            new PlaceTool($projects),
+            new ArchitecturePromptTool($projects),
         ]);
     }
 
@@ -126,7 +132,8 @@ final readonly class McpServer
             'capabilities' => ['tools' => ['listChanged' => false]],
             'serverInfo' => ['name' => 'sloppy', 'version' => Sloppy::VERSION],
             'instructions' => 'Call sloppy_diff before reporting a coding task finished, and fix the findings it '
-                .'reports as new. Call sloppy_rules before writing code in an unfamiliar repository.',
+                .'reports as new. Call sloppy_rules before writing code in an unfamiliar repository, and sloppy_place '
+                .'before creating a new class, so it goes where this project\'s architecture expects it.',
         ];
     }
 
