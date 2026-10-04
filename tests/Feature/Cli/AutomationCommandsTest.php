@@ -48,7 +48,7 @@ function automationProject(array $extra = []): string
 it('registers every command, with scan still the default', function (): void {
     $application = new SloppyApplication('test');
 
-    foreach (['scan', 'diff', 'review', 'baseline', 'ci', 'fix', 'health', 'rules', 'mcp', 'guide'] as $name) {
+    foreach (['scan', 'diff', 'review', 'baseline', 'ci', 'fix', 'health', 'rules', 'architecture', 'mcp', 'guide'] as $name) {
         expect($application->has($name))->toBeTrue(sprintf('The %s command is missing.', $name));
     }
 
@@ -232,4 +232,60 @@ it('explains every command without locating a project first', function (): void 
         // No project root notice, because no project was located: `guide` is
         // the command someone runs before there is a project to analyse.
         ->and(output($tester))->not->toContain('Project root:');
+});
+
+it('shows the architecture from the command line, for the paths asked about', function (): void {
+    $project = automationProject([
+        'src/Http/Controllers/OrderController.php' => '<?php namespace App\Http\Controllers; class OrderController {}',
+        'lib/Billing/InvoiceService.php' => '<?php namespace Lib\Billing; class InvoiceService {}',
+    ]);
+    $tester = automationTester();
+
+    $code = $tester->run([
+        'command' => 'architecture',
+        '--project' => $project,
+        '--path' => ['lib'],
+        '--format' => 'json',
+    ], ['capture_stderr_separately' => true]);
+
+    /** @var array{roles: list<array{name: string, classes: list<string>}>} $decoded */
+    $decoded = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+    $classes = array_merge(...array_map(static fn (array $role): array => $role['classes'], $decoded['roles']));
+
+    expect($code)->toBe(ExitCode::Success->value)
+        ->and($classes)->toBe(['Lib\Billing\InvoiceService']);
+
+    removeTree($project);
+});
+
+it('explains one class from the command line', function (): void {
+    $project = automationProject([
+        'src/Http/Controllers/OrderController.php' => '<?php namespace App\Http\Controllers; class OrderController {}',
+    ]);
+    $tester = automationTester();
+
+    $code = $tester->run([
+        'command' => 'architecture',
+        'class' => 'OrderController',
+        '--project' => $project,
+    ], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Success->value)
+        ->and($tester->getDisplay())->toContain('Role:     controller, from preset laravel');
+
+    removeTree($project);
+});
+
+it('refuses an architecture it cannot use, with exit code 2', function (): void {
+    $project = automationProject([
+        'sloppy.php' => "<?php\n\nreturn ['paths' => ['src'], 'architecture' => ['preset' => 'symfony']];\n",
+    ]);
+    $tester = automationTester();
+
+    $code = $tester->run(['command' => 'architecture', '--project' => $project], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Error->value)
+        ->and(output($tester))->toContain('sloppy.architecture.preset [symfony] is not a preset.');
+
+    removeTree($project);
 });

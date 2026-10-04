@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy;
 
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Console\Commands\SloppyAgentsCommand;
+use Heyosseus\Sloppy\Console\Commands\SloppyArchitectureCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyBaselineCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyCiCommand;
 use Heyosseus\Sloppy\Console\Commands\SloppyCommand;
@@ -91,6 +92,7 @@ final class SloppyServiceProvider extends ServiceProvider
             SloppyHealthCommand::class,
             SloppyWatchCommand::class,
             SloppyRulesCommand::class,
+            SloppyArchitectureCommand::class,
             SloppyAgentsCommand::class,
             SloppyMcpCommand::class,
             SloppyHelpCommand::class,

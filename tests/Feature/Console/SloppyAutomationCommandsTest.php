@@ -49,6 +49,7 @@ it('registers every command', function (): void {
         ->toContain('sloppy:fix')
         ->toContain('sloppy:health')
         ->toContain('sloppy:rules')
+        ->toContain('sloppy:architecture')
         ->toContain('sloppy:agents')
         ->toContain('sloppy:mcp')
         ->toContain('sloppy:help');
@@ -183,4 +184,22 @@ it('explains every command through artisan', function (): void {
         ->expectsOutputToContain('In a pipeline')
         ->expectsOutputToContain('php artisan sloppy:rules')
         ->assertExitCode(ExitCode::Success->value);
+});
+
+it('shows and explains the architecture through artisan', function (): void {
+    $root = artisanProject(['app/Http/Controllers/OrderController.php' => '<?php namespace App\Http\Controllers; class OrderController {}']);
+
+    $this->artisan('sloppy:architecture')
+        ->expectsOutputToContain('Architecture: preset laravel')
+        ->assertExitCode(ExitCode::Success->value);
+
+    $this->artisan('sloppy:architecture OrderController --format=json')
+        ->expectsOutputToContain('"role": "controller"')
+        ->assertExitCode(ExitCode::Success->value);
+
+    $this->artisan('sloppy:architecture --format=sarif')
+        ->expectsOutputToContain('writes console or json')
+        ->assertExitCode(ExitCode::Error->value);
+
+    removeTree($root);
 });
