@@ -99,7 +99,9 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, sqlite3, pdo_sqlite
+          # fileinfo is on by default on Linux but not on Windows, and Laravel
+          # (through league/flysystem-local) will not install without it.
+          extensions: mbstring, intl, fileinfo, sqlite3, pdo_sqlite
           # PCOV is many times faster than Xdebug for the line coverage that
           # --min=99 needs, and line coverage is all it needs.
           coverage: ${{ matrix.os == 'windows-latest' && 'none' || 'pcov' }}
@@ -143,7 +145,9 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, intl, sqlite3, pdo_sqlite
+          # fileinfo is on by default on Linux but not on Windows, and Laravel
+          # (through league/flysystem-local) will not install without it.
+          extensions: mbstring, intl, fileinfo, sqlite3, pdo_sqlite
           coverage: pcov
 
       # Before anything is installed, so a malformed manifest fails here with
