@@ -18,7 +18,7 @@ final readonly class BaselineRunner
     public function run(Sloppy $sloppy, BaselineOptions $options, RunnerOutput $output): ExitCode
     {
         try {
-            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options);
+            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options, $output);
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 

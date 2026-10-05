@@ -7,9 +7,14 @@ namespace Heyosseus\Sloppy\Rules\Php;
 use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Ast\CodeUnit;
+use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use PhpParser\Comment;
 use PhpParser\Node;
+use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Function_;
 use PhpParser\NodeFinder;
 
 /**
@@ -78,13 +83,23 @@ final class UnexplainedSuppressionRule extends BaseRule
     {
         $annotations = $this->listOption('annotations', self::DEFAULT_ANNOTATIONS);
 
-        foreach ($this->comments($context) as $comment) {
+        /** @var array<string, int> $seen */
+        $seen = [];
+
+        foreach ($this->comments($context) as ['comment' => $comment, 'node' => $node]) {
             $text = $comment->getText();
 
             foreach ($annotations as $annotation) {
                 if (! $this->isBare($text, $annotation)) {
                     continue;
                 }
+
+                // Keyed on the declaration it sits in, not on its line, so a
+                // baseline survives code moving up or down the file. Two bare
+                // suppressions of one kind in one method are told apart by
+                // their order.
+                $key = $annotation.'@'.$this->ownerOf($node);
+                $ordinal = $seen[$key] = ($seen[$key] ?? 0) + 1;
 
                 yield $this->report(
                     context: $context,
@@ -95,7 +110,7 @@ final class UnexplainedSuppressionRule extends BaseRule
                         $annotation,
                     ),
                     confidence: 90,
-                    fingerprint: $annotation.'@'.$comment->getStartLine(),
+                    fingerprint: $ordinal === 1 ? $key : $key.'#'.$ordinal,
                     metrics: ['annotation' => $annotation],
                 );
             }
@@ -109,7 +124,7 @@ final class UnexplainedSuppressionRule extends BaseRule
      * inside a class is reachable from more than one node while walking, so
      * they are keyed by file position to deduplicate.
      *
-     * @return list<Comment>
+     * @return list<array{comment: Comment, node: Node}>
      */
     private function comments(AnalysisContext $context): array
     {
@@ -122,7 +137,9 @@ final class UnexplainedSuppressionRule extends BaseRule
 
         foreach ($nodes as $node) {
             foreach ($node->getComments() as $comment) {
-                $comments[$comment->getStartFilePos()] = $comment;
+                // The outermost node a comment hangs off is found first and
+                // kept: it is the declaration the comment documents.
+                $comments[$comment->getStartFilePos()] ??= ['comment' => $comment, 'node' => $node];
             }
         }
 
@@ -153,9 +170,20 @@ final class UnexplainedSuppressionRule extends BaseRule
 
             // A reason may wrap onto the rest of the comment, because real
             // docblocks wrap. Requiring it on the annotation's own line would
-            // train people to write a shorter reason, not a better one.
-            $rest = mb_substr($directive, mb_strlen($annotation))
-                .' '.implode(' ', array_slice($lines, $index + 1));
+            // train people to write a shorter reason, not a better one. It
+            // ends where the next tag begins: `@return array` below a bare
+            // suppression is documentation of something else.
+            $continuation = [];
+
+            foreach (array_slice($lines, $index + 1) as $next) {
+                if (str_starts_with((string) preg_replace('#^[\s*/]+#', '', $next), '@')) {
+                    break;
+                }
+
+                $continuation[] = $next;
+            }
+
+            $rest = mb_substr($directive, mb_strlen($annotation)).' '.implode(' ', $continuation);
 
             if (! $this->hasReason($rest)) {
                 return true;
@@ -176,9 +204,38 @@ final class UnexplainedSuppressionRule extends BaseRule
 
         // Nor is the identifier the analyser itself requires: it names the
         // error being silenced, which the reader can already see. It is the
-        // sentence after it that is missing.
-        $rest = (string) preg_replace('#^[\s*/]*[A-Za-z][A-Za-z0-9_.]*#', '', $rest);
+        // sentence after it that is missing. That covers a comma-separated
+        // list -- `argument.type, return.type` -- and PHPMD's parenthesised
+        // form, `(PHPMD.StaticAccess)`.
+        $identifier = '["\']?[A-Za-z][A-Za-z0-9_.:\\-]*["\']?';
+        $rest = (string) preg_replace('#^[\s*/]*\(\s*'.$identifier.'(\s*,\s*'.$identifier.')*\s*\)#', '', $rest);
+        $rest = (string) preg_replace('#^[\s*/]*'.$identifier.'(\s*,\s*'.$identifier.')*#', '', $rest);
 
         return preg_match('/[A-Za-z0-9]/', (string) preg_replace('#[\s*/]+#', '', $rest)) === 1;
+    }
+
+    /**
+     * The declaration a comment belongs to: the method, function or class it
+     * documents or sits inside, or the file's top-level code.
+     */
+    private function ownerOf(Node $node): string
+    {
+        foreach ([$node, ...NodeHelper::ancestors($node)] as $candidate) {
+            if ($candidate instanceof ClassMethod) {
+                $class = NodeHelper::closestAncestor($candidate, ClassLike::class);
+
+                return ($class instanceof ClassLike ? NodeHelper::shortName($class) ?? 'anonymous class' : '').'::'.$candidate->name->toString();
+            }
+
+            if ($candidate instanceof Function_) {
+                return $candidate->name->toString();
+            }
+
+            if ($candidate instanceof ClassLike) {
+                return NodeHelper::shortName($candidate) ?? 'anonymous class';
+            }
+        }
+
+        return CodeUnit::FILE_NAME;
     }
 }

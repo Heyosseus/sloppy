@@ -168,7 +168,7 @@ final class GodClassRule extends BaseRule
      */
     private function leniency(AnalysisContext $context, ClassLike $classLike): float
     {
-        if (NodeHelper::isEloquentModel($classLike)) {
+        if (NodeHelper::isEloquentModel($classLike, $context->index)) {
             return $this->floatOption('model_leniency', 1.5);
         }
 

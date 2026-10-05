@@ -6,7 +6,8 @@
     "directories": [
         "src",
         "config",
-        "pest"
+        "pest",
+        "resources"
     ],
     "finder": [
         {

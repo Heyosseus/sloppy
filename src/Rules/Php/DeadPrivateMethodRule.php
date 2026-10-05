@@ -176,7 +176,7 @@ final class DeadPrivateMethodRule extends BaseRule
         $names = [];
 
         foreach ([MethodCall::class, NullsafeMethodCall::class, StaticCall::class] as $type) {
-            foreach (NodeHelper::find($classLike, $type) as $call) {
+            foreach (NodeHelper::findOwn($classLike, $type) as $call) {
                 $name = NodeHelper::callName($call);
 
                 if ($name !== null) {

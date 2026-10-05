@@ -198,7 +198,9 @@ final class EmptyWrapperClassRule extends BaseRule
             return null;
         }
 
-        if (! $this->passesParametersThrough($method, array_values($expression->getArgs()))) {
+        // `$this->inner->foo(...)` hands back a closure rather than a result,
+        // which is not delegating the call.
+        if ($expression->isFirstClassCallable() || ! $this->passesParametersThrough($method, NodeHelper::arguments($expression))) {
             return null;
         }
 

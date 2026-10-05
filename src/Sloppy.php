@@ -40,7 +40,7 @@ final readonly class Sloppy
      * tool as `dev`. A version string duplicated across surfaces is a version
      * string that disagrees with itself.
      */
-    public const string VERSION = '1.5.0';
+    public const string VERSION = '1.6.0';
 
     public function __construct(
         public Configuration $configuration,
@@ -188,8 +188,12 @@ final readonly class Sloppy
 
     /**
      * Compare the working tree against a git revision.
+     *
+     * With `$scored` off the report's scores cover the changed files alone,
+     * and only those files are run through the rules: the cheap answer for a
+     * caller that wants what the change introduced and shows no score.
      */
-    public function diff(string $base): DiffReport
+    public function diff(string $base, bool $scored = true): DiffReport
     {
         $diff = new DiffAnalyzer(
             git: $this->git(),
@@ -199,7 +203,7 @@ final readonly class Sloppy
             evidence: EvidenceCollector::fromConfiguration($this->configuration),
         );
 
-        return $diff->compare($base);
+        return $diff->compare($base, $scored);
     }
 
     /**

@@ -122,6 +122,13 @@ final class NarrativeCommentRule extends BaseRule
                     continue;
                 }
 
+                // `$name = trim($input); // user name` is about the code to
+                // its left. The parser hangs it on the next statement, which
+                // it does not describe.
+                if ($this->isTrailing($context, $comment)) {
+                    continue;
+                }
+
                 // No de-duplication is needed here: the parser attaches each
                 // comment to exactly one statement, so walking every statement
                 // visits every comment once.
@@ -166,6 +173,24 @@ final class NarrativeCommentRule extends BaseRule
                 );
             }
         }
+    }
+
+    /**
+     * Whether code precedes a comment on its own line, which makes it an
+     * end-of-line comment on that code.
+     */
+    private function isTrailing(AnalysisContext $context, Comment $comment): bool
+    {
+        $position = $comment->getStartFilePos();
+
+        if ($position < 0) {
+            return false;
+        }
+
+        $before = substr($context->file->source, 0, $position);
+        $lineStart = strrpos($before, "\n");
+
+        return trim($lineStart === false ? $before : substr($before, $lineStart + 1)) !== '';
     }
 
     private function stepFinding(AnalysisContext $context, Stmt $statement, int $line, string $text): Finding

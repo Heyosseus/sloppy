@@ -6,6 +6,72 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-10-05
+
+A correctness release: fewer false positives, git handling that survives
+monorepos and unusual file names, a safer MCP server and `sloppy fix`, and a
+diff score that describes the whole tree.
+
+### Upgrading
+
+- **Configuration is validated.** A value of the wrong type or out of range
+  stops the run with exit code 2 and names every problem. A key Sloppy does
+  not know only prints a warning, with a "did you mean" hint.
+- **The standalone binary merges its config file over the defaults**, as
+  Artisan always has. A `sloppy.php` that left out `fail_on` or `exclude` now
+  gets the defaults for them.
+- **Exit code 2** for a `--path` that does not exist, an unknown option, a
+  number option that is not a whole number, and a file that does not parse
+  in `ci` (`--allow-parse-errors` restores the old behaviour). `rules` and
+  `architecture` no longer accept options they ignored.
+- **SL501 fingerprints** no longer contain a line number, so baselined SL501
+  entries reappear once. Re-run `sloppy baseline`.
+- **More code is analysed**: top-level functions, closures, property hooks,
+  and models that extend your own base model. A full `scan` may report
+  findings it missed before; `diff` and `ci` still report only new ones.
+- `fix` runs Pint only for a Laravel project or one with a `pint.json`, and
+  only on the files it changed. `agents install --local` writes
+  `CLAUDE.local.md` instead of editing `CLAUDE.md`.
+- The CI templates install `^1.6` by default.
+
+### Added
+
+- `agents uninstall`, which removes everything `agents install` wrote.
+- `diff --merge-base` (the default in `ci`), every `--format` on `diff`, and
+  `--explain-risk` on `diff` and `ci`.
+- `SL303.layer_suffixes`, shared with SL301 in the shipped config.
+- CI on Windows and PHP 8.5, a `--no-dev` install check and a phar smoke test.
+
+### Fixed
+
+- **Rules**: loop sources counted as inside the loop (SL204, SL210), crashes
+  on first-class callables, Carbon and other static calls taken for queries,
+  SL203 false positives after `load()`, on `with('rel:cols')` and on
+  timestamp and cast attributes, anonymous classes reported twice, not-null
+  read as truthy (SL108, SL110), rebinding missed by SL110, dynamic calls
+  missed by SL105, enum implementations missed by SL303, any class named
+  `Client` taken for an HTTP client, three suppression forms missed by
+  SL501, `else if` counted as nesting, duplicate SL111 findings, trailing
+  comments in SL109, trait methods in SL308, the SL112 stub patterns, a
+  blast-radius off-by-one, and quadratic work on large projects.
+- **Git and diff**: projects in a repository subdirectory, quoted and
+  non-ASCII paths, user diff settings (colour, external diff, prefixes),
+  files moved with plain `mv`, deleted files, repositories with no commits,
+  and a diff score of 100 regardless of the tree.
+- **Output**: invalid UTF-8 no longer breaks JSON, SARIF or GitLab reports;
+  annotation and SARIF paths are relative to the repository root; `errors` is
+  always an object.
+- **MCP server**: stray output and warnings kept off stdout, `ping` answers
+  `{}`, protocol versions negotiated, batches and malformed requests handled,
+  arguments validated, relative project paths resolved.
+- **`sloppy fix`**: never overwrites a Rector config it did not write, keeps
+  it with `--no-rector`, and a dry run with pending changes exits 0.
+- **Agents**: shared hooks use `${CLAUDE_PROJECT_DIR}` instead of a path on
+  one machine, and settings files keep their formatting.
+- **`watch`**: Ctrl+C restores the terminal, and idle polling backs off.
+- The `action.yml` no longer interpolates inputs into its shell script.
+- The phar now ships `resources/`.
+
 ## [1.5.0] — 2026-10-04
 
 The architecture a project declares now reaches the agents writing its code:
@@ -1094,7 +1160,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/heyosseus/sloppy/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/heyosseus/sloppy/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/heyosseus/sloppy/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/heyosseus/sloppy/compare/v1.3.0...v1.3.1

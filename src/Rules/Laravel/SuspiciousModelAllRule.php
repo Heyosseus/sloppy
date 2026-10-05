@@ -68,7 +68,7 @@ final class SuspiciousModelAllRule extends LaravelRule
         foreach ($context->classLikes() as $classLike) {
             $className = NodeHelper::shortName($classLike) ?? 'anonymous class';
 
-            foreach (NodeHelper::find($classLike, StaticCall::class) as $call) {
+            foreach (NodeHelper::findOwn($classLike, StaticCall::class) as $call) {
                 if (NodeHelper::callName($call) !== 'all' || ! LaravelCalls::targetsDatabase($call, $context->index)) {
                     continue;
                 }
@@ -160,10 +160,14 @@ final class SuspiciousModelAllRule extends LaravelRule
     {
         $variable = $this->assignedVariable($call);
 
-        // A call that is itself the loop expression was already caught as
-        // "inside a loop" before this method was reached, so the only case
-        // left is the variable it was assigned to.
-        foreach (NodeHelper::find($method, Foreach_::class) as $loop) {
+        // `foreach (Order::all() as $order)` loads the table once, before the
+        // first iteration, and then walks it -- the same as walking the
+        // variable it was assigned to.
+        foreach (NodeHelper::findOwn($method, Foreach_::class) as $loop) {
+            if ($loop->expr === $call) {
+                return true;
+            }
+
             if ($variable !== null && $loop->expr instanceof Variable && $loop->expr->name === $variable) {
                 return true;
             }

@@ -117,3 +117,38 @@ it('refuses to rewrite a file it cannot read as settings', function (string $exi
     'hooks not an object' => ['{"hooks": []}', '"hooks" is not an object'],
     'event not a list' => ['{"hooks": {"Stop": {}}}', '"hooks.Stop" is not a list'],
 ]);
+
+it('keeps numbers, indentation and line endings of the settings it did not touch byte for byte', function (): void {
+    $existing = "{\r\n    \"cleanupPeriodDays\": 12345678901234567890,\r\n    \"ratio\": 1.0,\r\n    \"small\": 1e3,\r\n    \"env\": {}\r\n}\r\n";
+
+    $json = ClaudeSettingsFile::merge($existing, SLOPPY_COMMAND);
+
+    expect($json)->toStartWith("{\r\n    \"cleanupPeriodDays\": 12345678901234567890,\r\n    \"ratio\": 1.0,\r\n    \"small\": 1e3,\r\n    \"env\": {},\r\n    \"hooks\": {\r\n        \"PostToolUse\": [")
+        ->and($json)->toEndWith("}\r\n")
+        ->and($json)->not->toContain("\n\n");
+});
+
+it('writes back a file it did not need to change exactly as it was', function (): void {
+    $installed = ClaudeSettingsFile::merge('{"model":"opus","n":1.0}', SLOPPY_COMMAND);
+    $reformatted = str_replace('  ', "\t", $installed);
+
+    expect(ClaudeSettingsFile::merge($reformatted, SLOPPY_COMMAND))->toBe($reformatted);
+});
+
+it('takes its hooks out again, leaving the file as it was before them', function (string $original): void {
+    $installed = ClaudeSettingsFile::merge($original, SLOPPY_COMMAND);
+
+    expect($installed)->not->toBe($original)
+        ->and(ClaudeSettingsFile::remove($installed))->toBe($original);
+})->with([
+    'two spaces' => ["{\n  \"model\": \"opus\",\n  \"cleanupPeriodDays\": 12345678901234567890,\n  \"ratio\": 1.0\n}\n"],
+    'four spaces, CRLF' => ["{\r\n    \"env\": {},\r\n    \"permissions\": {\r\n        \"allow\": []\r\n    }\r\n}\r\n"],
+    'other hooks' => ["{\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"vendor/bin/pint --dirty\"\n          }\n        ]\n      }\n    ]\n  }\n}\n"],
+]);
+
+it('says a file that held only its hooks is now empty, and leaves files without them alone', function (): void {
+    expect(ClaudeSettingsFile::remove(ClaudeSettingsFile::merge(null, SLOPPY_COMMAND)))->toBe('')
+        ->and(ClaudeSettingsFile::remove('{"model": "opus", "hooks": {"Stop": []}}'))->toBeNull()
+        ->and(ClaudeSettingsFile::remove('{"hooks": "not an object"}'))->toBeNull()
+        ->and(fn (): ?string => ClaudeSettingsFile::remove('{"hooks": '))->toThrow(InvalidArgumentException::class, 'It is not valid JSON');
+});

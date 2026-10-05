@@ -2,36 +2,7 @@
 
 declare(strict_types=1);
 
-use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Runner\ExitCode;
-use Heyosseus\Sloppy\Sloppy;
-use Illuminate\Contracts\Config\Repository;
-
-/**
- * Point the package at a throwaway project and re-bind the container so the
- * command under test analyses it.
- *
- * @param  array<string, string>  $files  Relative path => contents.
- * @param  array<string, mixed>  $config
- */
-function project(array $files, array $config = []): string
-{
-    $root = tempProject($files);
-
-    /** @var Repository $repository */
-    $repository = app(Repository::class);
-
-    /** @var array<string, mixed> $current */
-    $current = $repository->get('sloppy', []);
-
-    $merged = [...$current, ...$config];
-    $repository->set('sloppy', $merged);
-
-    app()->instance(Configuration::class, Configuration::fromArray($merged, $root));
-    app()->instance(Sloppy::class, new Sloppy(Configuration::fromArray($merged, $root)));
-
-    return $root;
-}
 
 const SWALLOWING_CONTROLLER = <<<'PHP'
 <?php
@@ -203,11 +174,21 @@ it('analyses an overridden path', function (): void {
 });
 
 it('warns and succeeds when there is nothing to analyse', function (): void {
-    $root = project([]);
+    $root = project(['app/README.md' => 'No PHP yet.']);
 
     $this->artisan('sloppy')
         ->expectsOutputToContain('No PHP files found')
         ->assertExitCode(ExitCode::Success->value);
+
+    removeTree($root);
+});
+
+it('fails when the configured paths do not exist', function (): void {
+    $root = project([]);
+
+    $this->artisan('sloppy')
+        ->expectsOutputToContain('None of the configured paths exist')
+        ->assertExitCode(ExitCode::Error->value);
 
     removeTree($root);
 });

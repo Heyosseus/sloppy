@@ -9,6 +9,7 @@ use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\BinaryOp;
+use PhpParser\Node\Expr\CallLike;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\FuncCall;
@@ -41,6 +42,7 @@ use PhpParser\Node\Stmt\ElseIf_;
 use PhpParser\Node\Stmt\Enum_;
 use PhpParser\Node\Stmt\For_;
 use PhpParser\Node\Stmt\Foreach_;
+use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Interface_;
 use PhpParser\Node\Stmt\Nop;
@@ -125,6 +127,40 @@ final class NodeHelper
     }
 
     /**
+     * Like {@see find()}, but without descending into a nested declaration:
+     * a class, interface, trait or enum (anonymous classes included), or a
+     * named function. Those have their own scope and are analysed as code of
+     * their own, so a rule walking its subject with this reports each node
+     * once, against the declaration it actually belongs to. The subject
+     * itself is always walked, whatever it is.
+     *
+     * @template TNode of Node
+     *
+     * @param  Node|list<Node>  $subject
+     * @param  class-string<TNode>  $type
+     * @return list<TNode>
+     */
+    public static function findOwn(Node|array $subject, string $type): array
+    {
+        $found = [];
+
+        foreach ($subject instanceof Node ? [$subject] : $subject as $root) {
+            self::collectOwn($root, $type, $found);
+        }
+
+        return $found;
+    }
+
+    /**
+     * Whether a node opens a scope of its own that {@see findOwn()} does not
+     * walk into.
+     */
+    public static function isOwnScope(Node $node): bool
+    {
+        return $node instanceof ClassLike || $node instanceof Function_;
+    }
+
+    /**
      * @template TNode of Node
      *
      * @param  Node|list<Node>  $subject
@@ -203,7 +239,7 @@ final class NodeHelper
     {
         $names = [];
 
-        if ($class instanceof Class_) {
+        if ($class instanceof Class_ || $class instanceof Enum_) {
             foreach ($class->implements as $interface) {
                 $names[] = $interface->toString();
             }
@@ -289,9 +325,26 @@ final class NodeHelper
         return str_ends_with($parent, 'Controller');
     }
 
-    public static function isEloquentModel(ClassLike $class): bool
+    /**
+     * Whether a declaration is an Eloquent model.
+     *
+     * With the project index in hand, the parent is followed through the
+     * project's own base classes -- `Invoice extends BaseModel extends Model`
+     * -- for as long as the index knows them.
+     */
+    public static function isEloquentModel(ClassLike $class, ?ProjectIndex $index = null): bool
     {
-        return $class instanceof Class_ && self::extendsEloquentModel(self::parentName($class));
+        if (! $class instanceof Class_) {
+            return false;
+        }
+
+        $parent = self::parentName($class);
+
+        if (self::extendsEloquentModel($parent)) {
+            return true;
+        }
+
+        return $index instanceof ProjectIndex && $parent !== null && $index->isEloquentModel($parent);
     }
 
     /**
@@ -548,7 +601,7 @@ final class NodeHelper
     {
         $count = 0;
 
-        foreach (self::find($node, Stmt::class) as $statement) {
+        foreach (self::findWithin($node, Stmt::class) as $statement) {
             if ($statement instanceof Nop) {
                 continue;
             }
@@ -577,7 +630,7 @@ final class NodeHelper
         /** @var array<int, true> $tables Switches that are lookup tables, by object id. */
         $tables = [];
 
-        foreach (self::find($node, Switch_::class) as $switch) {
+        foreach (self::findWithin($node, Switch_::class) as $switch) {
             if (self::isLookupTable($switch)) {
                 $tables[spl_object_id($switch)] = true;
                 $complexity++;
@@ -588,7 +641,7 @@ final class NodeHelper
             }
         }
 
-        foreach (self::find($node, Node::class) as $child) {
+        foreach (self::findWithin($node, Node::class) as $child) {
             if (isset($tables[spl_object_id($child)])) {
                 continue;
             }
@@ -670,7 +723,7 @@ final class NodeHelper
     {
         $lines = 0;
 
-        foreach ([...self::find($node, Match_::class), ...self::find($node, Switch_::class)] as $table) {
+        foreach ([...self::findWithin($node, Match_::class), ...self::findWithin($node, Switch_::class)] as $table) {
             if (self::isLookupTable($table)) {
                 $lines += self::lineSpan($table);
             }
@@ -705,18 +758,33 @@ final class NodeHelper
     }
 
     /**
-     * Deepest control-flow nesting inside a node.
+     * Deepest control-flow nesting inside a node, or inside a list of
+     * statements such as a file's top-level code.
+     *
+     * A nested class or named function is not walked: it is its own code,
+     * measured on its own. `else if` written as two words is the same chain
+     * as `elseif`, so an `if` that is the only statement of an `else` does
+     * not add a level.
+     *
+     * @param  Node|list<Node>  $node
      */
-    public static function maxNestingDepth(Node $node): int
+    public static function maxNestingDepth(Node|array $node): int
     {
-        return self::depthOf($node, 0);
+        $deepest = null;
+        $best = 0;
+
+        self::walkDepths($node, 0, $deepest, $best);
+
+        return $best;
     }
 
     /**
      * The innermost nesting-introducing node, so a rule can point at the line
      * that actually hurts rather than at the top of the method.
+     *
+     * @param  Node|list<Node>  $node
      */
-    public static function deepestNestedNode(Node $node): ?Node
+    public static function deepestNestedNode(Node|array $node): ?Node
     {
         $deepest = null;
         $best = 0;
@@ -731,10 +799,10 @@ final class NodeHelper
      */
     public static function countCalls(Node $node): int
     {
-        return count(self::find($node, MethodCall::class))
-            + count(self::find($node, StaticCall::class))
-            + count(self::find($node, FuncCall::class))
-            + count(self::find($node, NullsafeMethodCall::class));
+        return count(self::findWithin($node, MethodCall::class))
+            + count(self::findWithin($node, StaticCall::class))
+            + count(self::findWithin($node, FuncCall::class))
+            + count(self::findWithin($node, NullsafeMethodCall::class));
     }
 
     /**
@@ -747,11 +815,11 @@ final class NodeHelper
     {
         $targets = [];
 
-        foreach (self::find($node, MethodCall::class) as $call) {
+        foreach (self::findWithin($node, MethodCall::class) as $call) {
             $targets[self::printAny($call->var)] = true;
         }
 
-        foreach (self::find($node, StaticCall::class) as $call) {
+        foreach (self::findWithin($node, StaticCall::class) as $call) {
             if ($call->class instanceof Name) {
                 $targets[$call->class->toString()] = true;
             }
@@ -800,19 +868,59 @@ final class NodeHelper
     }
 
     /**
-     * The loop a node sits inside, if any. Stops at closure boundaries only
-     * for arrow functions, since a closure body inside a loop still executes
-     * once per iteration.
+     * The loop that runs a node once per iteration, if any.
+     *
+     * What a loop evaluates once is not inside it: the expression a `foreach`
+     * iterates and the initialiser of a `for` both run before the first
+     * iteration. A condition and a `for` step run every time, so they are.
+     *
+     * The walk stops at a declaration -- a method, a named function, a class
+     * -- because its body runs when it is called, not where it is written.
+     * A closure or arrow function stops it too, unless it is handed straight
+     * to a call (`$items->map(fn ...)`, `DB::transaction(function () ...)`):
+     * that is a callback run on the spot, so it still runs per iteration. One
+     * that is stored, returned or put in an array runs some other time.
      */
     public static function enclosingLoop(Node $node): ?Node
     {
-        foreach (self::ancestors($node) as $ancestor) {
-            if ($ancestor instanceof Foreach_ || $ancestor instanceof For_ || $ancestor instanceof While_ || $ancestor instanceof Do_) {
+        $child = $node;
+        $ancestor = $node->getAttribute('parent');
+
+        while ($ancestor instanceof Node) {
+            if ($ancestor instanceof ClassLike || $ancestor instanceof ClassMethod || $ancestor instanceof Function_) {
+                return null;
+            }
+
+            if (($ancestor instanceof Closure || $ancestor instanceof ArrowFunction) && ! self::isCallbackArgument($ancestor)) {
+                return null;
+            }
+
+            $runsPerIteration = match (true) {
+                $ancestor instanceof Foreach_ => $child !== $ancestor->expr,
+                $ancestor instanceof For_ => ! in_array($child, $ancestor->init, true),
+                $ancestor instanceof While_, $ancestor instanceof Do_ => true,
+                default => false,
+            };
+
+            if ($runsPerIteration) {
                 return $ancestor;
             }
+
+            $child = $ancestor;
+            $ancestor = $ancestor->getAttribute('parent');
         }
 
         return null;
+    }
+
+    /**
+     * Whether a closure is passed directly as an argument to a call.
+     */
+    private static function isCallbackArgument(Closure|ArrowFunction $function): bool
+    {
+        $parent = $function->getAttribute('parent');
+
+        return $parent instanceof Node\Arg && $parent->getAttribute('parent') instanceof CallLike;
     }
 
     public static function isInsideLoop(Node $node): bool
@@ -836,6 +944,18 @@ final class NodeHelper
     public static function staticCallClass(StaticCall $call): ?string
     {
         return $call->class instanceof Name ? $call->class->toString() : null;
+    }
+
+    /**
+     * A call's arguments, or none for a first-class callable: `foo(...)`
+     * passes nothing -- it makes a closure -- and asking php-parser for its
+     * arguments is an assertion failure.
+     *
+     * @return list<Node\Arg>
+     */
+    public static function arguments(CallLike $call): array
+    {
+        return $call->isFirstClassCallable() ? [] : array_values($call->getArgs());
     }
 
     public static function callName(Node $node): ?string
@@ -994,13 +1114,44 @@ final class NodeHelper
             }
         }
 
-        foreach (self::find($node, MethodCall::class) as $call) {
-            if (! $call->name instanceof Identifier) {
+        foreach ([MethodCall::class, NullsafeMethodCall::class, StaticCall::class, NullsafePropertyFetch::class, StaticPropertyFetch::class] as $type) {
+            foreach (self::find($node, $type) as $access) {
+                if ($access->name instanceof Expr) {
+                    return true;
+                }
+            }
+        }
+
+        foreach (self::find($node, Expr\Array_::class) as $array) {
+            if (self::isDynamicCallable($array)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * `[$this, $method]`, `[static::class, $name]` or `[self::class, ...]`:
+     * a callable naming one of the class's own methods with a value only
+     * known at runtime.
+     */
+    private static function isDynamicCallable(Expr\Array_ $array): bool
+    {
+        if (count($array->items) !== 2) {
+            return false;
+        }
+
+        [$target, $method] = [$array->items[0]->value, $array->items[1]->value];
+
+        $ownClass = ($target instanceof Variable && $target->name === 'this')
+            || ($target instanceof ClassConstFetch
+                && $target->class instanceof Name
+                && self::isSelfReference($target->class->toString())
+                && $target->name instanceof Identifier
+                && $target->name->toLowerString() === 'class');
+
+        return $ownClass && ! $method instanceof String_;
     }
 
     /**
@@ -1041,6 +1192,55 @@ final class NodeHelper
     // -----------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------
+
+    /**
+     * What a measurement of a node counts: inside a declaration -- a class,
+     * a method, a function, a closure -- its own code only, leaving a nested
+     * anonymous class or function to be measured as itself; at file or
+     * namespace level, everything, because there the declarations are the
+     * content.
+     *
+     * @template TNode of Node
+     *
+     * @param  class-string<TNode>  $type
+     * @return list<TNode>
+     */
+    private static function findWithin(Node $node, string $type): array
+    {
+        return $node instanceof ClassLike || $node instanceof Node\FunctionLike
+            ? self::findOwn($node, $type)
+            : self::find($node, $type);
+    }
+
+    /**
+     * Pre-order, like {@see NodeFinder}, so the two finders agree on order.
+     *
+     * @template TNode of Node
+     *
+     * @param  class-string<TNode>  $type
+     * @param  list<TNode>  $found
+     */
+    private static function collectOwn(Node $node, string $type, array &$found): void
+    {
+        if ($node instanceof $type) {
+            $found[] = $node;
+        }
+
+        foreach ($node->getSubNodeNames() as $name) {
+            /** @var mixed $value */
+            $value = $node->{$name};
+
+            /** @var list<mixed> $children */
+            $children = is_array($value) ? $value : [$value];
+
+            /** @var mixed $child */
+            foreach ($children as $child) {
+                if ($child instanceof Node && ! self::isOwnScope($child)) {
+                    self::collectOwn($child, $type, $found);
+                }
+            }
+        }
+    }
 
     /**
      * @param  list<string>  $parts
@@ -1112,56 +1312,65 @@ final class NodeHelper
         };
     }
 
-    private static function walkDepths(Node $node, int $depth, ?Node &$deepest, int &$best): void
+    /**
+     * @param  Node|list<Node>  $node
+     */
+    private static function walkDepths(Node|array $node, int $depth, ?Node &$deepest, int &$best): void
     {
-        foreach ($node->getSubNodeNames() as $name) {
-            /** @var mixed $value */
-            $value = $node->{$name};
-
-            /** @var list<mixed> $children */
-            $children = is_array($value) ? $value : [$value];
-
-            /** @var mixed $child */
-            foreach ($children as $child) {
-                if (! $child instanceof Node) {
-                    continue;
-                }
-
-                $childDepth = $depth + (self::introducesNesting($child) ? 1 : 0);
-
-                if ($childDepth > $best) {
-                    $best = $childDepth;
-                    $deepest = $child;
-                }
-
-                self::walkDepths($child, $childDepth, $deepest, $best);
+        foreach ($node instanceof Node ? self::children($node) : $node as $child) {
+            if (self::isOwnScope($child)) {
+                continue;
             }
+
+            $increment = self::introducesNesting($child) && (! $node instanceof Stmt\Else_ || ! self::isElseIf($node, $child)) ? 1 : 0;
+            $childDepth = $depth + $increment;
+
+            if ($childDepth > $best) {
+                $best = $childDepth;
+                $deepest = $child;
+            }
+
+            self::walkDepths($child, $childDepth, $deepest, $best);
         }
     }
 
-    private static function depthOf(Node $node, int $depth): int
+    /**
+     * Whether an `if` is the whole body of an `else` -- `else if`, spelled as
+     * two words, which reads and behaves like `elseif`.
+     */
+    private static function isElseIf(Stmt\Else_ $else, Node $child): bool
     {
-        $max = $depth;
+        if (! $child instanceof If_) {
+            return false;
+        }
+
+        $statements = array_values(array_filter($else->stmts, static fn (Stmt $statement): bool => ! $statement instanceof Nop));
+
+        return count($statements) === 1 && $statements[0] === $child;
+    }
+
+    /**
+     * A node's direct children, in sub-node order.
+     *
+     * @return list<Node>
+     */
+    private static function children(Node $node): array
+    {
+        $children = [];
 
         foreach ($node->getSubNodeNames() as $name) {
             /** @var mixed $value */
             $value = $node->{$name};
 
-            /** @var list<mixed> $children */
-            $children = is_array($value) ? $value : [$value];
-
             /** @var mixed $child */
-            foreach ($children as $child) {
-                if (! $child instanceof Node) {
-                    continue;
+            foreach (is_array($value) ? $value : [$value] as $child) {
+                if ($child instanceof Node) {
+                    $children[] = $child;
                 }
-
-                $increment = self::introducesNesting($child) ? 1 : 0;
-                $max = max($max, self::depthOf($child, $depth + $increment));
             }
         }
 
-        return $max;
+        return $children;
     }
 
     private static function introducesNesting(Node $node): bool

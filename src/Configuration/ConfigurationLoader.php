@@ -38,7 +38,12 @@ final class ConfigurationLoader
     public function load(?string $configPath = null): Configuration
     {
         $values = $this->values($configPath);
-        $config = Configuration::fromArray($values, $this->basePath);
+
+        // Like Laravel's mergeConfigFrom(): a project file overrides the
+        // defaults key by key, so one that only sets `fail_on` still excludes
+        // vendor/ and keeps every rule's thresholds.
+        $merged = $this->source === 'package defaults' ? $values : array_merge($this->defaults(), $values);
+        $config = Configuration::fromArray($merged, $this->basePath);
 
         return $this->withUsablePaths($config, $values);
     }
@@ -69,6 +74,14 @@ final class ConfigurationLoader
         }
 
         return $this->read(dirname(__DIR__, 2).'/config/sloppy.php', 'package defaults');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaults(): array
+    {
+        return require dirname(__DIR__, 2).'/config/sloppy.php';
     }
 
     /**

@@ -10,7 +10,14 @@ use Symfony\Component\Process\Process;
  * The only place in the package that shells out.
  *
  * Arguments are always passed as an array so nothing is interpolated into a
- * shell string, and the repository root is fixed at construction.
+ * shell string, and the repository root is fixed at construction. Reading
+ * git's output is `GitOutputParser`'s job, and putting a working-tree diff
+ * together is `WorkingTreeDiff`'s; both run their processes through here.
+ *
+ * Every path this class hands out or accepts is relative to the working
+ * directory, never to the repository root: a project that is one package of a
+ * larger repository names its files the way it would if it were the whole
+ * repository.
  */
 final readonly class Git
 {
@@ -31,12 +38,13 @@ final readonly class Git
 
     /**
      * @param  list<string>  $args
+     * @param  array<string, string>  $env
      *
      * @throws GitException
      */
-    public function run(array $args): string
+    public function run(array $args, array $env = []): string
     {
-        $process = new Process(['git', ...$args], $this->workingDirectory, timeout: $this->timeout);
+        $process = $this->process($args, $env);
         $process->run();
 
         if (! $process->isSuccessful()) {
@@ -54,8 +62,9 @@ final readonly class Git
      * Run a command, returning null instead of throwing when it fails.
      *
      * @param  list<string>  $args
+     * @param  array<string, string>  $env
      */
-    public function attempt(array $args): ?string
+    public function attempt(array $args, array $env = []): ?string
     {
         // A project directory that is not there cannot be asked anything, and
         // the process would refuse to start rather than fail: checking first
@@ -65,10 +74,32 @@ final readonly class Git
             return null;
         }
 
-        $process = new Process(['git', ...$args], $this->workingDirectory, timeout: $this->timeout);
+        $process = $this->process($args, $env);
         $process->run();
 
         return $process->isSuccessful() ? $process->getOutput() : null;
+    }
+
+    /**
+     * Every git process this class starts.
+     *
+     * Paths are asked for unquoted, because `core.quotePath` -- on by default
+     * -- turns `Café.php` into `"Caf\303\251.php"`, which matches no file on
+     * disk. The user's own git configuration is otherwise left alone; the diff
+     * invocations neutralise the parts of it that change their output.
+     *
+     * @param  list<string>  $args
+     * @param  array<string, string>  $env
+     */
+    private function process(array $args, array $env = [], ?string $input = null): Process
+    {
+        return new Process(
+            ['git', '-c', 'core.quotePath=false', ...$args],
+            $this->workingDirectory,
+            $env === [] ? null : $env,
+            $input,
+            $this->timeout,
+        );
     }
 
     /**
@@ -77,6 +108,73 @@ final readonly class Git
     public function revisionExists(string $revision): bool
     {
         return $this->attempt(['rev-parse', '--verify', '--quiet', $revision.'^{commit}']) !== null;
+    }
+
+    /**
+     * Whether the repository has any commit at all. A repository that was
+     * just initialised has none, and `HEAD` names nothing yet.
+     */
+    public function hasCommits(): bool
+    {
+        return $this->revisionExists('HEAD');
+    }
+
+    /**
+     * The object name of the empty tree in this repository's hash, which is
+     * what "before the first commit" compares as.
+     */
+    public function emptyTree(): string
+    {
+        $process = $this->process(['hash-object', '-t', 'tree', '--stdin'], input: '');
+        $process->run();
+        $hash = trim($process->getOutput());
+
+        return $process->isSuccessful() && $hash !== '' ? $hash : '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+    }
+
+    /**
+     * The commit a revision names, or null when it names none.
+     */
+    public function commitOf(string $revision): ?string
+    {
+        $sha = $this->attempt(['rev-parse', '--verify', '--quiet', $revision.'^{commit}']);
+
+        return $sha === null || trim($sha) === '' ? null : trim($sha);
+    }
+
+    /**
+     * Whether a revision is a ref -- a branch, remote branch or tag -- rather
+     * than a commit spelled out. A branch moves on after a change forks from
+     * it; a commit is exactly what was asked for.
+     */
+    public function isRef(string $revision): bool
+    {
+        return trim((string) $this->attempt(['rev-parse', '--symbolic-full-name', $revision])) !== '';
+    }
+
+    /**
+     * The best common ancestor of two revisions, or null when there is none
+     * to be found -- unrelated histories, or a shallow clone that stops short
+     * of it.
+     */
+    public function mergeBase(string $revision, string $other = 'HEAD'): ?string
+    {
+        $sha = $this->attempt(['merge-base', $revision, $other]);
+
+        return $sha === null || trim($sha) === '' ? null : trim($sha);
+    }
+
+    /**
+     * The working directory's path inside the repository, with a trailing
+     * slash, or an empty string at the root or outside any repository.
+     *
+     * Reports read by the forge itself -- annotations, SARIF -- name files
+     * from the repository root, while everything else in this package names
+     * them from the project root.
+     */
+    public function prefix(): string
+    {
+        return trim((string) $this->attempt(['rev-parse', '--show-prefix']));
     }
 
     public function currentBranch(): ?string
@@ -102,19 +200,22 @@ final readonly class Git
      * spawning. `cat-file --batch` answers the whole list from one process fed
      * on stdin.
      *
+     * Each path is asked for as `<rev>:./<path>`, which git resolves from the
+     * working directory; a bare `<rev>:<path>` is read from the repository
+     * root and finds nothing for a project in a subdirectory.
+     *
      * @param  list<string>  $relativePaths
      * @return array<string, ?string>
      */
     public function showFiles(string $revision, array $relativePaths): array
     {
-        if ($relativePaths === []) {
-            return [];
+        if ($relativePaths === [] || ! is_dir($this->workingDirectory)) {
+            return array_fill_keys($relativePaths, null);
         }
 
-        $process = new Process(['git', 'cat-file', '--batch'], $this->workingDirectory, timeout: $this->timeout);
-        $process->setInput(implode(
+        $process = $this->process(['cat-file', '--batch'], input: implode(
             "\n",
-            array_map(static fn (string $path): string => $revision.':'.$path, $relativePaths),
+            array_map(static fn (string $path): string => $revision.':./'.ltrim($path, '/'), $relativePaths),
         )."\n");
         $process->run();
 
@@ -122,71 +223,18 @@ final readonly class Git
             return array_fill_keys($relativePaths, null);
         }
 
-        return $this->parseBatch($process->getOutput(), $relativePaths);
-    }
-
-    /**
-     * Walk `cat-file --batch` output, which answers each request in order with
-     * either `<oid> <type> <size>` and that many bytes, or `<request> missing`.
-     *
-     * @param  list<string>  $relativePaths
-     * @return array<string, ?string>
-     */
-    private function parseBatch(string $output, array $relativePaths): array
-    {
-        $contents = [];
-        $offset = 0;
-
-        foreach ($relativePaths as $path) {
-            $break = strpos($output, "\n", $offset);
-
-            // No line left to read means git answered fewer requests than were
-            // made, which is the same answer as a malformed header: we do not
-            // know what this file held at that revision.
-            $header = $break === false ? [] : explode(' ', trim(substr($output, $offset, $break - $offset)));
-            $offset = $break === false ? $offset : $break + 1;
-            $size = end($header);
-
-            if (count($header) < 3 || ! is_string($size) || ! ctype_digit($size)) {
-                $contents[$path] = null;
-
-                continue;
-            }
-
-            $contents[$path] = substr($output, $offset, (int) $size);
-            $offset += (int) $size + 1;
-        }
-
-        return $contents;
+        return (new GitOutputParser)->blobs($process->getOutput(), $relativePaths);
     }
 
     /**
      * Files that differ between a revision and the working tree, including
-     * files git is not tracking yet.
-     *
-     * Untracked files matter here: an agent that adds a new class has not
-     * staged it, and a review that ignored it would miss the code most likely
-     * to need reviewing.
+     * files git is not tracking yet, which take part in rename detection too.
      *
      * @return list<ChangedFile>
      */
     public function changedFiles(string $base): array
     {
-        $files = [];
-
-        foreach ($this->parseNameStatus($this->run(['diff', '--name-status', '--find-renames', $base])) as $file) {
-            $files[$file->relativePath] = $file;
-        }
-
-        foreach ($this->untrackedFiles() as $path) {
-            $files[$path] ??= new ChangedFile($path, 'untracked');
-        }
-
-        $result = array_values($files);
-
-        usort($result, static fn (ChangedFile $a, ChangedFile $b): int => $a->relativePath <=> $b->relativePath);
-
-        return $result;
+        return $this->diff()->changedFiles($base);
     }
 
     /**
@@ -196,26 +244,7 @@ final readonly class Git
      */
     public function hunksFor(string $base, string $relativePath): array
     {
-        $diff = $this->attempt(['diff', '--unified=0', '--no-color', $base, '--', $relativePath]);
-
-        if ($diff === null) {
-            return [];
-        }
-
-        $hunks = [];
-
-        foreach (explode("\n", $diff) as $line) {
-            if (! str_starts_with($line, '@@') || preg_match('/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/', $line, $matches) !== 1) {
-                continue;
-            }
-
-            $hunks[] = new DiffHunk(
-                startLine: (int) $matches[1],
-                lineCount: isset($matches[2]) ? (int) $matches[2] : 1,
-            );
-        }
-
-        return $hunks;
+        return $this->hunksForFiles($base, [$relativePath])[$relativePath] ?? [];
     }
 
     /**
@@ -233,39 +262,7 @@ final readonly class Git
      */
     public function withHunks(string $base, array $files): array
     {
-        $existing = [];
-
-        foreach ($files as $file) {
-            if ($file->isAnalysable() && $file->existedBefore()) {
-                $existing[] = $file->relativePath;
-            }
-        }
-
-        $hunks = $this->hunksForFiles($base, $existing);
-        $enriched = [];
-
-        foreach ($files as $file) {
-            if (! $file->isAnalysable()) {
-                $enriched[] = $file;
-
-                continue;
-            }
-
-            $enriched[] = new ChangedFile(
-                relativePath: $file->relativePath,
-                status: $file->status,
-                // A wholly new file has no hunks against the base, but every
-                // line in it is new, so the file is its own hunk. Without this
-                // a review of a brand new class would report that it touched
-                // no lines.
-                hunks: $file->existedBefore()
-                    ? ($hunks[$file->relativePath] ?? [])
-                    : $this->wholeFileHunks($file->relativePath),
-                previousPath: $file->previousPath,
-            );
-        }
-
-        return $enriched;
+        return $this->diff()->withHunks($base, $files);
     }
 
     /**
@@ -273,100 +270,12 @@ final readonly class Git
      * the platform's command-line limit allows.
      *
      * @param  list<string>  $relativePaths
+     * @param  array<string, string>  $previousPaths  New path => the path it was renamed from.
      * @return array<string, list<DiffHunk>>
      */
-    public function hunksForFiles(string $base, array $relativePaths): array
+    public function hunksForFiles(string $base, array $relativePaths, array $previousPaths = []): array
     {
-        $hunks = [];
-
-        foreach ($this->batches($relativePaths) as $batch) {
-            $diff = $this->attempt(['diff', '--unified=0', '--no-color', $base, '--', ...$batch]);
-
-            if ($diff === null) {
-                continue;
-            }
-
-            foreach ($this->parseUnifiedDiff($diff) as $path => $ranges) {
-                $hunks[$path] = $ranges;
-            }
-        }
-
-        return $hunks;
-    }
-
-    /**
-     * Split paths into groups that fit comfortably inside one command line.
-     *
-     * @param  list<string>  $relativePaths
-     * @return list<list<string>>
-     */
-    private function batches(array $relativePaths, int $maxLength = 6000): array
-    {
-        $batches = [];
-        $batch = [];
-        $length = 0;
-
-        foreach ($relativePaths as $path) {
-            if ($batch !== [] && $length + mb_strlen($path) + 3 > $maxLength) {
-                $batches[] = $batch;
-                $batch = [];
-                $length = 0;
-            }
-
-            $batch[] = $path;
-            $length += mb_strlen($path) + 3;
-        }
-
-        if ($batch !== []) {
-            $batches[] = $batch;
-        }
-
-        return $batches;
-    }
-
-    /**
-     * @return array<string, list<DiffHunk>>
-     */
-    private function parseUnifiedDiff(string $diff): array
-    {
-        $hunks = [];
-        $path = null;
-
-        foreach (explode("\n", $diff) as $line) {
-            if (str_starts_with($line, '+++ ')) {
-                $target = mb_substr(rtrim($line, "\r"), 4);
-                $path = $target === '/dev/null' ? null : preg_replace('#^b/#', '', $target);
-
-                continue;
-            }
-
-            if ($path === null || ! str_starts_with($line, '@@') || preg_match('/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/', $line, $matches) !== 1) {
-                continue;
-            }
-
-            $hunks[$path][] = new DiffHunk(
-                startLine: (int) $matches[1],
-                lineCount: isset($matches[2]) ? (int) $matches[2] : 1,
-            );
-        }
-
-        return $hunks;
-    }
-
-    /**
-     * The single hunk covering a file that is new in its entirety.
-     *
-     * @return list<DiffHunk>
-     */
-    private function wholeFileHunks(string $relativePath): array
-    {
-        $contents = @file_get_contents($this->workingDirectory.'/'.$relativePath);
-
-        if ($contents === false || trim($contents) === '') {
-            return [];
-        }
-
-        return [new DiffHunk(startLine: 1, lineCount: count(explode("\n", rtrim($contents, "\n"))))];
+        return $this->diff()->hunksForFiles($base, $relativePaths, $previousPaths);
     }
 
     /**
@@ -380,23 +289,9 @@ final readonly class Git
      */
     public function churn(int $commits): array
     {
-        $output = $this->attempt(['log', '-n', (string) $commits, '--name-only', '--no-renames', '--relative', '--format=']);
+        $output = $this->attempt(['log', '-n', (string) $commits, '--name-only', '--no-renames', '--relative', '-z', '--format=']);
 
-        if ($output === null) {
-            return [];
-        }
-
-        $counts = [];
-
-        foreach (explode("\n", $output) as $line) {
-            $path = trim($line);
-
-            if ($path !== '') {
-                $counts[$path] = ($counts[$path] ?? 0) + 1;
-            }
-        }
-
-        return $counts;
+        return $output === null ? [] : (new GitOutputParser)->pathCounts($output);
     }
 
     /**
@@ -404,54 +299,13 @@ final readonly class Git
      */
     public function untrackedFiles(): array
     {
-        $output = $this->attempt(['ls-files', '--others', '--exclude-standard']);
+        $output = $this->attempt(['ls-files', '-z', '--others', '--exclude-standard']);
 
-        if ($output === null) {
-            return [];
-        }
-
-        $paths = [];
-
-        foreach (explode("\n", $output) as $line) {
-            $path = trim($line);
-
-            if ($path !== '') {
-                $paths[] = $path;
-            }
-        }
-
-        return $paths;
+        return $output === null ? [] : (new GitOutputParser)->paths($output);
     }
 
-    /**
-     * @return list<ChangedFile>
-     */
-    private function parseNameStatus(string $output): array
+    private function diff(): WorkingTreeDiff
     {
-        $files = [];
-
-        foreach (explode("\n", $output) as $line) {
-            $parts = preg_split('/\t/', trim($line)) ?: [];
-
-            if (count($parts) < 2) {
-                continue;
-            }
-
-            $code = $parts[0];
-            $status = match (true) {
-                str_starts_with($code, 'A') => 'added',
-                str_starts_with($code, 'D') => 'deleted',
-                str_starts_with($code, 'R') => 'renamed',
-                default => 'modified',
-            };
-
-            // Renames are reported as "R100\told\tnew".
-            $path = $status === 'renamed' && isset($parts[2]) ? $parts[2] : $parts[1];
-            $previous = $status === 'renamed' ? $parts[1] : null;
-
-            $files[] = new ChangedFile($path, $status, previousPath: $previous);
-        }
-
-        return $files;
+        return new WorkingTreeDiff($this, $this->workingDirectory);
     }
 }

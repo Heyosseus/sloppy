@@ -2,6 +2,16 @@
 
 declare(strict_types=1);
 
+// Name endings that mark a class as one layer of a stack built on the same
+// noun: OrderService, OrderRepository and OrderRepositoryInterface are three
+// layers over "Order". SL301 reports such stacks and SL303 leaves them to it,
+// so both read this one list.
+$layerSuffixes = [
+    'Interface', 'Contract', 'Repository', 'Service', 'Manager', 'Factory', 'Handler',
+    'Provider', 'Adapter', 'Wrapper', 'Decorator', 'Proxy', 'Impl', 'Implementation',
+    'Abstract', 'Base', 'Builder', 'Resolver', 'Mapper', 'Transformer',
+];
+
 return [
 
     /*
@@ -550,6 +560,9 @@ return [
             'min_signals' => 2,
             'trivial_max_statements' => 12,
             'trivial_max_methods' => 3,
+            // Replace the list at the top of this file to change what counts
+            // as a layer word.
+            'layer_suffixes' => $layerSuffixes,
             // Classes extending one of these, directly or through your own
             // base class, are a convention rather than a layer: they neither
             // count towards a stack nor get reported. Add your project's own
@@ -575,7 +588,12 @@ return [
             // Single-Use Abstraction. Advisory.
             'max_methods' => 3,
             'max_usages' => 1,
+            // Leave an abstraction to SL301 when it belongs to a layer stack
+            // at least layer_stack_depth deep (never less than 2), so the same
+            // layering is not reported twice.
             'skip_layer_stacks' => true,
+            'layer_stack_depth' => 3,
+            'layer_suffixes' => $layerSuffixes,
         ],
 
         'SL304' => [

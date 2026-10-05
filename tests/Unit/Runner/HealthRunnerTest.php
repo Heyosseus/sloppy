@@ -156,3 +156,33 @@ it('surfaces a failure to build the run as an error', function (): void {
 
     removeTree($root);
 });
+
+it('keeps a filtered run out of the shared cache, both ways', function (): void {
+    [$sloppy, $root] = healthProject();
+    $cache = $root.'/.sloppy-health.json';
+
+    // A filtered run on a cold cache must not leave its partial answer behind.
+    (new HealthRunner)->run($sloppy, new HealthOptions(rules: ['SL107'], json: true), new RecordingRunnerOutput);
+
+    expect(is_file($cache))->toBeFalse();
+
+    // A whole-project run fills the cache; a filtered one must not read it.
+    (new HealthRunner)->run($sloppy, new HealthOptions(json: true), new RecordingRunnerOutput);
+    $whole = (string) file_get_contents($cache);
+
+    foreach ([new HealthOptions(rules: ['SL107'], json: true), new HealthOptions(minConfidence: 100, json: true), new HealthOptions(paths: ['src'], json: true)] as $options) {
+        $output = new RecordingRunnerOutput;
+        (new HealthRunner)->run($sloppy, $options, $output);
+
+        /** @var array{findings: int} $decoded */
+        $decoded = json_decode($output->reportBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        if ($options->rules !== []) {
+            expect($decoded['findings'])->toBe(0);
+        }
+    }
+
+    expect((string) file_get_contents($cache))->toBe($whole);
+
+    removeTree($root);
+});

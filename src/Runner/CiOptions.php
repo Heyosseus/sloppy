@@ -19,6 +19,8 @@ final readonly class CiOptions implements RunnerOptions
      * @param  string|null  $base  Revision to compare against; null to read it from the CI environment.
      * @param  OutputFormat|null  $format  Report shape; null to use the provider's.
      * @param  string|null  $report  File to write the machine-readable report to; null for standard output.
+     * @param  bool  $mergeBase  Compare a branch from where the change forked from it, not from its tip.
+     * @param  bool  $allowParseErrors  Pass the step even when some files could not be parsed.
      * @param  list<string>  $paths
      * @param  list<string>  $rules
      */
@@ -33,6 +35,9 @@ final readonly class CiOptions implements RunnerOptions
         public bool $summary = true,
         public bool $scan = false,
         public bool $noBaseline = false,
+        public bool $mergeBase = true,
+        public bool $allowParseErrors = false,
+        public bool $explainRisk = false,
     ) {}
 
     /** @return list<string> */

@@ -27,12 +27,18 @@ it('says it could not read a baseline that is there but will not open', function
     UnreadableStream::unregister();
 });
 
-it('refuses to write a baseline it cannot encode', function (): void {
-    // A fingerprint quoting bytes that are not valid UTF-8 cannot be JSON.
-    $baseline = Baseline::fromFindings([finding(fingerprint: "Order::\xB1\x31")]);
+it('writes a baseline whose fingerprint is not valid UTF-8, and still matches the finding', function (): void {
+    // A fingerprint quoting bytes that are not valid UTF-8 cannot be JSON as
+    // it is. The bytes are replaced in the file; the entry is matched by its
+    // identity, which was hashed from the original, so it still applies.
+    $finding = finding(fingerprint: "Order::\xB1\x31");
+    $path = sys_get_temp_dir().'/sloppy-utf8-'.bin2hex(random_bytes(4)).'.json';
 
-    expect(fn (): mixed => (new BaselineManager)->save($baseline, sys_get_temp_dir().'/sloppy-never-written.json'))
-        ->toThrow(RuntimeException::class, 'Baseline could not be encoded as JSON.');
+    (new BaselineManager)->save(Baseline::fromFindings([$finding]), $path);
+
+    expect((new BaselineManager)->load($path)?->allowanceFor($finding))->toBe(1);
+
+    unlink($path);
 });
 
 it('says which directory it could not create', function (): void {

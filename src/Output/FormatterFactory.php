@@ -29,6 +29,7 @@ final readonly class FormatterFactory
         private int $top = 20,
         private Surface $surface = Surface::Standalone,
         private bool $hasBaseline = false,
+        private ?string $pathPrefix = null,
     ) {}
 
     public function for(OutputFormat $format): Formatter
@@ -37,9 +38,9 @@ final readonly class FormatterFactory
 
         return match ($format) {
             OutputFormat::Json => new JsonFormatter(explainRisk: $this->explainRisk, risk: $risk, tiers: $this->tiers()),
-            OutputFormat::Sarif => new SarifFormatter(Sloppy::VERSION),
-            OutputFormat::Github => new GithubFormatter,
-            OutputFormat::Gitlab => new GitlabFormatter,
+            OutputFormat::Sarif => new SarifFormatter(Sloppy::VERSION, $this->pathPrefix()),
+            OutputFormat::Github => new GithubFormatter($this->pathPrefix()),
+            OutputFormat::Gitlab => new GitlabFormatter(pathPrefix: $this->pathPrefix()),
             OutputFormat::Rector => new RectorFormatter,
             OutputFormat::Markdown => new MarkdownFormatter(risk: $risk, explainRisk: $this->explainRisk),
             OutputFormat::Console => $this->console($risk),
@@ -70,7 +71,16 @@ final readonly class FormatterFactory
         );
     }
 
-    private function tiers(): TierMap
+    /**
+     * The project's path inside its repository, for the formats a forge
+     * reads: they name files from the repository root. Nothing outside git.
+     */
+    public function pathPrefix(): string
+    {
+        return $this->pathPrefix ?? $this->sloppy->git()->prefix();
+    }
+
+    public function tiers(): TierMap
     {
         return new TierMap($this->sloppy->configuration);
     }

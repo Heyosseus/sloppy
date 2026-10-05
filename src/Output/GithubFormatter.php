@@ -21,6 +21,14 @@ use Heyosseus\Sloppy\Contracts\Formatter;
  */
 final readonly class GithubFormatter implements Formatter
 {
+    /**
+     * @param  string  $pathPrefix  The project's path inside the repository. GitHub places an
+     *                              annotation by its repository-relative path, so a project in a
+     *                              subdirectory -- a monorepo package, a `working-directory` step --
+     *                              needs it in front of every file it names.
+     */
+    public function __construct(private string $pathPrefix = '') {}
+
     public function format(AnalysisResult $result): string
     {
         $lines = [];
@@ -58,7 +66,7 @@ final readonly class GithubFormatter implements Formatter
     private function annotation(Finding $finding): string
     {
         $properties = [
-            'file='.$this->escapeProperty($finding->location->relativePath),
+            'file='.$this->escapeProperty($this->pathPrefix.$finding->location->relativePath),
             'line='.max(1, $finding->location->line),
         ];
 

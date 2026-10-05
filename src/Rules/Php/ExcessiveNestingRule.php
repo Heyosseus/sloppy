@@ -7,9 +7,9 @@ namespace Heyosseus\Sloppy\Rules\Php;
 use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Ast\CodeUnit;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
-use PhpParser\Node;
 
 /**
  * SL103 -- control flow nested deeply enough that the happy path is buried.
@@ -28,7 +28,7 @@ final class ExcessiveNestingRule extends BaseRule
 
     public function description(): string
     {
-        return 'Flags methods whose conditionals, loops and try blocks nest deeper than the configured limit.';
+        return 'Flags methods, functions and top-level code whose conditionals, loops and try blocks nest deeper than the configured limit.';
     }
 
     public function explanation(): string
@@ -53,43 +53,40 @@ final class ExcessiveNestingRule extends BaseRule
     {
         $maxDepth = max(1, $this->intOption('max_depth', 4));
 
-        foreach ($context->classLikes() as $classLike) {
-            $className = NodeHelper::shortName($classLike) ?? 'anonymous class';
-
-            foreach (NodeHelper::methods($classLike) as $method) {
-                if ($method->stmts === null || $method->stmts === []) {
-                    continue;
-                }
-
-                $depth = NodeHelper::maxNestingDepth($method);
-
-                if ($depth <= $maxDepth) {
-                    continue;
-                }
-
-                $deepest = NodeHelper::deepestNestedNode($method);
-
-                yield $this->report(
-                    context: $context,
-                    at: $deepest instanceof Node ? $deepest : $method,
-                    message: sprintf(
-                        '%s::%s() nests control flow %d levels deep, past the limit of %d.',
-                        $className,
-                        $method->name->toString(),
-                        $depth,
-                        $maxDepth,
-                    ),
-                    suggestion: 'Invert the outer conditions into guard clauses that return early, then extract the '
-                        .'remaining inner block into its own method. Both changes flatten the method without '
-                        .'changing behaviour.',
-                    confidence: min(95, 70 + ($depth - $maxDepth) * 8),
-                    fingerprint: $className.'::'.$method->name->toString(),
-                    metrics: [
-                        'depth' => $depth,
-                        'max_depth' => $maxDepth,
-                    ],
-                );
+        // Functions, property hooks and top-level code -- a routes file full
+        // of closures -- bury a happy path just as well as a method does.
+        foreach (CodeUnit::inFile($context->file, withTopLevel: true) as $unit) {
+            if (! $unit->hasBody()) {
+                continue;
             }
+
+            $depth = NodeHelper::maxNestingDepth($unit->root());
+
+            if ($depth <= $maxDepth) {
+                continue;
+            }
+
+            $deepest = NodeHelper::deepestNestedNode($unit->root());
+
+            yield $this->report(
+                context: $context,
+                at: $deepest ?? $unit->node ?? $context->locateLine(1),
+                message: sprintf(
+                    '%s nests control flow %d levels deep, past the limit of %d.',
+                    $unit->subject(),
+                    $depth,
+                    $maxDepth,
+                ),
+                suggestion: 'Invert the outer conditions into guard clauses that return early, then extract the '
+                    .'remaining inner block into its own method. Both changes flatten the method without '
+                    .'changing behaviour.',
+                confidence: min(95, 70 + ($depth - $maxDepth) * 8),
+                fingerprint: $unit->label(),
+                metrics: [
+                    'depth' => $depth,
+                    'max_depth' => $maxDepth,
+                ],
+            );
         }
     }
 }

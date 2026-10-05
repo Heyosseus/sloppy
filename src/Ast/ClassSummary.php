@@ -22,6 +22,7 @@ final readonly class ClassSummary
      * @param  list<string>  $calledNames  Traits only: lower-cased method names it calls or names in a string.
      * @param  bool  $isValueObject  A `readonly` class, or one whose constructor only promotes readonly properties.
      * @param  list<string>  $attributes  Fully qualified names of the attributes on the declaration.
+     * @param  list<string>  $castAttributes  Model attributes declared in `$casts`, `casts()` or `$dates`: values, not relations.
      */
     public function __construct(
         public string $fqn,
@@ -43,17 +44,26 @@ final readonly class ClassSummary
         public bool $hasDynamicAccess = false,
         public bool $isValueObject = false,
         public array $attributes = [],
+        public array $castAttributes = [],
     ) {}
 
     /**
      * Whether this declaration is an Eloquent model.
      *
      * The query rules use this to tell `Order::find(1)` from a static helper
-     * that happens to be called `find`.
+     * that happens to be called `find`. On its own a summary only sees its
+     * direct parent; given the index, the parent chain is followed through
+     * the project's own base classes.
      */
-    public function isEloquentModel(): bool
+    public function isEloquentModel(?ProjectIndex $index = null): bool
     {
-        return $this->kind === 'class' && NodeHelper::extendsEloquentModel($this->parent);
+        if ($this->kind !== 'class') {
+            return false;
+        }
+
+        return $index instanceof ProjectIndex
+            ? $index->isEloquentModel($this->fqn)
+            : NodeHelper::extendsEloquentModel($this->parent);
     }
 
     /**

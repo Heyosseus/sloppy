@@ -39,6 +39,10 @@ final readonly class DiffConsoleFormatter implements DiffFormatter
             $lines[] = '';
             $lines[] = '  <fg=gray>No analysable PHP changes against '.OutputFormatter::escape($report->base).'.</>';
             $lines[] = '';
+            // Still the project's score: nothing changed is not the same as
+            // nothing wrong.
+            $lines[] = $this->scoreLine($report);
+            $lines[] = '';
 
             return implode("\n", $lines)."\n";
         }

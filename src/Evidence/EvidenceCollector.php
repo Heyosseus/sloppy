@@ -85,9 +85,10 @@ final readonly class EvidenceCollector
 
     /**
      * @param  list<ChangedFile>  $changedFiles
+     * @param  list<ChangedFile>|null  $repositoryChanges  Every file git reports changed, when the caller already asked.
      * @return list<Finding>
      */
-    public function collect(Git $git, string $baseRevision, array $changedFiles, ?ProjectIndex $index = null): array
+    public function collect(Git $git, string $baseRevision, array $changedFiles, ?ProjectIndex $index = null, ?array $repositoryChanges = null): array
     {
         if ($this->sources === []) {
             return [];
@@ -99,6 +100,7 @@ final readonly class EvidenceCollector
             baseRevision: $baseRevision,
             changedFiles: $changedFiles,
             index: $index,
+            repositoryChanges: $repositoryChanges,
         );
 
         $findings = [];

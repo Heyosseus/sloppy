@@ -59,7 +59,9 @@ it('appends rather than guessing when the markers are damaged', function (): voi
     expect(RulesetFile::hasBlock($broken))->toBeTrue()
         ->and($merged)->toContain('# Notes')
         ->and($merged)->toContain('something')
-        ->and($merged)->toEndWith(RulesetFile::END.PHP_EOL);
+        // The file's own line ending, not the platform's.
+        ->and($merged)->toEndWith(RulesetFile::END."\n")
+        ->and($merged)->not->toContain("\r\n");
 });
 
 it('appends when only one marker is present', function (): void {
@@ -84,4 +86,22 @@ it('knows where each agent looks for its instructions', function (): void {
 it('rejects a format nobody reads', function (): void {
     expect(fn (): RulesetFormat => RulesetFormat::parse('emacs'))
         ->toThrow(InvalidArgumentException::class, 'Unknown ruleset format [emacs].');
+});
+
+it('takes its block out again, leaving the team\'s text as it was', function (string $original): void {
+    $merged = RulesetFile::merge($original, "# Rules\n\n- one");
+
+    expect(RulesetFile::remove($merged))->toBe($original);
+})->with([
+    'before' => ["# Our notes\n\nBe kind.\n"],
+    'CRLF' => ["# Our notes\r\n\r\nBe kind.\r\n"],
+]);
+
+it('keeps what followed the block, and says when the block was all there was', function (): void {
+    $file = "# Ours\n\n".RulesetFile::BEGIN."\n\nrules\n\n".RulesetFile::END."\n\n## After\n";
+
+    expect(RulesetFile::remove($file))->toBe("# Ours\n\n## After\n")
+        ->and(RulesetFile::remove(RulesetFile::merge(null, 'rules')))->toBe('')
+        ->and(RulesetFile::remove(RulesetFile::BEGIN."\nrules\n".RulesetFile::END."\n# After\n"))->toBe("# After\n")
+        ->and(RulesetFile::remove("# No block here\n"))->toBeNull();
 });

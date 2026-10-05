@@ -14,7 +14,7 @@ use XMLReader;
  * two attributes per file is the whole requirement.
  *
  * When the XML extension is absent every read returns an empty map, so a
- * missing `ext-xml` costs ranking quality and nothing else. That is why it is
+ * missing `ext-xmlreader` costs ranking quality and nothing else. That is why it is
  * suggested rather than required.
  */
 final class CloverReader

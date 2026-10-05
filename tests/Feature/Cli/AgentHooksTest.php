@@ -58,6 +58,21 @@ it('previews the hooks without writing, and writes personal ones when asked', fu
     removeTree($project);
 });
 
+it('uninstalls the hooks from the command line', function (): void {
+    $project = tempProject(['composer.json' => '{}', 'vendor/bin/sloppy' => '<?php']);
+    $tester = hookTester('');
+
+    $tester->run(['command' => 'agents', 'action' => 'install', '--project' => $project], ['capture_stderr_separately' => true]);
+    $code = $tester->run(['command' => 'agents', 'action' => 'uninstall', '--project' => $project], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Success->value)
+        ->and($tester->getDisplay())->toContain('Deleted .claude/settings.json')
+        ->and(is_file($project.'/.claude/settings.json'))->toBeFalse()
+        ->and(is_file($project.'/CLAUDE.md'))->toBeFalse();
+
+    removeTree($project);
+});
+
 it('rejects an action it does not have', function (): void {
     $project = tempProject(['composer.json' => '{}']);
     $tester = hookTester('');
@@ -65,7 +80,7 @@ it('rejects an action it does not have', function (): void {
     $code = $tester->run(['command' => 'agents', 'action' => 'remove', '--project' => $project], ['capture_stderr_separately' => true]);
 
     expect($code)->toBe(ExitCode::Error->value)
-        ->and($tester->getDisplay())->toContain('Unknown action [remove]. The only action is install.');
+        ->and($tester->getDisplay())->toContain('Unknown action [remove]. The actions are install and uninstall.');
 
     removeTree($project);
 });

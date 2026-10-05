@@ -83,7 +83,7 @@ final class QueryInsideLoopRule extends LaravelRule
             /** @var array<string, true> $reported */
             $reported = [];
 
-            foreach (NodeHelper::find($classLike, StaticCall::class) as $call) {
+            foreach (NodeHelper::findOwn($classLike, StaticCall::class) as $call) {
                 // `self::find()` on a helper class is not a query, and neither
                 // is a static method on a class we can see is not a model.
                 if (! LaravelCalls::targetsDatabase($call, $context->index)) {

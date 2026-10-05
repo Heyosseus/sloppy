@@ -265,7 +265,7 @@ final class UnusedConstructorDependencyRule extends BaseRule
      */
     private function isUsed(Class_ $classLike, ClassMethod $constructor, string $propertyName, string $paramName): bool
     {
-        foreach (NodeHelper::find($classLike, PropertyFetch::class) as $fetch) {
+        foreach (NodeHelper::findOwn($classLike, PropertyFetch::class) as $fetch) {
             if (! $fetch->name instanceof Identifier || $fetch->name->toString() !== $propertyName) {
                 continue;
             }

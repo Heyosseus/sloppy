@@ -19,18 +19,19 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * `sloppy agents install` -- make the agent check its own work, every time.
+ * `sloppy agents uninstall` takes it all out again.
  */
-#[AsCommand(name: 'agents', description: 'Install hooks so Claude Code runs Sloppy after every edit and before it finishes')]
+#[AsCommand(name: 'agents', description: 'Install (or uninstall) hooks so Claude Code runs Sloppy after every edit and before it finishes')]
 final class AgentsCliCommand extends CliCommandBase
 {
     protected function configure(): void
     {
         $this
-            ->addArgument('action', InputArgument::OPTIONAL, 'install', 'install')
+            ->addArgument('action', InputArgument::OPTIONAL, 'install or uninstall', 'install')
             ->addOption('project', null, InputOption::VALUE_REQUIRED, 'Project directory (default: the nearest one above the working directory)')
             ->addOption('config', null, InputOption::VALUE_REQUIRED, 'Path to a sloppy configuration file')
-            ->addOption('local', null, InputOption::VALUE_NONE, 'Write .claude/settings.local.json, which stays out of git, instead of the shared settings')
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Print the settings that would be written, and write nothing');
+            ->addOption('local', null, InputOption::VALUE_NONE, 'Write .claude/settings.local.json and CLAUDE.local.md, which stay out of git, instead of the shared files')
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Say what would be written or removed, and write nothing');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -38,15 +39,19 @@ final class AgentsCliCommand extends CliCommandBase
         return $this->runWith($input, $output, function (Sloppy $sloppy, RunnerOutput $runnerOutput) use ($input): ExitCode {
             $action = (string) $input->getArgument('action');
 
-            if ($action !== 'install') {
-                throw new InvalidArgumentException(sprintf('Unknown action [%s]. The only action is install.', $action));
+            if (! in_array($action, ['install', 'uninstall'], true)) {
+                throw new InvalidArgumentException(sprintf('Unknown action [%s]. The actions are install and uninstall.', $action));
             }
 
-            return (new AgentsRunner)->run($sloppy, new AgentsOptions(
+            $options = new AgentsOptions(
                 local: $input->getOption('local') === true,
                 dryRun: $input->getOption('dry-run') === true,
                 binary: $this->runningBinary(),
-            ), $runnerOutput);
+            );
+
+            return $action === 'uninstall'
+                ? (new AgentsRunner)->uninstall($sloppy, $options, $runnerOutput)
+                : (new AgentsRunner)->run($sloppy, $options, $runnerOutput);
         });
     }
 
@@ -57,7 +62,8 @@ final class AgentsCliCommand extends CliCommandBase
      */
     private function runningBinary(): string
     {
-        $phar = Phar::running(false);
+        // ext-phar is optional: without it nothing can be running from a phar.
+        $phar = class_exists(Phar::class, false) ? Phar::running(false) : '';
 
         if ($phar !== '') {
             return $phar;

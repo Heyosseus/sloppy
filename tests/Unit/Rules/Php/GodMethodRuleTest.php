@@ -213,3 +213,33 @@ it('still flags a single statement that branches past the limit', function (): v
 
     expect(findings(godMethod(), declarativeSchema(100, "->visible(fn (\$get) => {$conditions})")))->toHaveCount(1);
 });
+
+it('measures a function as it measures a method', function (): void {
+    $method = branchyMethod(30);
+    $body = substr($method, (int) strpos($method, '{', (int) strpos($method, 'process')) + 1);
+    $body = substr($body, 0, (int) strrpos($body, '}'));
+    $body = substr($body, 0, (int) strrpos($body, '}'));
+
+    $found = findings(godMethod(), 'function process(array $input): int {'.$body.'}');
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->fingerprint)->toBe('process')
+        ->and($found[0]->message)->toStartWith('process() spans');
+});
+
+it('does not count an anonymous class body against the method that creates it', function (): void {
+    $class = branchyMethod(30);
+    $anonymous = substr($class, (int) strpos($class, '{'));
+
+    $found = findings(godMethod(), <<<PHP
+    class Factory
+    {
+        public function make(): object
+        {
+            return new class {$anonymous};
+        }
+    }
+    PHP);
+
+    expect(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->fingerprint, $found))->toBe(['anonymous class::process']);
+});

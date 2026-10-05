@@ -285,3 +285,13 @@ it('leaves findings whose subject cannot be resolved otherwise unchanged', funct
 
     expect($enriched[0])->toBe($original);
 });
+
+it('does not attribute a finding on the line after a class to that class', function (): void {
+    $index = indexOf([
+        'app/Pair.php' => "<?php\n\nfinal class A {}\nfinal class B\n{\n    public function go(): void {}\n}\n",
+    ]);
+
+    $enriched = (new BlastRadiusEnricher($index))->enrich([finding(file: 'app/Pair.php', line: 4)]);
+
+    expect($enriched[0]->metrics['subject'])->toBe('B');
+});

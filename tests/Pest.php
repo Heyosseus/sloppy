@@ -11,15 +11,48 @@ use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\Parser;
+use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
+use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RuleTester;
 use Heyosseus\Sloppy\Tests\Support\TempTree;
 use Heyosseus\Sloppy\Tests\TestCase;
+use Illuminate\Contracts\Config\Repository;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 
 uses(TestCase::class)->in(__DIR__.'/Unit', __DIR__.'/Feature');
+
+hermeticGit();
+
+/**
+ * Stop git from climbing out of the system temp directory.
+ *
+ * The throwaway projects the tests create live in the temp directory, and
+ * several tests rely on one of them *not* being a repository. On a machine
+ * whose temp directory sits inside some other checkout (a home directory kept
+ * in git, say) git would happily discover that outer repository instead. A
+ * ceiling at the temp directory keeps every test project's answer its own.
+ * Written to the environment, `$_ENV` and `$_SERVER` alike, because Symfony
+ * Process builds a child's environment from all three.
+ */
+function hermeticGit(): void
+{
+    $temp = sys_get_temp_dir();
+    $ceilings = array_values(array_unique(array_filter([$temp, realpath($temp)], is_string(...))));
+    $existing = getenv('GIT_CEILING_DIRECTORIES');
+
+    if (is_string($existing) && $existing !== '') {
+        $ceilings[] = $existing;
+    }
+
+    $value = implode(PATH_SEPARATOR, $ceilings);
+
+    putenv('GIT_CEILING_DIRECTORIES='.$value);
+    $_ENV['GIT_CEILING_DIRECTORIES'] = $value;
+    $_SERVER['GIT_CEILING_DIRECTORIES'] = $value;
+}
 
 /**
  * Parse a snippet, adding the opening tag when the test left it out.
@@ -223,4 +256,30 @@ function architectureSnapshotOf(array $files, array $architecture = []): Heyosse
             array_keys($files),
         )),
     );
+}
+
+/**
+ * Point the Laravel package at a throwaway project and re-bind the container so the
+ * command under test analyses it.
+ *
+ * @param  array<string, string>  $files  Relative path => contents.
+ * @param  array<string, mixed>  $config
+ */
+function project(array $files, array $config = []): string
+{
+    $root = tempProject($files);
+
+    /** @var Repository $repository */
+    $repository = app(Repository::class);
+
+    /** @var array<string, mixed> $current */
+    $current = $repository->get('sloppy', []);
+
+    $merged = [...$current, ...$config];
+    $repository->set('sloppy', $merged);
+
+    app()->instance(Configuration::class, Configuration::fromArray($merged, $root));
+    app()->instance(Sloppy::class, new Sloppy(Configuration::fromArray($merged, $root)));
+
+    return $root;
 }

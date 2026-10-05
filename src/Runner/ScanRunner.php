@@ -29,7 +29,8 @@ final readonly class ScanRunner
     public function run(Sloppy $sloppy, ScanOptions $options, RunnerOutput $output): ExitCode
     {
         try {
-            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options);
+            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options, $output);
+            (new ConfigurationResolver)->assertPathsExist($sloppy, $options);
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 
@@ -51,24 +52,37 @@ final readonly class ScanRunner
         $files = $sloppy->fileMap();
 
         if ($files === []) {
-            $output->warn(sprintf('No PHP files found in: %s.', implode(', ', $configuration->paths())));
-
-            return ExitCode::Success;
+            return $this->reportNothingToAnalyse($sloppy, $output);
         }
+
+        $threshold = $configuration->failOn();
 
         try {
             $result = $this->analyse($sloppy, count($files), $options, $output);
+
+            if ((new ConfigurationResolver)->nothingParsed($sloppy, $result->errors)) {
+                $first = (string) array_key_first($result->errors);
+
+                $output->error(sprintf(
+                    'None of the %d PHP file(s) could be parsed, so there is no score to report. First error: %s: %s',
+                    count($files),
+                    $first,
+                    $result->errors[$first] ?? '',
+                ));
+
+                return ExitCode::Error;
+            }
+
             $reported = (new BaselineFilter)->apply($sloppy, $result, $output, ! $options->noBaseline);
+            $hasBaseline = $sloppy->baselines()->exists($configuration->baselinePath());
+            $rendered = $this->render($reported, $options, $threshold, $sloppy, $hasBaseline);
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 
             return ExitCode::Error;
         }
 
-        $threshold = $configuration->failOn();
-        $hasBaseline = $sloppy->baselines()->exists($configuration->baselinePath());
-
-        $output->report($this->render($reported, $options, $threshold, $sloppy, $hasBaseline), $options->format);
+        $output->report($rendered, $options->format);
 
         if ($options->format === OutputFormat::Console && $output->canAsk() && $this->wantsPhpstanExtension($sloppy)) {
             $output->notice('Already on PHPStan? composer require --dev heyosseus/phpstan-sloppy reports these in your PHPStan run.');
@@ -81,6 +95,33 @@ final readonly class ScanRunner
         return $threshold instanceof Severity && $reported->hasAtOrAbove($threshold)
             ? ExitCode::FindingsAboveThreshold
             : ExitCode::Success;
+    }
+
+    /**
+     * Paths that exist but hold no PHP are a project with nothing to say yet,
+     * which is a warning. Paths none of which exist are a mistake -- a typo, a
+     * wrong working directory -- and passing would be a green check that
+     * checked nothing.
+     */
+    private function reportNothingToAnalyse(Sloppy $sloppy, RunnerOutput $output): ExitCode
+    {
+        $configuration = $sloppy->configuration;
+
+        foreach ($configuration->paths() as $path) {
+            if (file_exists($configuration->absolutePath($path))) {
+                $output->warn(sprintf('No PHP files found in: %s.', implode(', ', $configuration->paths())));
+
+                return ExitCode::Success;
+            }
+        }
+
+        $output->error(sprintf(
+            'None of the configured paths exist: %s (in %s).',
+            implode(', ', $configuration->paths()),
+            $configuration->basePath,
+        ));
+
+        return ExitCode::Error;
     }
 
     private function triaged(AnalysisResult $result, ScanOptions $options): bool

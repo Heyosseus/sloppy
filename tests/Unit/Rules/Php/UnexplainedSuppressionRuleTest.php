@@ -157,3 +157,79 @@ it('still fires on a directive indented inside a docblock', function (): void {
 
     expect($findings)->toHaveCount(1);
 });
+
+it('does not read the next docblock tag as the reason for a suppression', function (): void {
+    $findings = findings(new UnexplainedSuppressionRule, <<<'PHP'
+    class Rows
+    {
+        /**
+         * @psalm-suppress MixedAssignment
+         * @return array
+         */
+        public function all(): array
+        {
+            return $this->rows;
+        }
+    }
+    PHP);
+
+    expect($findings)->toHaveCount(1)
+        ->and($findings[0]->metrics['annotation'])->toBe('@psalm-suppress');
+});
+
+it('does not read identifiers as a reason, however they are listed', function (string $comment, string $annotation): void {
+    $findings = findings(new UnexplainedSuppressionRule, <<<PHP
+    class Rows
+    {
+        /** {$comment} */
+        public function all(): array
+        {
+            return \$this->rows;
+        }
+    }
+    PHP);
+
+    expect($findings)->toHaveCount(1)
+        ->and($findings[0]->metrics['annotation'])->toBe($annotation);
+})->with([
+    'PHPMD parenthesised' => ['@SuppressWarnings(PHPMD.StaticAccess)', '@SuppressWarnings'],
+    'PHPStan identifier list' => ['@phpstan-ignore argument.type, return.type', '@phpstan-ignore'],
+    'Psalm issue list' => ['@psalm-suppress MixedAssignment, MixedArgument', '@psalm-suppress'],
+]);
+
+it('still accepts a reason after the identifiers', function (): void {
+    expect(findings(new UnexplainedSuppressionRule, <<<'PHP_WRAP'
+    class Rows
+    {
+        /** @SuppressWarnings(PHPMD.StaticAccess) the facade is the framework's own API */
+        public function all(): array
+        {
+            return $this->rows;
+        }
+    }
+    PHP_WRAP))->toBeEmpty();
+});
+
+it('keeps its fingerprint when code above it moves', function (): void {
+    $code = <<<'PHP'
+    class Rows
+    {
+        public function all(): array
+        {
+            /** @phpstan-ignore-next-line */
+            $a = $this->rows;
+
+            /** @phpstan-ignore-next-line */
+            return $a;
+        }
+    }
+    PHP;
+
+    $before = findings(new UnexplainedSuppressionRule, $code);
+    $after = findings(new UnexplainedSuppressionRule, "\n\n\n".str_replace('class Rows', "/** Rows. */\nclass Rows", $code));
+
+    expect(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->fingerprint, $before))
+        ->toBe(['@phpstan-ignore@Rows::all', '@phpstan-ignore@Rows::all#2'])
+        ->and(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->fingerprint, $after))
+        ->toBe(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->fingerprint, $before));
+});

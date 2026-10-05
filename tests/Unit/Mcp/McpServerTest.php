@@ -87,8 +87,140 @@ it('lists its tools with their schemas', function (): void {
         ->and($server->tools())->toHaveCount(2);
 });
 
-it('answers a ping', function (): void {
-    expect(decoded((new McpServer([]))->handleLine('{"jsonrpc":"2.0","id":3,"method":"ping"}'))['result'])->toBe([]);
+it('answers a ping with an empty object, not an empty array', function (): void {
+    expect((new McpServer([]))->handleLine('{"jsonrpc":"2.0","id":3,"method":"ping"}'))
+        ->toBe('{"jsonrpc":"2.0","id":3,"result":{}}');
+});
+
+it('agrees on the revision the client asked for when it speaks it, and offers its latest otherwise', function (string $requested, string $agreed): void {
+    $server = new McpServer([]);
+
+    $response = decoded($server->handleLine(sprintf(
+        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"%s","capabilities":{}}}',
+        $requested,
+    )));
+
+    /** @var array{protocolVersion: string} $result */
+    $result = $response['result'];
+
+    expect($result['protocolVersion'])->toBe($agreed)
+        ->and($server->protocolVersion())->toBe($agreed);
+})->with([
+    'latest' => ['2025-06-18', '2025-06-18'],
+    '2025-03-26' => ['2025-03-26', '2025-03-26'],
+    '2024-11-05' => ['2024-11-05', '2024-11-05'],
+    'unknown' => ['1999-01-01', McpServer::PROTOCOL_VERSION],
+]);
+
+it('refuses a batch under 2025-06-18, which removed batching', function (): void {
+    $server = new McpServer([]);
+
+    $line = $server->handleLine('[{"jsonrpc":"2.0","id":1,"method":"ping"},{"jsonrpc":"2.0","id":2,"method":"ping"}]');
+
+    /** @var array{id: null, error: array{code: int, message: string}} $response */
+    $response = decoded($line);
+
+    expect($response['id'])->toBeNull()
+        ->and($response['error']['code'])->toBe(-32600)
+        ->and($response['error']['message'])->toContain('does not allow JSON-RPC batches');
+});
+
+it('answers a batch under a revision that allows one', function (): void {
+    $server = new McpServer([]);
+    $server->handleLine('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}');
+
+    $line = (string) $server->handleLine('[{"jsonrpc":"2.0","id":2,"method":"ping"},{"jsonrpc":"2.0","method":"notifications/initialized"},5]');
+
+    expect($line)->toBe('[{"jsonrpc":"2.0","id":2,"result":{}},{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"A request must be a JSON object."}}]')
+        // A batch of notifications alone gets no answer at all.
+        ->and($server->handleLine('[{"jsonrpc":"2.0","method":"notifications/initialized"}]'))->toBeNull()
+        ->and(decoded($server->handleLine('[]'))['error'])->toBe(['code' => -32600, 'message' => 'An empty batch is not a request.']);
+});
+
+it('rejects valid JSON that is not a request object as an invalid request, not a parse error', function (string $line): void {
+    /** @var array{id: null, error: array{code: int}} $response */
+    $response = decoded((new McpServer([]))->handleLine($line));
+
+    expect($response['id'])->toBeNull()
+        ->and($response['error']['code'])->toBe(-32600);
+})->with(['5', '"ping"', 'true', 'null', '{"jsonrpc":"2.0"}', '{"jsonrpc":"2.0","id":{"a":1},"method":"ping"}']);
+
+it('rejects arguments that do not fit the tool\'s schema with a result the model can act on', function (string $arguments, string $problem): void {
+    $tool = new readonly class implements McpTool
+    {
+        public function name(): string
+        {
+            return 'sloppy_scan';
+        }
+
+        public function description(): string
+        {
+            return 'A tool for the tests.';
+        }
+
+        public function inputSchema(): array
+        {
+            return [
+                'type' => 'object',
+                'properties' => [
+                    'paths' => ['type' => 'array', 'items' => ['type' => 'string']],
+                    'format' => ['type' => 'string', 'enum' => ['markdown', 'json']],
+                    'min_confidence' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 100],
+                    'fresh' => ['type' => 'boolean'],
+                    'description' => ['type' => 'string'],
+                ],
+                'required' => ['description'],
+            ];
+        }
+
+        public function call(array $arguments): string
+        {
+            return 'called';
+        }
+    };
+
+    $response = decoded((new McpServer([$tool]))->handleLine(sprintf(
+        '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sloppy_scan","arguments":%s}}',
+        $arguments,
+    )));
+
+    /** @var array{content: list<array{text: string}>, isError: bool} $result */
+    $result = $response['result'];
+
+    expect($result['isError'])->toBeTrue()
+        ->and($result['content'][0]['text'])->toBe('Invalid arguments for sloppy_scan: '.$problem);
+})->with([
+    'enum' => ['{"description":"x","format":"xml"}', '"format" must be one of "markdown", "json", got "xml".'],
+    'string for an array' => ['{"description":"x","paths":"app"}', '"paths" must be an array, got "app".'],
+    'item type' => ['{"description":"x","paths":["app",3]}', '"paths[1]" must be a string, got 3.'],
+    'string for an integer' => ['{"description":"x","min_confidence":"abc"}', '"min_confidence" must be an integer, got "abc".'],
+    'out of range' => ['{"description":"x","min_confidence":150}', '"min_confidence" must be between 0 and 100, got 150.'],
+    'boolean' => ['{"description":"x","fresh":"yes"}', '"fresh" must be a boolean, got "yes".'],
+    'required' => ['{}', '"description" is required.'],
+    'not an object' => ['"nope"', '"arguments" must be an object, got "nope".'],
+]);
+
+it('accepts arguments that fit the schema, and keys it does not mention', function (): void {
+    $server = new McpServer([stubTool('sloppy_scan', 'called')]);
+
+    $response = decoded($server->handleLine('{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"sloppy_scan","arguments":{"suffix":"!"}}}'));
+
+    /** @var array{content: list<array{text: string}>, isError: bool} $result */
+    $result = $response['result'];
+
+    expect($result['content'][0]['text'])->toBe('called!')
+        ->and($result['isError'])->toBeFalse();
+});
+
+it('sends tool text with "\n" line endings whatever the platform', function (): void {
+    $server = new McpServer([stubTool('sloppy_rules', "# Rules\r\n\r\n- one\r\n")]);
+
+    $response = decoded($server->handleLine('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sloppy_rules"}}'));
+
+    /** @var array{content: list<array{text: string}>} $result */
+    $result = $response['result'];
+
+    expect($result['content'][0]['text'])->toBe("# Rules\n\n- one\n");
 });
 
 it('calls a tool and returns its text', function (): void {
@@ -120,7 +252,7 @@ it('reports a tool failure as an answer the model can act on, not a protocol err
 it('treats missing arguments as no arguments', function (): void {
     $server = new McpServer([stubTool('sloppy_scan', 'called')]);
 
-    $response = decoded($server->handleLine('{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"sloppy_scan","arguments":"nope"}}'));
+    $response = decoded($server->handleLine('{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"sloppy_scan"}}'));
 
     /** @var array{content: list<array{text: string}>} $result */
     $result = $response['result'];
@@ -165,6 +297,8 @@ it('says nothing at all to a notification', function (): void {
     $server = new McpServer([]);
 
     expect($server->handleLine('{"jsonrpc":"2.0","method":"notifications/initialized"}'))->toBeNull()
+        // Even one the server does not know.
+        ->and($server->handleLine('{"jsonrpc":"2.0","method":"notifications/whatever"}'))->toBeNull()
         ->and($server->handle(['method' => 'notifications/cancelled']))->toBeNull();
 });
 

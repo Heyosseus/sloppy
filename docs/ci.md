@@ -17,7 +17,7 @@ environment wants:
 
 | Where it runs | What it does |
 | --- | --- |
-| A GitHub pull request | Compares against the target branch and annotates the changed lines |
+| A GitHub pull request | Compares against where the change forked from the target branch and annotates the changed lines |
 | A GitHub push | Analyses the whole project |
 | GitLab | Writes a Code Quality report GitLab renders in the merge request |
 | Anywhere else | Prints the ranked console report |
@@ -27,7 +27,31 @@ numbers back as step outputs so a later step can comment, gate a deploy or
 publish a badge without running anything twice.
 
 Everything is overridable: `--base`, `--format`, `--report=<file>`,
-`--fail-on`, `--scan`, `--no-summary`, `--path`, `--rule`, `--min-confidence`.
+`--fail-on`, `--scan`, `--no-summary`, `--path`, `--rule`, `--min-confidence`,
+`--explain-risk`.
+
+**It compares from the merge base.** Given a branch -- the pull request's
+target, or `--base=main` -- `ci` compares the working tree with
+`git merge-base <branch> HEAD`, where the change forked, not with the branch's
+tip. Against the tip, everything merged into the target since the fork would
+be charged to this change: findings the target gained would show up as
+resolved, and findings it fixed as new. A commit given by hash is used as it
+is. `--no-merge-base` compares with the tip. A shallow clone may not reach the
+merge base; `ci` then warns and compares with the tip, so fetch enough
+history (`fetch-depth: 0`) -- the action deepens the checkout itself.
+`sloppy diff <branch> --merge-base` does the same outside CI; plain
+`sloppy diff <branch>` compares with the tip.
+
+**A file that cannot be parsed fails the step.** It is a file nobody checked,
+so `ci` exits 2 when any file has a parse error, after writing the report.
+Pass `--allow-parse-errors` to accept that. A run in which *no* file could be
+parsed exits 2 without a score, everywhere -- 100 would be a claim about code
+nobody read. A `--path` that does not exist exits 2 too.
+
+**In a monorepo** -- the project in a subdirectory of the repository, or the
+action's `working-directory` -- changed files are found relative to the
+project, and annotations, SARIF and Code Quality name files from the
+repository root, which is what GitHub and GitLab resolve them against.
 
 ## GitHub Action
 
@@ -99,14 +123,22 @@ and handing it a diff would break the comparison it is already doing for you.
 
 ## Editors and code scanning
 
-Sloppy speaks three formats that put findings where you already look, so it
+Sloppy speaks four formats that put findings where you already look, so it
 does not need a dashboard of its own.
 
 | Format | Goes to |
 | --- | --- |
 | `--format=sarif` | GitHub code scanning, VS Code, JetBrains IDEs |
 | `--format=github` | Inline annotations on a pull-request diff |
+| `--format=gitlab` | The GitLab merge request Code Quality widget |
 | `--format=markdown` | A pull-request comment body |
+
+Every format works on `scan`, `diff`, `review` and `ci`. On `diff` and
+`review`, `sarif`, `gitlab` and `rector` carry the findings the change
+introduced; in `ci` they carry every finding in the changed files, because
+GitLab and code scanning work out what is new themselves. Two findings that
+share an identity -- the same pattern twice in one method -- get distinct
+fingerprints, so neither is dropped as a duplicate.
 
 ### SARIF
 
@@ -164,7 +196,7 @@ do not pipe to a file.
 | --- | --- |
 | `0` | Analysis completed and nothing breached `fail_on` |
 | `1` | Analysis completed and found something at or above `fail_on` |
-| `2` | Analysis could not run: bad configuration, no git repository, unreadable baseline |
+| `2` | Analysis could not run: bad configuration, a `--path` that does not exist, no git repository, unreadable baseline, nothing that parses -- and in `ci`, any file that does not parse |
 
 The distinction between 1 and 2 matters. A pipeline that conflates them either
 ignores real findings or fails on a typo in a config file without telling you

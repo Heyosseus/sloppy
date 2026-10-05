@@ -23,7 +23,9 @@ it('defaults to analysing app', function (): void {
     expect(config_()->paths())->toBe(['app'])
         ->and(config_(['paths' => []])->paths())->toBe(['app'])
         ->and(config_(['paths' => ['src', ' domain ']])->paths())->toBe(['src', 'domain'])
-        ->and(config_(['paths' => 'nonsense'])->paths())->toBe(['app']);
+        // A single path is a list of one, not a reason to analyse app/.
+        ->and(config_(['paths' => 'lib'])->paths())->toBe(['lib'])
+        ->and(config_(['paths' => 42])->problems)->toContain('sloppy.paths must be a list of strings; got 42.');
 });
 
 it('is enabled unless told otherwise', function (): void {
@@ -42,15 +44,17 @@ it('reads the failure threshold, including the ways of disabling it', function (
 });
 
 it('rejects a non-string failure threshold', function (): void {
-    expect(fn (): ?Severity => config_(['fail_on' => 3])->failOn())
-        ->toThrow(InvalidArgumentException::class, 'sloppy.fail_on');
+    expect(implode('
+', config_(['fail_on' => 3])->problems))->toContain('sloppy.fail_on');
 });
 
 it('clamps the confidence floor', function (): void {
     expect(config_(['min_confidence' => 150])->minConfidence())->toBe(100)
         ->and(config_(['min_confidence' => -5])->minConfidence())->toBe(0)
         ->and(config_(['min_confidence' => 70])->minConfidence())->toBe(70)
-        ->and(config_()->minConfidence())->toBe(0);
+        ->and(config_()->minConfidence())->toBe(0)
+        // Clamped so it still reads, but never silently: it is a problem.
+        ->and(config_(['min_confidence' => 150])->problems)->toHaveCount(1);
 });
 
 it('resolves the baseline path against the project root', function (): void {

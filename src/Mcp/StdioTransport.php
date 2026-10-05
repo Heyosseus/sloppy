@@ -24,8 +24,39 @@ final readonly class StdioTransport
 
     /**
      * Serve until the input ends, returning how many messages were answered.
+     *
+     * For as long as it runs, PHP's own diagnostics go to standard error and
+     * anything a tool echoes is caught and sent there too: the protocol
+     * stream is written through `$output` directly, which output buffering
+     * does not see, so the buffer only ever holds what does not belong on it.
+     *
+     * @param  SplFileObject|null  $diagnostics  Where stray output goes; standard error by default.
      */
-    public function serve(SplFileObject $input, SplFileObject $output): int
+    public function serve(SplFileObject $input, SplFileObject $output, ?SplFileObject $diagnostics = null): int
+    {
+        $diagnostics ??= new SplFileObject('php://stderr', 'w');
+        $displayErrors = ini_set('display_errors', 'stderr');
+
+        ob_start(static function (string $buffer) use ($diagnostics): string {
+            if ($buffer !== '') {
+                $diagnostics->fwrite($buffer);
+            }
+
+            return '';
+        }, 1);
+
+        try {
+            return $this->loop($input, $output);
+        } finally {
+            ob_end_flush();
+
+            if ($displayErrors !== false) {
+                ini_set('display_errors', $displayErrors);
+            }
+        }
+    }
+
+    private function loop(SplFileObject $input, SplFileObject $output): int
     {
         $answered = 0;
 

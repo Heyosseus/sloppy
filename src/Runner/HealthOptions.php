@@ -22,6 +22,15 @@ final readonly class HealthOptions implements RunnerOptions
         public ?int $top = null,
     ) {}
 
+    /**
+     * Whether the run looks at less than the whole project, and so must stay
+     * out of the cache every dashboard reads as the project's answer.
+     */
+    public function isFiltered(): bool
+    {
+        return $this->paths !== [] || $this->rules !== [] || $this->minConfidence !== null;
+    }
+
     /** @return list<string> */
     public function paths(): array
     {

@@ -42,6 +42,25 @@ enum ConditionKind: string
         };
     }
 
+    /**
+     * Every kind that is certain to hold once this one does, itself included.
+     *
+     * Truthy and not-empty are the same test and both rule out null; null
+     * rules in falsy and empty; falsy and empty are the same test. Not-null
+     * says nothing about truthiness, which is why it implies only itself.
+     *
+     * @return list<self>
+     */
+    public function implied(): array
+    {
+        return match ($this) {
+            self::Truthy, self::NotEmpty => [self::Truthy, self::NotEmpty, self::NotNull],
+            self::NotNull => [self::NotNull],
+            self::IsNull => [self::IsNull, self::Falsy, self::IsEmpty],
+            self::Falsy, self::IsEmpty => [self::Falsy, self::IsEmpty],
+        };
+    }
+
     public function describe(string $subject): string
     {
         return match ($this) {

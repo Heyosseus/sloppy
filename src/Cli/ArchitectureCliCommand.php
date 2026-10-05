@@ -23,7 +23,7 @@ final class ArchitectureCliCommand extends CliCommandBase
 {
     protected function configure(): void
     {
-        $this->configureSharedOptions();
+        $this->configureSharedOptions(filters: false);
 
         $this
             ->addArgument('class', InputArgument::OPTIONAL, 'A class to explain, by fully qualified or short name; or graph, place, init, import or prompt')

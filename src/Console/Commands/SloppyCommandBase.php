@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Console\Commands;
 
+use Heyosseus\Sloppy\Cli\IntegerOption;
 use Heyosseus\Sloppy\Console\LaravelRunnerOutput;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Support\StringListOption;
 use Heyosseus\Sloppy\Support\Terminal;
 use Illuminate\Console\Command;
-use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -65,15 +65,7 @@ abstract class SloppyCommandBase extends Command
     {
         $value = $this->option($name);
 
-        if (! is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        if (! is_numeric($value)) {
-            throw new InvalidArgumentException(sprintf('--%s must be a number.', $name));
-        }
-
-        return (int) $value;
+        return IntegerOption::parse($name, is_string($value) && trim($value) !== '' ? trim($value) : null);
     }
 
     /**

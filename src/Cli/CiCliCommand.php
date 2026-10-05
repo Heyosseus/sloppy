@@ -34,12 +34,15 @@ final class CiCliCommand extends CliCommandBase
 
         $this
             ->addOption('base', null, InputOption::VALUE_REQUIRED, 'Revision to compare against; read from the CI environment when omitted')
-            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'github, gitlab, json, markdown, sarif or console; the provider decides when omitted')
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, OutputFormat::listing().'; the provider decides when omitted')
             ->addOption('report', null, InputOption::VALUE_REQUIRED, 'Write the machine-readable report to this file instead of standard output')
             ->addOption('fail-on', null, InputOption::VALUE_REQUIRED, 'Lowest severity that fails the step, or "never"')
             ->addOption('scan', null, InputOption::VALUE_NONE, 'Analyse the whole project instead of comparing against a revision')
             ->addOption('no-summary', null, InputOption::VALUE_NONE, 'Do not write the job summary')
-            ->addOption('no-baseline', null, InputOption::VALUE_NONE, 'Report every finding, including baselined ones');
+            ->addOption('no-baseline', null, InputOption::VALUE_NONE, 'Report every finding, including baselined ones')
+            ->addOption('no-merge-base', null, InputOption::VALUE_NONE, 'Compare a branch from its tip rather than from where HEAD forked from it')
+            ->addOption('allow-parse-errors', null, InputOption::VALUE_NONE, 'Pass even when some files could not be parsed')
+            ->addOption('explain-risk', null, InputOption::VALUE_NONE, 'Show the arithmetic behind each risk value');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -58,6 +61,9 @@ final class CiCliCommand extends CliCommandBase
                 summary: $input->getOption('no-summary') !== true,
                 scan: $input->getOption('scan') === true,
                 noBaseline: $input->getOption('no-baseline') === true,
+                mergeBase: $input->getOption('no-merge-base') !== true,
+                allowParseErrors: $input->getOption('allow-parse-errors') === true,
+                explainRisk: $input->getOption('explain-risk') === true,
             );
 
             return (new CiRunner(CiEnvironment::fromGlobals()))->run($sloppy, $options, $runnerOutput);

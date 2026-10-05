@@ -54,7 +54,7 @@ inputs:
   version:
     description: 'Version of heyosseus/sloppy to install. Ignored when the project already has it as a dependency.'
     required: false
-    default: '^0.5'
+    default: '^1.6'
 
 outputs:
   score:
@@ -94,39 +94,65 @@ runs:
     # fetches one commit by default, so the branch a pull request targets is
     # usually absent -- and a tool that silently scanned the whole project
     # instead would report inherited debt as if the author had written it.
+    # The checkout is deepened too, so the merge base of the two is found.
+    #
+    # Every input reaches the shell through the environment, never through
+    # `${{ }}` interpolation into the script: an input -- or a branch name --
+    # containing `"; curl ... | sh; "` would otherwise be run as code.
     - name: Fetch the base branch
       if: github.base_ref != '' && inputs.scan != 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: git fetch --no-tags --depth=50 origin "${{ github.base_ref }}" || true
+      env:
+        SLOPPY_BASE_REF: ${{ github.base_ref }}
+      run: |
+        git fetch --no-tags --depth=50 origin "$SLOPPY_BASE_REF" || true
+        git fetch --no-tags --deepen=50 origin || true
 
     - name: Install Sloppy
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        SLOPPY_VERSION: ${{ inputs.version }}
       run: |
         if [ -x vendor/bin/sloppy ]; then
           echo "SLOPPY_BIN=vendor/bin/sloppy" >> "$GITHUB_ENV"
           exit 0
         fi
 
-        composer global require "heyosseus/sloppy:${{ inputs.version }}" --no-interaction --no-progress
+        composer global require "heyosseus/sloppy:$SLOPPY_VERSION" --no-interaction --no-progress
         echo "SLOPPY_BIN=$(composer global config home)/vendor/bin/sloppy" >> "$GITHUB_ENV"
 
     - name: Run Sloppy
       id: sloppy
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        SLOPPY_DIFF_BRANCH: ${{ inputs.diff-branch }}
+        SLOPPY_FAIL_ON: ${{ inputs.fail-on }}
+        SLOPPY_FORMAT: ${{ inputs.format }}
+        SLOPPY_REPORT: ${{ inputs.report }}
+        SLOPPY_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
+        SLOPPY_SCAN: ${{ inputs.scan }}
+        SLOPPY_SUMMARY: ${{ inputs.summary }}
+        SLOPPY_PATHS: ${{ inputs.paths }}
+        SLOPPY_RULES: ${{ inputs.rules }}
       run: |
+        set -f
         args=()
-        [ -n "${{ inputs.diff-branch }}" ] && args+=("--base=${{ inputs.diff-branch }}")
-        [ -n "${{ inputs.fail-on }}" ] && args+=("--fail-on=${{ inputs.fail-on }}")
-        [ -n "${{ inputs.format }}" ] && args+=("--format=${{ inputs.format }}")
-        [ -n "${{ inputs.report }}" ] && args+=("--report=${{ inputs.report }}")
-        [ -n "${{ inputs.min-confidence }}" ] && args+=("--min-confidence=${{ inputs.min-confidence }}")
-        [ "${{ inputs.scan }}" = "true" ] && args+=("--scan")
-        [ "${{ inputs.summary }}" != "true" ] && args+=("--no-summary")
+        [ -n "$SLOPPY_DIFF_BRANCH" ] && args+=("--base=$SLOPPY_DIFF_BRANCH")
+        [ -n "$SLOPPY_FAIL_ON" ] && args+=("--fail-on=$SLOPPY_FAIL_ON")
+        [ -n "$SLOPPY_FORMAT" ] && args+=("--format=$SLOPPY_FORMAT")
+        [ -n "$SLOPPY_REPORT" ] && args+=("--report=$SLOPPY_REPORT")
+        [ -n "$SLOPPY_MIN_CONFIDENCE" ] && args+=("--min-confidence=$SLOPPY_MIN_CONFIDENCE")
+        [ "$SLOPPY_SCAN" = "true" ] && args+=("--scan")
+        [ "$SLOPPY_SUMMARY" != "true" ] && args+=("--no-summary")
 
-        for path in ${{ inputs.paths }}; do args+=("--path=$path"); done
-        for rule in ${{ inputs.rules }}; do args+=("--rule=$rule"); done
+        # Word-split on whitespace only; `set -f` keeps a `*` in a path
+        # from being expanded against the runner's file system.
+        read -r -a paths <<< "$SLOPPY_PATHS"
+        read -r -a rules <<< "$SLOPPY_RULES"
+        for path in "${paths[@]}"; do args+=("--path=$path"); done
+        for rule in "${rules[@]}"; do args+=("--rule=$rule"); done
 
         "$SLOPPY_BIN" ci "${args[@]}"

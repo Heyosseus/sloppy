@@ -77,3 +77,22 @@ it('keeps configured paths that exist rather than guessing', function (): void {
 
     removeTree($project);
 });
+
+it('merges a project file over the packaged defaults, as Laravel does', function (): void {
+    // A sloppy.php that only sets fail_on must still exclude vendor/ and keep
+    // every rule's thresholds, the same as through Artisan.
+    $project = tempProject([
+        'composer.json' => '{}',
+        'sloppy.php' => '<?php return ["fail_on" => "critical"];',
+        'app/A.php' => '<?php class A {}',
+    ]);
+
+    $defaults = require dirname(__DIR__, 3).'/config/sloppy.php';
+    $config = (new ConfigurationLoader($project))->load();
+
+    expect($config->failOn()?->value)->toBe('critical')
+        ->and($config->exclude())->toBe($defaults['exclude'])
+        ->and($config->ruleOptions('SL101'))->toBe($defaults['rules']['SL101']);
+
+    removeTree($project);
+});

@@ -59,7 +59,11 @@ final readonly class ProfileLoader
         }
 
         foreach ($configured as $key => $setting) {
-            $default = $key === 'preset' ? $setting === Presets::DEFAULT : $setting === [] || $setting === null;
+            // The preset is compared the way Profile reads it, trimmed and in
+            // any case, so ' Laravel ' is the default it means.
+            $default = $key === 'preset'
+                ? is_string($setting) && mb_strtolower(trim($setting)) === Presets::DEFAULT
+                : $setting === [] || $setting === null;
 
             if (! $default) {
                 return true;

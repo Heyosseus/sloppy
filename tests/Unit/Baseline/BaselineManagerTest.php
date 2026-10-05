@@ -187,3 +187,51 @@ it('builds an entry from a finding and can change its count', function (): void 
         ->and($entry->withCount(1)->id)->toBe($entry->id)
         ->and(BaselineEntry::fromArray(['id' => 'a']))->toBeNull();
 });
+
+it('still accepts a baselined finding whose file moved, once per recorded occurrence', function (): void {
+    $manager = new BaselineManager;
+    $baseline = Baseline::fromFindings([
+        finding(file: 'app/B.php', fingerprint: 'B::run'),
+        finding(file: 'app/B.php', fingerprint: 'B::run'),
+    ]);
+
+    $moved = [
+        finding(file: 'app/Sub/B.php', line: 1, fingerprint: 'B::run'),
+        finding(file: 'app/Sub/B.php', line: 2, fingerprint: 'B::run'),
+        finding(file: 'app/Sub/B.php', line: 3, fingerprint: 'B::run'),
+    ];
+
+    $partition = $manager->partition($moved, $baseline, ['app/Sub/B.php']);
+
+    expect($partition['baselined'])->toHaveCount(2)
+        ->and($partition['new'])->toHaveCount(1)
+        ->and($partition['new'][0]->location->line)->toBe(3)
+        ->and($manager->resolved($moved, $baseline, ['app/Sub/B.php']))->toBe([]);
+});
+
+it('does not lend an entry to another file while its own file is still there', function (): void {
+    $manager = new BaselineManager;
+    $baseline = Baseline::fromFindings([finding(file: 'app/A.php', fingerprint: 'Same::name')]);
+
+    $partition = $manager->partition(
+        [finding(file: 'app/Other.php', fingerprint: 'Same::name')],
+        $baseline,
+        ['app/A.php', 'app/Other.php'],
+    );
+
+    expect($partition['new'])->toHaveCount(1)
+        ->and($partition['baselined'])->toBe([]);
+});
+
+it('prefers the exact match, so a moved finding cannot use up an entry twice', function (): void {
+    $manager = new BaselineManager;
+    $baseline = Baseline::fromFindings([finding(file: 'app/Old.php', fingerprint: 'X::y')]);
+    $result = AnalysisResult::create([finding(file: 'app/New.php', fingerprint: 'X::y')], ['app/New.php'], 100, new ScoreCalculator);
+
+    $path = baselineFile();
+    $manager->save($baseline, $path);
+
+    expect($manager->apply($result, $path, new ScoreCalculator)->findings)->toBe([]);
+
+    removeTree(dirname($path));
+});

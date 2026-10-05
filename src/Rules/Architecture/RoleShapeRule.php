@@ -11,8 +11,13 @@ use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Architecture\Policy;
 use Heyosseus\Sloppy\Architecture\PolicyRule;
 use Heyosseus\Sloppy\Architecture\Profile;
+use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
+use PhpParser\Modifiers;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Stmt\Class_;
+use PhpParser\Node\Stmt\TraitUse;
+use PhpParser\Node\Stmt\TraitUseAdaptation\Alias;
 
 /**
  * SL308 -- a class is not the shape its role says.
@@ -126,6 +131,83 @@ final class RoleShapeRule extends BaseRule implements PolicyRule
                 fingerprint: $name.'::'.$methodName,
                 metrics: ['role' => $policy->role, 'shape' => 'public_method', 'method' => $methodName],
             );
+        }
+
+        yield from $this->traitMethods($context, $class, $name, $policy);
+    }
+
+    /**
+     * Public methods a class takes from the traits it uses, where the index
+     * knows the trait. They are part of the class's public surface exactly
+     * as if it had declared them, so a role's shape covers them too -- unless
+     * the class declares the method itself or narrows it with `as private`.
+     *
+     * @return iterable<Finding>
+     */
+    private function traitMethods(AnalysisContext $context, Class_ $class, string $name, Policy $policy): iterable
+    {
+        $fqn = NodeHelper::className($class);
+
+        if ($fqn === null) {
+            return;
+        }
+
+        $own = [];
+
+        foreach ($class->getMethods() as $method) {
+            $own[$method->name->toLowerString()] = true;
+        }
+
+        $narrowed = [];
+        $anchor = null;
+
+        foreach ($class->getTraitUses() as $use) {
+            $anchor ??= $use;
+
+            foreach ($use->adaptations as $adaptation) {
+                if ($adaptation instanceof Alias && ! $adaptation->newName instanceof Identifier && $adaptation->newModifier !== null && ($adaptation->newModifier & Modifiers::PUBLIC) === 0) {
+                    $narrowed[$adaptation->method->toLowerString()] = true;
+                }
+            }
+        }
+
+        if (! $anchor instanceof TraitUse) {
+            return;
+        }
+
+        $reported = [];
+
+        foreach ($context->index->traitsOf($fqn) as $trait) {
+            foreach ($trait->publicMethodNames as $methodName) {
+                $key = mb_strtolower($methodName);
+
+                if (isset($own[$key]) || isset($narrowed[$key]) || isset($reported[$key]) || $policy->allowsPublicMethod($methodName)) {
+                    continue;
+                }
+
+                $reported[$key] = true;
+
+                yield $this->report(
+                    context: $context,
+                    at: $anchor,
+                    message: sprintf(
+                        '%s::%s() is public through trait %s, but %s may have only these public methods: %s.',
+                        $name,
+                        $methodName,
+                        $trait->shortName,
+                        $policy->plural(),
+                        $policy->publicMethodList(),
+                    ),
+                    suggestion: $this->suggestion($policy, sprintf(
+                        'Narrow it where the trait is used -- `use %s { %s as private; }` -- or move the trait to a class whose role allows it',
+                        $trait->shortName,
+                        $methodName,
+                    )),
+                    confidence: 80,
+                    fingerprint: $name.'::'.$methodName,
+                    metrics: ['role' => $policy->role, 'shape' => 'public_method', 'method' => $methodName, 'trait' => $trait->fqn],
+                );
+            }
         }
     }
 

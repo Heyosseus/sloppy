@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Ast\NodeHelper;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Rules\Laravel\LaravelCalls;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
@@ -130,3 +131,60 @@ function staticCallIn(string $code): Node
         StaticCall::class,
     )[0];
 }
+
+describe('query entry points', function (): void {
+    it('takes a static call on an unknown class for a query only when a model would answer it', function (): void {
+        $index = ProjectIndex::build([]);
+        $call = static fn (string $code): StaticCall => NodeHelper::find(parsedFile('class Probe { public function go(): mixed { return '.$code.'; } }')->ast, StaticCall::class)[0];
+
+        expect(LaravelCalls::targetsDatabase($call("Order::where('a', 1)"), $index))->toBeTrue()
+            ->and(LaravelCalls::targetsDatabase($call('Order::all()'), $index))->toBeTrue()
+            ->and(LaravelCalls::targetsDatabase($call("Order::whereEmail('a')"), $index))->toBeTrue()
+            ->and(LaravelCalls::targetsDatabase($call('Order::create([])'), $index))->toBeTrue()
+            ->and(LaravelCalls::targetsDatabase($call('Carbon::parse($d)'), $index))->toBeFalse()
+            ->and(LaravelCalls::targetsDatabase($call('Uuid::uuid4()'), $index))->toBeFalse();
+    });
+
+    it('needs the HTTP client to be one by its fully qualified name', function (): void {
+        expect(LaravelCalls::isHttpCall(expressionIn('new \Symfony\Component\HttpClient\CurlHttpClient()')))->toBeTrue()
+            ->and(LaravelCalls::isHttpCall(expressionIn('new \App\Models\Client()')))->toBeFalse()
+            ->and(LaravelCalls::isHttpCall(expressionIn('new Client()')))->toBeFalse();
+    });
+
+    it('counts a write only when it is made on a model, a relation or a query', function (): void {
+        $index = ProjectIndex::build([]);
+        $file = parsedFile(<<<'PHP'
+        class Probe
+        {
+            public function go(Request $request): void
+            {
+                $order = Order::create([]);
+                $order->items()->create([]);
+                $order->save();
+                Order::where('a', 1)->update([]);
+                $this->service->create([]);
+                $items = collect();
+                $items->push(1);
+                $request->session()->push('a', 1);
+            }
+        }
+        PHP);
+
+        $writes = [];
+
+        foreach ([...NodeHelper::find($file->ast, MethodCall::class), ...NodeHelper::find($file->ast, StaticCall::class)] as $call) {
+            if (LaravelCalls::isDatabaseWrite($call, $index)) {
+                $writes[] = NodeHelper::printAny($call);
+            }
+        }
+
+        sort($writes);
+
+        expect($writes)->toBe([
+            '$order->items()->create([])',
+            '$order->save()',
+            '\Order::create([])',
+            "\Order::where('a', 1)->update([])",
+        ]);
+    });
+});

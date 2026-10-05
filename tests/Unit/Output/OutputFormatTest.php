@@ -16,7 +16,7 @@ it('rejects an unknown format by name, listing every format now that there are s
     expect(fn (): OutputFormat => OutputFormat::parse('xml'))
         ->toThrow(
             InvalidArgumentException::class,
-            'Unknown --format [xml]. Expected console or json or sarif or markdown or github or gitlab or rector.',
+            'Unknown --format [xml]. Expected console, json, sarif, markdown, github, gitlab or rector.',
         );
 });
 

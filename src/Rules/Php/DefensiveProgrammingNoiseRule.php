@@ -8,16 +8,31 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Ast\CodeUnit;
 use Heyosseus\Sloppy\Ast\ConditionShape;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
+use PhpParser\Node;
+use PhpParser\Node\ArrayItem;
+use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\AssignOp;
+use PhpParser\Node\Expr\AssignRef;
+use PhpParser\Node\Expr\List_;
+use PhpParser\Node\Expr\PostDec;
+use PhpParser\Node\Expr\PostInc;
+use PhpParser\Node\Expr\PreDec;
+use PhpParser\Node\Expr\PreInc;
 use PhpParser\Node\Expr\Throw_;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Break_;
-use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\Continue_;
 use PhpParser\Node\Stmt\Expression;
+use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Nop;
 use PhpParser\Node\Stmt\Return_;
@@ -27,8 +42,10 @@ use PhpParser\Node\Stmt\Return_;
  *
  * Two spellings of one check with one outcome -- `if (! $user) return null;`
  * followed by `if ($user === null) return null;` -- is noise, not safety. The
- * rule only reports pairs where the subject is provably untouched in between,
- * because a reassignment makes the second check meaningful.
+ * rule only reports pairs where the first guard has certainly run before the
+ * second, the second can only pass where the first would have, and the
+ * subject is provably untouched in between, because a reassignment makes the
+ * second check meaningful.
  */
 final class DefensiveProgrammingNoiseRule extends BaseRule
 {
@@ -44,7 +61,7 @@ final class DefensiveProgrammingNoiseRule extends BaseRule
 
     public function description(): string
     {
-        return 'Flags a method that guards the same subject the same way twice, with the same outcome and no reassignment in between.';
+        return 'Flags a method or function that guards the same subject twice, where the second guard can only catch what the first already did, with the same outcome and no reassignment in between.';
     }
 
     public function explanation(): string
@@ -66,15 +83,9 @@ final class DefensiveProgrammingNoiseRule extends BaseRule
 
     public function analyze(AnalysisContext $context): iterable
     {
-        foreach ($context->classLikes() as $classLike) {
-            $className = NodeHelper::shortName($classLike) ?? 'anonymous class';
-
-            foreach (NodeHelper::methods($classLike) as $method) {
-                if ($method->stmts === null) {
-                    continue;
-                }
-
-                yield from $this->duplicateGuards($context, $method, $className);
+        foreach (CodeUnit::inFile($context->file) as $unit) {
+            if ($unit->hasBody()) {
+                yield from $this->duplicateGuards($context, $unit);
             }
         }
     }
@@ -82,12 +93,13 @@ final class DefensiveProgrammingNoiseRule extends BaseRule
     /**
      * @return iterable<Finding>
      */
-    private function duplicateGuards(AnalysisContext $context, ClassMethod $method, string $className): iterable
+    private function duplicateGuards(AnalysisContext $context, CodeUnit $unit): iterable
     {
         /** @var list<array{node: If_, shape: ConditionShape, outcome: string}> $guards */
         $guards = [];
+        $root = $unit->root();
 
-        foreach (NodeHelper::find($method, If_::class) as $if) {
+        foreach (NodeHelper::findOwn($root, If_::class) as $if) {
             $outcome = $this->earlyExitOf($if);
 
             if ($outcome === null) {
@@ -103,11 +115,20 @@ final class DefensiveProgrammingNoiseRule extends BaseRule
             $guards[] = ['node' => $if, 'shape' => $shape, 'outcome' => $outcome];
         }
 
+        if (count($guards) < 2) {
+            return;
+        }
+
+        $writes = $this->writes($root);
         $reported = [];
 
         foreach ($guards as $index => $guard) {
             foreach (array_slice($guards, 0, $index) as $earlier) {
-                if (! $guard['shape']->equivalentTo($earlier['shape'])) {
+                // Past the first guard its condition is known to be false, so
+                // the second is redundant only when it cannot pass without the
+                // first having passed: `! $x` after `$x === null` still
+                // catches `0`, `''` and `[]`.
+                if (! $guard['shape']->implies($earlier['shape'])) {
                     continue;
                 }
 
@@ -115,7 +136,11 @@ final class DefensiveProgrammingNoiseRule extends BaseRule
                     continue;
                 }
 
-                if ($this->reassignedBetween($method, $guard['shape']->subject, $earlier['node'], $guard['node'])) {
+                if (! $this->governs($earlier['node'], $guard['node'])) {
+                    continue;
+                }
+
+                if ($this->reassignedBetween($writes, $guard['shape']->subject, $earlier['node'], $guard['node'])) {
                     continue;
                 }
 
@@ -131,16 +156,15 @@ final class DefensiveProgrammingNoiseRule extends BaseRule
                     context: $context,
                     at: $guard['node'],
                     message: sprintf(
-                        '%s::%s() already guarded that %s on line %d, with the same outcome.',
-                        $className,
-                        $method->name->toString(),
+                        '%s already guarded that %s on line %d, with the same outcome.',
+                        $unit->subject(),
                         $earlier['shape']->describe(),
                         $earlier['node']->getStartLine(),
                     ),
                     suggestion: 'Keep one guard. If the two were meant to catch different states -- null versus '
                         .'empty, say -- make that difference explicit in the conditions and in what each returns.',
                     confidence: 78,
-                    fingerprint: sprintf('%s::%s:%s', $className, $method->name->toString(), $guard['shape']->subject),
+                    fingerprint: sprintf('%s:%s', $unit->label(), $guard['shape']->subject),
                     metrics: [
                         'subject' => $guard['shape']->subject,
                         'first_check' => $earlier['shape']->kind->value,
@@ -185,22 +209,116 @@ final class DefensiveProgrammingNoiseRule extends BaseRule
     }
 
     /**
-     * Whether the guarded subject is written to between the two guards, which
-     * would make the second check meaningful.
+     * Whether the first guard has certainly run, in the same scope, by the
+     * time the second is reached: it sits earlier in a block that encloses
+     * the second, with no closure in between. Two loops one after the other,
+     * each skipping a null `$item`, guard two different variables.
      */
-    private function reassignedBetween(ClassMethod $method, string $subject, If_ $first, If_ $second): bool
+    private function governs(If_ $first, If_ $second): bool
     {
-        $from = $first->getEndLine();
-        $to = $second->getStartLine();
+        $block = $first->getAttribute('parent');
 
-        foreach (NodeHelper::find($method, Assign::class) as $assign) {
-            $line = $assign->getStartLine();
+        if (! $block instanceof Node || $second->getStartFilePos() <= $first->getEndFilePos()) {
+            return false;
+        }
 
-            if ($line < $from || $line > $to) {
+        foreach (NodeHelper::ancestors($second) as $ancestor) {
+            if ($ancestor === $block) {
+                return true;
+            }
+
+            if ($ancestor instanceof FunctionLike) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Every expression the code writes to, with where the write happens:
+     * assignments of every kind, destructuring, `foreach` keys and values,
+     * increments, and `catch` variables.
+     *
+     * @param  Node|list<Stmt>  $root
+     * @return list<array{target: string, at: int}>
+     */
+    private function writes(Node|array $root): array
+    {
+        $writes = [];
+
+        foreach (NodeHelper::findOwn($root, Expr::class) as $expr) {
+            $target = match (true) {
+                $expr instanceof Assign, $expr instanceof AssignRef, $expr instanceof AssignOp => $expr->var,
+                $expr instanceof PreInc, $expr instanceof PreDec, $expr instanceof PostInc, $expr instanceof PostDec => $expr->var,
+                default => null,
+            };
+
+            foreach ($target instanceof Expr ? $this->targetsOf($target) : [] as $written) {
+                $writes[] = ['target' => NodeHelper::printAny($written), 'at' => $expr->getStartFilePos()];
+            }
+        }
+
+        foreach (NodeHelper::findOwn($root, Foreach_::class) as $loop) {
+            foreach ([$loop->keyVar, $loop->valueVar] as $variable) {
+                foreach ($variable instanceof Expr ? $this->targetsOf($variable) : [] as $written) {
+                    $writes[] = ['target' => NodeHelper::printAny($written), 'at' => $written->getStartFilePos()];
+                }
+            }
+        }
+
+        foreach (NodeHelper::findOwn($root, Catch_::class) as $catch) {
+            if ($catch->var instanceof Variable) {
+                $writes[] = ['target' => NodeHelper::printAny($catch->var), 'at' => $catch->var->getStartFilePos()];
+            }
+        }
+
+        return $writes;
+    }
+
+    /**
+     * The variables a write target names: itself, or every element of a
+     * `list()` / `[...]` destructuring, however deeply nested.
+     *
+     * @return list<Expr>
+     */
+    private function targetsOf(Expr $target): array
+    {
+        if (! $target instanceof List_ && ! $target instanceof Array_) {
+            return [$target];
+        }
+
+        $targets = [];
+
+        foreach ($target->items as $item) {
+            if ($item instanceof ArrayItem) {
+                $targets = [...$targets, ...$this->targetsOf($item->value)];
+            }
+        }
+
+        return $targets;
+    }
+
+    /**
+     * Whether the guarded subject -- or what it is read from, `$order` for
+     * `$order->user` -- is written to between the two guards, which would
+     * make the second check meaningful.
+     *
+     * @param  list<array{target: string, at: int}>  $writes
+     */
+    private function reassignedBetween(array $writes, string $subject, If_ $first, If_ $second): bool
+    {
+        $from = $first->getEndFilePos();
+        $to = $second->getStartFilePos();
+
+        foreach ($writes as $write) {
+            if ($write['at'] < $from || $write['at'] > $to) {
                 continue;
             }
 
-            if (NodeHelper::printAny($assign->var) === $subject) {
+            $target = $write['target'];
+
+            if ($subject === $target || str_starts_with($subject, $target.'[') || str_starts_with($subject, $target.'->')) {
                 return true;
             }
         }

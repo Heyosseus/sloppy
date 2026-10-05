@@ -80,3 +80,36 @@ it('ships the full default SL102 framework bases', function (): void {
 
     expect($config['rules']['SL102']['framework_bases'])->toBe(Heyosseus\Sloppy\Rules\Php\GodClassRule::FRAMEWORK_BASES);
 });
+
+it('ships the same SL301 layer suffixes the rule defaults to', function (): void {
+    $config = require dirname(__DIR__, 3).'/config/sloppy.php';
+
+    expect($config['rules']['SL301']['layer_suffixes'])->toBe(Heyosseus\Sloppy\Rules\Architecture\LayerStack::LAYER_SUFFIXES)
+        ->and($config['rules']['SL303']['layer_suffixes'])->toBe(Heyosseus\Sloppy\Rules\Architecture\LayerStack::LAYER_SUFFIXES)
+        ->and($config['rules']['SL303']['layer_stack_depth'])->toBe(3);
+});
+
+it('documents every option a rule reads in the shipped config', function (): void {
+    // The published file is the reference for rule options. An option a rule
+    // reads but the file never mentions is one nobody can discover.
+    $config = require dirname(__DIR__, 3).'/config/sloppy.php';
+    $missing = [];
+
+    foreach (glob(dirname(__DIR__, 3).'/src/Rules/*/*Rule.php') ?: [] as $file) {
+        $source = (string) file_get_contents($file);
+
+        if (preg_match("/function id\(\): string\s*\{\s*return '(SL\d{3})';/", $source, $id) !== 1) {
+            continue;
+        }
+
+        preg_match_all("/(?:int|float|bool|list|string)Option\('([a-z_]+)'/", $source, $keys);
+
+        foreach (array_unique($keys[1]) as $key) {
+            if (! array_key_exists($key, $config['rules'][$id[1]] ?? [])) {
+                $missing[] = $id[1].'.'.$key;
+            }
+        }
+    }
+
+    expect($missing)->toBe([]);
+});

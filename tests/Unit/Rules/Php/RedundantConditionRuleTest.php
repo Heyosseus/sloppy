@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Rules\Php\RedundantConditionRule;
+use Heyosseus\Sloppy\Tests\Support\RuleTester;
 
 function redundant(): RedundantConditionRule
 {
@@ -171,4 +172,116 @@ it('does not treat a method call repeated across an operator as redundant', func
         }
     }
     PHP))->toBeEmpty();
+});
+
+it('does not take a not-null check for a truthiness check', function (string $outer, string $inner): void {
+    expect(findings(redundant(), <<<PHP
+    class Options
+    {
+        public function apply(array \$o, ?int \$count): bool
+        {
+            if ({$outer}) {
+                if ({$inner}) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+    PHP))->toBeEmpty();
+})->with([
+    'isset then truthy' => ['isset($o[\'force\'])', '$o[\'force\']'],
+    'not null then truthy' => ['$count !== null', '$count'],
+]);
+
+it('still flags a truthiness check re-testing that the value is not null', function (): void {
+    $found = findings(redundant(), <<<'PHP'
+    class Options
+    {
+        public function apply(?int $count): bool
+        {
+            if ($count) {
+                if ($count !== null) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->metrics['match'])->toBe('equivalent');
+});
+
+it('does not flag repeated operands that have side effects', function (): void {
+    expect(findings(redundant(), <<<'PHP'
+    class Pairs
+    {
+        public function twoMore(Iterator $it): bool
+        {
+            return $it->next() && $it->next();
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('flags an operand repeated further along a chain', function (): void {
+    $found = findings(redundant(), <<<'PHP'
+    class Pairs
+    {
+        public function check(bool $a, bool $b): bool
+        {
+            return $a && $b && $a;
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->metrics['operand'])->toBe('$a');
+});
+
+it('reports a condition in an anonymous class once', function (): void {
+    expect(findings(redundant(), <<<'PHP'
+    class Factory
+    {
+        public function make(): object
+        {
+            return new class {
+                public function go(): void
+                {
+                    if (true) {
+                        $this->run();
+                    }
+                }
+            };
+        }
+    }
+    PHP))->toHaveCount(1);
+});
+
+it('looks inside functions and property hooks', function (): void {
+    $found = findings(redundant(), <<<'PHP'
+    function check(?User $user): bool
+    {
+        return isset($user) && isset($user);
+    }
+
+    class Account
+    {
+        public bool $open {
+            get {
+                if (false) {
+                    return true;
+                }
+
+                return $this->state === 'open';
+            }
+        }
+    }
+    PHP);
+
+    expect(RuleTester::fingerprints($found))->toBe(['check():operand:isset($user)', 'Account:literal-if:false:$open::get']);
 });

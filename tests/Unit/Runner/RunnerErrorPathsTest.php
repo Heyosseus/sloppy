@@ -145,13 +145,18 @@ it('counts a failing formatter as a failure of the fix run', function (): void {
     $root = tempProject([
         'composer.json' => '{"autoload":{"psr-4":{"App\\\\":"src/"}}}',
         'src/Reporting.php' => UNUSED_PRIVATE_METHOD,
+        'pint.json' => '{}',
         'vendor/bin/pint' => '#!/usr/bin/env php',
         'vendor/bin/rector' => '#!/usr/bin/env php',
     ]);
 
     $sloppy = new Sloppy(Configuration::fromArray(['paths' => ['src']], $root));
     $output = new RecordingRunnerOutput;
-    $tools = new RecordingToolRunner(['pint' => 2], 'pint could not parse the file');
+    $tools = new RecordingToolRunner(['pint' => 2], 'pint could not parse the file', static function (string $tool, array $command, string $cwd): void {
+        if ($tool === 'rector') {
+            file_put_contents($cwd.'/src/Reporting.php', "\n", FILE_APPEND);
+        }
+    });
 
     $code = (new FixRunner($tools))->run($sloppy, new FixOptions, $output);
 

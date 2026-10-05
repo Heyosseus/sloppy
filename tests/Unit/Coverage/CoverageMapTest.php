@@ -35,3 +35,17 @@ it('remembers where it came from and when', function (): void {
     expect($map->sourcePath())->toBe('build/logs/clover.xml')
         ->and($map->generatedAt())->toBe(1700000000);
 });
+
+it('strips only a leading ./ from a path, keeping hidden directories and parents intact', function (): void {
+    $map = new CoverageMap([
+        './app/A.php' => 0.1,
+        '.hidden/B.php' => 0.2,
+        '../shared/C.php' => 0.3,
+    ]);
+
+    expect($map->forFile('app/A.php'))->toBe(0.1)
+        ->and($map->forFile('.hidden/B.php'))->toBe(0.2)
+        ->and($map->forFile('hidden/B.php'))->toBeNull()
+        ->and($map->forFile('../shared/C.php'))->toBe(0.3)
+        ->and($map->forFile('shared/C.php'))->toBeNull();
+});

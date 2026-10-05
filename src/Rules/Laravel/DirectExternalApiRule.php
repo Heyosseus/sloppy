@@ -72,6 +72,13 @@ final class DirectExternalApiRule extends LaravelRule
     public function analyze(AnalysisContext $context): iterable
     {
         foreach ($context->classLikes() as $classLike) {
+            // An anonymous class is code its host runs, so it is judged as
+            // part of the host -- walked below with it -- rather than a
+            // second time on its own.
+            if (NodeHelper::className($classLike) === null) {
+                continue;
+            }
+
             $layer = $this->layerOf($context, $classLike);
 
             if ($layer === null || $this->isBoundary($classLike)) {
@@ -85,7 +92,7 @@ final class DirectExternalApiRule extends LaravelRule
 
             foreach ([StaticCall::class, New_::class, FuncCall::class] as $type) {
                 foreach (NodeHelper::find($classLike, $type) as $node) {
-                    if (! LaravelCalls::isHttpCall($node)) {
+                    if (! LaravelCalls::isHttpCall($node, $context->index)) {
                         continue;
                     }
 

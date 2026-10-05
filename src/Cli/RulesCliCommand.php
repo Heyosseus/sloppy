@@ -22,7 +22,7 @@ final class RulesCliCommand extends CliCommandBase
 {
     protected function configure(): void
     {
-        $this->configureSharedOptions();
+        $this->configureSharedOptions(paths: false, filters: false);
 
         $this
             ->addOption('format', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'claude, cursor, agents, copilot, windsurf, boost, markdown or json (repeatable)')

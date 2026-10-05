@@ -65,7 +65,7 @@ Requirements: **PHP 8.3+**. Laravel 12 or 13 for the Artisan commands and the
 php artisan sloppy:help      # or: vendor/bin/sloppy guide
 ```
 
-Twelve commands, and the moment each one belongs to. Both names run the same
+Thirteen commands, and the moment each one belongs to. Both names run the same
 code, so use whichever your project has.
 
 | Every day | | |
@@ -83,8 +83,8 @@ code, so use whichever your project has.
 | `sloppy:health` | `sloppy health` | The score and what is dragging it down, from a cached snapshot |
 | **For agents** | | |
 | `sloppy:rules` | `sloppy rules` | Write this project's rules into `CLAUDE.md`, `AGENTS.md` and friends |
-| `sloppy:agents` | `sloppy agents install` | Hook Sloppy into Claude Code, so it checks every edit and every finish |
-| `sloppy:mcp` | `sloppy mcp` | Serve scan, diff, rules and health over MCP |
+| `sloppy:agents` | `sloppy agents install` | Hook Sloppy into Claude Code, so it checks every edit and every finish; `agents uninstall` takes the hooks out again |
+| `sloppy:mcp` | `sloppy mcp` | Serve seven tools over MCP: scan, diff, rules, health, architecture, place and architecture prompt |
 
 For one command's options, `sloppy help <command>` or
 `php artisan sloppy:<command> --help`.

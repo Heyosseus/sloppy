@@ -157,3 +157,26 @@ it('respects the configured score threshold', function (): void {
     expect(findings(businessLogic(['min_score' => 100]), $code))->toBeEmpty()
         ->and(findings(businessLogic(['min_score' => 2]), $code))->toHaveCount(1);
 });
+
+it('does not count a service call or a collection push as a database write', function (): void {
+    expect(findings(businessLogic(['min_score' => 2]), <<<'PHP'
+    namespace App\Http\Controllers;
+
+    class OrderController extends Controller
+    {
+        public function store(Request $request)
+        {
+            $lines = collect();
+            $lines->push($request->line);
+            $lines->push($request->other);
+            $this->orders->create($request->all());
+            $this->orders->update($request->all());
+            $this->orders->delete($request->id);
+            $request->session()->push('seen', 1);
+            $a = 1;
+
+            return $lines;
+        }
+    }
+    PHP))->toBeEmpty();
+});

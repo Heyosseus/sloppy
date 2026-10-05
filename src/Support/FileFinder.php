@@ -61,6 +61,31 @@ final readonly class FileFinder
     }
 
     /**
+     * Whether a run would analyse this project-relative path, were it on
+     * disk: a PHP file under one of the configured paths, not excluded and
+     * not hidden. Asked about files that no longer exist -- a deletion is
+     * still a change to the project when the file used to be part of it.
+     */
+    public function covers(string $relativePath): bool
+    {
+        $path = ltrim(str_replace('\\', '/', $relativePath), '/');
+
+        if (! str_ends_with($path, '.php') || $this->isExcluded($path) || preg_match('#(^|/)\.#', $path) === 1) {
+            return false;
+        }
+
+        foreach ($this->config->paths() as $configured) {
+            $root = trim($this->relative($this->absolute($configured)), '/');
+
+            if ($root === '' || $root === '.' || $path === $root || str_starts_with($path, $root.'/')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether a relative path matches any configured exclusion.
      *
      * Exclusions are matched as whole path segments at any depth, so `vendor`

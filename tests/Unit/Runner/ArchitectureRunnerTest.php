@@ -102,7 +102,7 @@ it('explains one class: its role, why, and the roles it lost', function (): void
     expect($code)->toBe(ExitCode::Success)
         ->and($output->reportBody())->toContain('App\Domain\Billing\Invoice (app/Domain/Billing/Invoice.php:1)')
         ->and($output->reportBody())->toContain('Role:     model, from preset laravel')
-        ->and($output->reportBody())->toContain('Matched:  kind class, and parent')
+        ->and($output->reportBody())->toContain('Matched:  kind class, and extends')
         ->and($output->reportBody())->toContain('Also matched service (preset laravel), which is tried later.');
 
     removeTree($root);

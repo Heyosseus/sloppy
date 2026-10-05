@@ -81,3 +81,18 @@ it('refuses an explicit path that does not exist', function (): void {
     expect(fn (): string => (new ProjectLocator)->locate('/definitely/not/here', sys_get_temp_dir()))
         ->toThrow(RuntimeException::class, '/definitely/not/here');
 });
+
+it('takes a relative project path relative to the working directory it was given, not the process', function (): void {
+    $workspace = tempProject([
+        'composer.json' => '{}',
+        'packages/billing/composer.json' => '{}',
+    ]);
+
+    // The process is elsewhere; only the given working directory makes the
+    // relative path resolvable.
+    expect(getcwd())->not->toBe($workspace)
+        ->and((new ProjectLocator)->locate('packages/billing', $workspace))->toBe(canonicalProjectPath($workspace.'/packages/billing'))
+        ->and((new ProjectLocator)->locate('./packages/billing', $workspace))->toBe(canonicalProjectPath($workspace.'/packages/billing'));
+
+    removeTree($workspace);
+});

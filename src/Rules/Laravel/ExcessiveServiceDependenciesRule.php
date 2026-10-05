@@ -157,7 +157,7 @@ final class ExcessiveServiceDependenciesRule extends LaravelRule
 
             $summary = $index->class($name);
 
-            if ($summary instanceof ClassSummary && ($summary->kind === 'enum' || $summary->isValueObject || $summary->isEloquentModel())) {
+            if ($summary instanceof ClassSummary && ($summary->kind === 'enum' || $summary->isValueObject || $summary->isEloquentModel($index))) {
                 continue;
             }
 

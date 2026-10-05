@@ -39,6 +39,7 @@ abstract class SloppyDiffLikeCommand extends SloppyCommandBase
             explainRisk: $explainRisk,
             review: $review,
             coverage: $this->stringOption('coverage') === '' ? null : $this->stringOption('coverage'),
+            mergeBase: $this->hasOption('merge-base') && $this->boolOption('merge-base'),
         );
     }
 }

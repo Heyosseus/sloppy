@@ -125,21 +125,21 @@ final class InlineValidationRule extends LaravelRule
     {
         $found = [];
 
-        foreach (NodeHelper::find($subject, MethodCall::class) as $call) {
+        foreach (NodeHelper::findOwn($subject, MethodCall::class) as $call) {
             $name = NodeHelper::callName($call);
 
             if (! NodeHelper::isNameOneOf($name, ['validate', 'validateWithBag'])) {
                 continue;
             }
 
-            $array = $this->firstArrayArgument(array_values($call->getArgs()));
+            $array = $this->firstArrayArgument(NodeHelper::arguments($call));
 
             if ($array instanceof Array_) {
                 $found[] = ['array' => $array, 'call' => (string) $name];
             }
         }
 
-        foreach (NodeHelper::find($subject, StaticCall::class) as $call) {
+        foreach (NodeHelper::findOwn($subject, StaticCall::class) as $call) {
             $class = NodeHelper::staticCallClass($call);
 
             if ($class === null || NodeHelper::baseName($class) !== 'Validator') {
@@ -150,7 +150,7 @@ final class InlineValidationRule extends LaravelRule
                 continue;
             }
 
-            $array = $this->firstArrayArgument(array_values(array_slice($call->getArgs(), 1)));
+            $array = $this->firstArrayArgument(array_slice(NodeHelper::arguments($call), 1));
 
             if ($array instanceof Array_) {
                 $found[] = ['array' => $array, 'call' => 'Validator::make'];

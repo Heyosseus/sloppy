@@ -69,13 +69,14 @@ final class RuleTester
     }
 
     /**
-     * Every shipped rule over a set of sources, for the fixture-wide tests.
+     * Every shipped rule over a set of sources, for the fixture-wide tests,
+     * judged against an architecture when one is given.
      *
      * @param  array<string, string>  $files
      */
-    public static function runAll(array $files): AnalysisResult
+    public static function runAll(array $files, ?Profile $architecture = null): AnalysisResult
     {
-        $analyzer = new Analyzer(new Parser, RuleRegistry::withDefaults(), new ScoreCalculator);
+        $analyzer = new Analyzer(new Parser, RuleRegistry::withDefaults(), new ScoreCalculator, architecture: $architecture);
 
         return $analyzer->analyzeSources(array_map(self::normalise(...), $files));
     }

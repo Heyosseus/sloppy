@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Expr\BinaryOp\Div;
 use PhpParser\Node\Expr\BinaryOp\Minus;
@@ -87,7 +88,7 @@ final class BusinessLogicInControllerRule extends LaravelRule
                     continue;
                 }
 
-                $evidence = $this->weigh($method, $statements);
+                $evidence = $this->weigh($method, $statements, $context->index);
                 $score = array_sum(array_column($evidence, 'weight'));
 
                 if ($score < $threshold) {
@@ -124,12 +125,12 @@ final class BusinessLogicInControllerRule extends LaravelRule
      *
      * @return list<array{label: string, weight: int}>
      */
-    private function weigh(ClassMethod $method, int $statements): array
+    private function weigh(ClassMethod $method, int $statements, ProjectIndex $index): array
     {
         $evidence = [];
 
-        $writes = $this->countWrites($method);
-        $http = $this->countHttp($method);
+        $writes = $this->countWrites($method, $index);
+        $http = $this->countHttp($method, $index);
         $dispatches = $this->countDispatches($method);
         $arithmetic = $this->countArithmetic($method);
         $complexity = NodeHelper::cyclomaticComplexity($method);
@@ -166,13 +167,13 @@ final class BusinessLogicInControllerRule extends LaravelRule
         return $evidence;
     }
 
-    private function countWrites(ClassMethod $method): int
+    private function countWrites(ClassMethod $method, ProjectIndex $index): int
     {
         $count = 0;
 
         foreach ([MethodCall::class, StaticCall::class] as $type) {
-            foreach (NodeHelper::find($method, $type) as $call) {
-                if (LaravelCalls::isWrite($call)) {
+            foreach (NodeHelper::findOwn($method, $type) as $call) {
+                if (LaravelCalls::isDatabaseWrite($call, $index)) {
                     $count++;
                 }
             }
@@ -181,13 +182,13 @@ final class BusinessLogicInControllerRule extends LaravelRule
         return $count;
     }
 
-    private function countHttp(ClassMethod $method): int
+    private function countHttp(ClassMethod $method, ProjectIndex $index): int
     {
         $count = 0;
 
         foreach ([StaticCall::class, New_::class, FuncCall::class] as $type) {
-            foreach (NodeHelper::find($method, $type) as $node) {
-                if (LaravelCalls::isHttpCall($node)) {
+            foreach (NodeHelper::findOwn($method, $type) as $node) {
+                if (LaravelCalls::isHttpCall($node, $index)) {
                     $count++;
                 }
             }
@@ -201,7 +202,7 @@ final class BusinessLogicInControllerRule extends LaravelRule
         $count = 0;
 
         foreach ([MethodCall::class, StaticCall::class, FuncCall::class] as $type) {
-            foreach (NodeHelper::find($method, $type) as $node) {
+            foreach (NodeHelper::findOwn($method, $type) as $node) {
                 if (LaravelCalls::isDispatch($node)) {
                     $count++;
                 }
@@ -216,7 +217,7 @@ final class BusinessLogicInControllerRule extends LaravelRule
         $count = 0;
 
         foreach ([Mul::class, Div::class, Plus::class, Minus::class] as $type) {
-            $count += count(NodeHelper::find($method, $type));
+            $count += count(NodeHelper::findOwn($method, $type));
         }
 
         return $count;
@@ -224,7 +225,7 @@ final class BusinessLogicInControllerRule extends LaravelRule
 
     private function hasTransaction(ClassMethod $method): bool
     {
-        foreach (NodeHelper::find($method, StaticCall::class) as $call) {
+        foreach (NodeHelper::findOwn($method, StaticCall::class) as $call) {
             if (LaravelCalls::isTransaction($call)) {
                 return true;
             }

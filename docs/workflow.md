@@ -151,12 +151,29 @@ claimed otherwise would cost you more time than it saved.
 
 | Flag | What it does |
 | --- | --- |
-| `--dry-run` | Write nothing; print what would change |
+| `--dry-run` | Write nothing; print Rector's diff of what would change, and exit 0 |
 | `--rule=SL107` | Fix only these rules, repeatable |
-| `--no-rector` | Write the configuration and stop, for review before it runs |
+| `--no-rector` | Write the configuration and stop, for review before it runs; the file is kept |
 | `--no-pint` | Skip the formatting pass, if your project formats another way |
 | `--keep-config` | Leave `rector-sloppy.php` on disk instead of deleting it |
 | `--rector-config=` | Name the generated file something else |
+
+`--rector-config` will not overwrite a file Sloppy did not write: pointed at
+your own `rector.php`, the command stops with exit code 2 and the file is left
+alone. A configuration Sloppy generated earlier -- it says so on its first
+lines -- is replaced as usual.
+
+On a dry run, Rector's own exit code 2 means "these files would change", which
+is the answer you asked for: the diff is printed and the command exits 0. Only
+a Rector that failed fails the run.
+
+Pint formats only the files Rector actually rewrote (and the files a removed
+comment changed), never every file with a finding, so the diff you review is
+the fix and nothing else. It runs only when the project has a `pint.json`, or
+is a Laravel application; anywhere else Pint's default Laravel preset would
+restyle code that follows another convention, so it is skipped with a note --
+add a `pint.json` to opt in. A dry run does not run Pint at all: nothing has
+been rewritten yet for it to format.
 | `--path=app/Domain` | Fix only these paths, repeatable |
 | `--min-confidence=80` | Ignore findings the analyser is less sure about |
 

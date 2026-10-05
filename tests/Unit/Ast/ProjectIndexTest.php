@@ -290,3 +290,41 @@ it('tells whether a parent chain reaches one of the given bases', function (): v
         ->and($index->extendsAny(null, $bases))->toBeFalse()
         ->and($index->extendsAny('App\OrderResource', []))->toBeFalse();
 });
+
+it('counts an enum implementing an interface as an implementation, not a usage', function (): void {
+    $index = indexOf([
+        'app/HasLabel.php' => '<?php namespace App; interface HasLabel { public function label(): string; }',
+        'app/Status.php' => '<?php namespace App; enum Status: string implements HasLabel { case A = "a"; public function label(): string { return "A"; } }',
+    ]);
+
+    expect($index->implementationsOf('App\HasLabel'))->toBe(['App\Status'])
+        ->and($index->usageCount('App\HasLabel'))->toBe(0);
+});
+
+it('counts an anonymous class implementing an interface as an implementation', function (): void {
+    $index = indexOf([
+        'app/Clock.php' => '<?php namespace App; interface Clock { public function now(): int; }',
+        'app/SystemClock.php' => '<?php namespace App; final class SystemClock implements Clock { public function now(): int { return 1; } }',
+        'app/Factory.php' => "<?php namespace App;\nfinal class Factory { public function frozen(): Clock { return new class implements Clock { public function now(): int { return 0; } }; } }",
+    ]);
+
+    expect($index->implementationsOf('App\Clock'))->toBe(['App\SystemClock', 'class@anonymous@app/Factory.php:2'])
+        // The return type is a usage; the anonymous class's implements clause is not.
+        ->and($index->usagesOf('App\Clock'))->toBe(['app/Factory.php']);
+});
+
+it('follows a model through the project\'s own base classes, and reads its casts', function (): void {
+    $index = indexOf([
+        'app/Models/BaseModel.php' => "<?php namespace App\Models;\nuse Illuminate\Database\Eloquent\Model;\nabstract class BaseModel extends Model { protected \$casts = ['paid_on' => 'date']; }",
+        'app/Models/Invoice.php' => "<?php namespace App\Models;\nclass Invoice extends BaseModel { protected \$dates = ['sent']; protected function casts(): array { return ['meta' => 'array']; } }",
+        'app/Support/Helper.php' => '<?php namespace App\Support; class Helper extends Base {}',
+    ]);
+
+    expect($index->isEloquentModel('App\Models\Invoice'))->toBeTrue()
+        ->and($index->isEloquentModel('App\Support\Helper'))->toBeFalse()
+        ->and($index->isEloquentModel('App\Unknown'))->toBeFalse()
+        ->and($index->castsAttribute('App\Models\Invoice', 'meta'))->toBeTrue()
+        ->and($index->castsAttribute('App\Models\Invoice', 'sent'))->toBeTrue()
+        ->and($index->castsAttribute('App\Models\Invoice', 'paid_on'))->toBeTrue()
+        ->and($index->castsAttribute('App\Models\Invoice', 'customer'))->toBeFalse();
+});

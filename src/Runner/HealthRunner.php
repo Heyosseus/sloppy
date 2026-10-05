@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Runner;
 
 use Heyosseus\Sloppy\Integrations\HealthReporter;
 use Heyosseus\Sloppy\Integrations\HealthSnapshot;
+use Heyosseus\Sloppy\Output\JsonEncoder;
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Sloppy;
 use Throwable;
@@ -24,7 +25,7 @@ final readonly class HealthRunner
     public function run(Sloppy $sloppy, HealthOptions $options, RunnerOutput $output): ExitCode
     {
         try {
-            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options);
+            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options, $output);
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 
@@ -42,6 +43,7 @@ final readonly class HealthRunner
             // cannot be served from it, so asking for one re-analyses.
             $snapshot = (new HealthReporter($sloppy, $options->top))->current(
                 fresh: $options->fresh || $options->top !== null,
+                shared: ! $options->isFiltered(),
             );
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
@@ -49,10 +51,15 @@ final readonly class HealthRunner
             return ExitCode::Error;
         }
 
-        $output->report(
-            $this->render($snapshot, $options, $this->coverageLine($sloppy)),
-            $options->json ? OutputFormat::Json : OutputFormat::Console,
-        );
+        try {
+            $rendered = $this->render($snapshot, $options, $this->coverageLine($sloppy));
+        } catch (Throwable $exception) {
+            $output->error($exception->getMessage());
+
+            return ExitCode::Error;
+        }
+
+        $output->report($rendered, $options->json ? OutputFormat::Json : OutputFormat::Console);
 
         return ExitCode::Success;
     }
@@ -85,9 +92,7 @@ final readonly class HealthRunner
     private function render(HealthSnapshot $snapshot, HealthOptions $options, string $coverageLine): string
     {
         if ($options->json) {
-            $encoded = json_encode($snapshot->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-            return ($encoded === false ? '{}' : $encoded)."\n";
+            return (new JsonEncoder(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))->encode($snapshot->toArray())."\n";
         }
 
         $lines = [

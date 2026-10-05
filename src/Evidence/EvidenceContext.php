@@ -25,6 +25,7 @@ final readonly class EvidenceContext
     /**
      * @param  list<ChangedFile>  $changedFiles
      * @param  ProjectIndex|null  $index  The working tree's index; null when no analysable file changed.
+     * @param  list<ChangedFile>|null  $repositoryChanges  Every file git reports changed since the base, unnarrowed; null when nobody asked yet.
      */
     public function __construct(
         public Git $git,
@@ -32,7 +33,21 @@ final readonly class EvidenceContext
         public string $baseRevision,
         public array $changedFiles,
         public ?ProjectIndex $index = null,
+        public ?array $repositoryChanges = null,
     ) {}
+
+    /**
+     * Every file changed since the base, not just the analysed ones.
+     *
+     * The diff already asked git this to find its own files; asking again
+     * would cost another round of git processes for the same answer.
+     *
+     * @return list<ChangedFile>
+     */
+    public function repositoryChanges(): array
+    {
+        return $this->repositoryChanges ?? $this->git->changedFiles($this->baseRevision);
+    }
 
     /**
      * @return list<string>

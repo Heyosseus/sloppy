@@ -137,13 +137,25 @@ final class CopyPasteDriftRule extends BaseRule
     {
         $truncated = $corpus->truncated;
 
+        /** @var array<string, true> $reported */
+        $reported = [];
+
         foreach ($corpus->maskedIn($context->relativePath()) as $masked) {
             $divergence = $masked['divergence'];
             $subject = $divergence['at'];
+            $fingerprint = $subject->block->className.'::'.$subject->block->methodName.'~'.$divergence['minority'];
+
+            // The same odd value used at several places in one body diverges
+            // at each of them; it is one mistake and one finding.
+            if (isset($reported[$fingerprint])) {
+                continue;
+            }
 
             // A renamed local is a rename. Only a different class or a
             // different literal is a candidate defect.
             if (str_starts_with($divergence['minority'], 'class:') || str_starts_with($divergence['minority'], 'lit:')) {
+                $reported[$fingerprint] = true;
+
                 yield $this->report(
                     context: $context,
                     at: new Location($subject->block->relativePath, $subject->block->line, $subject->block->endLine),
@@ -161,7 +173,7 @@ final class CopyPasteDriftRule extends BaseRule
                         $masked['siblings'] >= 3,
                         str_starts_with($divergence['minority'], 'class:'),
                     ], 8, 88),
-                    fingerprint: $subject->block->className.'::'.$subject->block->methodName.'~'.$divergence['minority'],
+                    fingerprint: $fingerprint,
                     metrics: [
                         'siblings' => $masked['siblings'],
                         'diverged' => $this->readable($divergence['minority']),
