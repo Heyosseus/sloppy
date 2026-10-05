@@ -336,3 +336,69 @@ it('does not read a collection method as a relation', function (): void {
     }
     SNIPPET))->toBeEmpty();
 });
+
+it('stays quiet when the collection loads the relation before the loop', function (string $load): void {
+    expect(findings(nPlusOne(), <<<PHP
+    class Rows
+    {
+        public function build(): array
+        {
+            \$orders = Order::where('paid', true)->get();
+            \$orders->{$load}('customer');
+            \$rows = [];
+
+            foreach (\$orders as \$order) {
+                \$rows[] = \$order->customer->name;
+            }
+
+            return \$rows;
+        }
+    }
+    PHP))->toBeEmpty();
+})->with(['load', 'loadMissing']);
+
+it('matches an eager load that names its columns to the relation', function (): void {
+    expect(findings(nPlusOne(), <<<'PHP'
+    class Rows
+    {
+        public function build(): array
+        {
+            $rows = [];
+
+            foreach (Order::with('customer:id,name')->get() as $order) {
+                $rows[] = $order->customer->name;
+            }
+
+            return $rows;
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('does not read a timestamp or a cast attribute as a relation', function (): void {
+    $found = findingsAcross(nPlusOne(), [
+        'app/Models/Order.php' => "<?php namespace App\Models;\nuse Illuminate\Database\Eloquent\Model;\nclass Order extends Model { protected function casts(): array { return ['shipped_on' => 'date']; } }",
+        'app/Reports/Years.php' => <<<'PHP'
+        <?php
+        namespace App\Reports;
+
+        use App\Models\Order;
+
+        class Years
+        {
+            public function build(): array
+            {
+                $rows = [];
+
+                foreach (Order::where('paid', true)->get() as $order) {
+                    $rows[] = [$order->created_at->year, $order->shipped_on->month, $order->customer->name];
+                }
+
+                return $rows;
+            }
+        }
+        PHP,
+    ]);
+
+    expect(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->metrics['relation'], $found))->toBe(['customer']);
+});

@@ -194,3 +194,27 @@ it('names the implementation in full when it shares the interface short name', f
         ->and($found[0]->message)->toContain('implemented only by App\Infrastructure\ChargeRepository')
         ->and($found[0]->metrics['implementation'])->toBe('App\Infrastructure\ChargeRepository');
 });
+
+it('counts an enum and an anonymous class as implementations', function (string $second): void {
+    expect(findingsAcross(singleUse(), [
+        'app/HasLabel.php' => "namespace App;\n\ninterface HasLabel\n{\n    public function label(): string;\n}",
+        'app/Plan.php' => "namespace App;\n\nclass Plan implements HasLabel\n{\n    public function label(): string\n    {\n        return 'plan';\n    }\n}",
+        'app/Second.php' => $second,
+    ]))->toBeEmpty();
+})->with([
+    'enum' => ["namespace App;\n\nenum Status: string implements HasLabel\n{\n    case Open = 'open';\n\n    public function label(): string\n    {\n        return 'open';\n    }\n}"],
+    'anonymous class' => ["namespace App;\n\nfinal class Labels\n{\n    public function fallback(): object\n    {\n        return new class implements HasLabel {\n            public function label(): string\n            {\n                return '-';\n            }\n        };\n    }\n}"],
+]);
+
+it('groups layer stacks by its own layer_suffixes', function (): void {
+    // With Gateway as the only layer word nothing here forms a stack, so the
+    // single-use interface is reported after all.
+    $files = [
+        'app/InvoiceRepositoryInterface.php' => "namespace App;\n\ninterface InvoiceRepositoryInterface\n{\n    public function find(int \$id): mixed;\n}",
+        'app/InvoiceRepository.php' => "namespace App;\n\nclass InvoiceRepository implements InvoiceRepositoryInterface\n{\n    public function find(int \$id): mixed\n    {\n        return null;\n    }\n}",
+        'app/InvoiceService.php' => "namespace App;\n\nclass InvoiceService\n{\n    public function __construct(private InvoiceRepositoryInterface \$r) {}\n}",
+        'app/InvoiceManager.php' => "namespace App;\n\nclass InvoiceManager\n{\n    public function __construct(private InvoiceService \$s) {}\n}",
+    ];
+
+    expect(findingsAcross(singleUse(['layer_suffixes' => ['Gateway']]), $files))->toHaveCount(1);
+});

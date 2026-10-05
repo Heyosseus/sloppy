@@ -24,14 +24,17 @@ final class SloppyCiCommand extends SloppyCommandBase
     protected $signature = 'sloppy:ci
         {--base= : Revision to compare against; read from the CI environment when omitted}
         {--path=* : Analyse these paths instead of the configured ones}
-        {--format= : github, gitlab, json, markdown, sarif or console; the provider decides when omitted}
+        {--format= : console, json, sarif, markdown, github, gitlab or rector; the provider decides when omitted}
         {--report= : Write the machine-readable report to this file instead of standard output}
         {--fail-on= : Lowest severity that fails the step, or "never"}
         {--min-confidence= : Drop findings below this confidence (0-100)}
         {--rule=* : Run only these rule IDs, e.g. --rule=SL101}
         {--scan : Analyse the whole project instead of comparing against a revision}
         {--no-summary : Do not write the job summary}
-        {--no-baseline : Report every finding, including baselined ones}';
+        {--no-baseline : Report every finding, including baselined ones}
+        {--no-merge-base : Compare a branch from its tip rather than from where HEAD forked from it}
+        {--allow-parse-errors : Pass even when some files could not be parsed}
+        {--explain-risk : Show the arithmetic behind each risk value}';
 
     protected $description = 'Analyse a change the way the surrounding CI system wants it reported';
 
@@ -54,6 +57,9 @@ final class SloppyCiCommand extends SloppyCommandBase
                 summary: ! $this->boolOption('no-summary'),
                 scan: $this->boolOption('scan'),
                 noBaseline: $this->boolOption('no-baseline'),
+                mergeBase: ! $this->boolOption('no-merge-base'),
+                allowParseErrors: $this->boolOption('allow-parse-errors'),
+                explainRisk: $this->boolOption('explain-risk'),
             );
 
             return (new CiRunner(CiEnvironment::fromGlobals()))->run($sloppy, $options, $output);

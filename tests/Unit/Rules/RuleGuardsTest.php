@@ -355,3 +355,32 @@ it('reads a loop whose calls cannot be named, and a typed parameter it cannot re
 
     expect(findings(new PossibleNPlusOneRule, $source, 'app/Services/Reporting.php'))->toBeArray();
 });
+
+it('reports what an anonymous class does once, not again for the class around it', function (string $rule, string $body): void {
+    $rules = [
+        'SL205' => new CollectionInsteadOfQueryRule,
+        'SL210' => new SuspiciousModelAllRule,
+    ];
+
+    $found = findings($rules[$rule], <<<PHP
+    namespace App\Http\Controllers;
+
+    class ReportController extends Controller
+    {
+        public function show(): object
+        {
+            return new class {
+                public function run(): mixed
+                {
+                    {$body}
+                }
+            };
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1);
+})->with([
+    'SL205' => ['SL205', 'return Order::all()->count();'],
+    'SL210' => ['SL210', 'foreach (Order::all() as $o) { $o->touch(); } return null;'],
+]);

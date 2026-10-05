@@ -11,11 +11,19 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
 
-    # A passing suite finishes in a couple of minutes; anything approaching this
-    # is a hang, and failing fast is cheaper than burning runner time.
-    timeout-minutes: 15
+    # A passing suite finishes well inside this on Linux; anything approaching
+    # it is a hang, and failing fast is cheaper than burning runner time.
+    # Starting processes is several times slower on Windows, and the suite
+    # starts a great many (git, PHP, Rector), hence its larger budget.
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 45 || 15 }}
+
+    # One shell everywhere, so the multi-line steps below mean the same thing
+    # on the Windows leg as on the Linux ones.
+    defaults:
+      run:
+        shell: bash
 
     strategy:
       fail-fast: false
@@ -58,10 +66,32 @@ jobs:
             laravel: '13.*'
             testbench: '11.*'
             dependencies: lowest
+          # The newest PHP the package supports, so a deprecation there shows
+          # up here before a user reports it.
+          - php: '8.5'
+            laravel: '13.*'
+            testbench: '11.*'
+            dependencies: highest
+          # Paths, line endings and process spawning all differ on Windows,
+          # and Sloppy shells out to git, Rector and Pint. Coverage is left to
+          # the Linux legs: the threshold would only measure the same code
+          # again, more slowly.
+          - php: '8.4'
+            laravel: '13.*'
+            testbench: '11.*'
+            dependencies: highest
+            os: windows-latest
 
-    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }} · ${{ matrix.dependencies }}
+    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }} · ${{ matrix.dependencies }}${{ matrix.os && format(' · {0}', matrix.os) || '' }}
 
     steps:
+      # Fixtures and expected output are compared byte for byte; a CRLF
+      # checkout would fail them for reasons that have nothing to do with the
+      # code under test.
+      - name: Keep line endings as committed
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -69,10 +99,12 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, sqlite3, pdo_sqlite
+          # fileinfo is on by default on Linux but not on Windows, and Laravel
+          # (through league/flysystem-local) will not install without it.
+          extensions: mbstring, intl, fileinfo, sqlite3, pdo_sqlite
           # PCOV is many times faster than Xdebug for the line coverage that
-          # --min=95 needs, and line coverage is all it needs.
-          coverage: pcov
+          # --min=99 needs, and line coverage is all it needs.
+          coverage: ${{ matrix.os == 'windows-latest' && 'none' || 'pcov' }}
 
       - name: Constrain Laravel and Testbench
         # `--dev` on the illuminate packages is load-bearing. They are dev
@@ -92,7 +124,12 @@ jobs:
           dependency-versions: ${{ matrix.dependencies }}
 
       - name: Tests
+        if: runner.os != 'Windows'
         run: vendor/bin/pest --colors=always --coverage --min=99
+
+      - name: Tests (no coverage)
+        if: runner.os == 'Windows'
+        run: vendor/bin/pest --colors=always
 
   quality:
     runs-on: ubuntu-latest
@@ -108,11 +145,25 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, intl, sqlite3, pdo_sqlite
+          # fileinfo is on by default on Linux but not on Windows, and Laravel
+          # (through league/flysystem-local) will not install without it.
+          extensions: mbstring, intl, fileinfo, sqlite3, pdo_sqlite
           coverage: pcov
+
+      # Before anything is installed, so a malformed manifest fails here with
+      # Composer's own explanation. composer.lock is not committed, so there
+      # is no lock to check against.
+      - name: Validate composer.json
+        run: composer validate --strict --no-check-lock
 
       - name: Install dependencies
         uses: ramsey/composer-install@v3
+
+      # Runtime dependencies only: they are what a user installs. Advisories
+      # in the dev tree (Laravel's, Testbench's) do not reach anyone's
+      # production and are not this package's to patch.
+      - name: Audit runtime dependencies
+        run: composer audit --no-dev
 
       - name: Rector
         run: vendor/bin/rector --dry-run --no-progress-bar
@@ -138,3 +189,83 @@ jobs:
         env:
           __PEST_PLUGIN_ENV: '1'
         run: php -d variables_order=EGPCS vendor/bin/pest --type-coverage --min=100
+
+  # What a user gets from `composer require heyosseus/sloppy` in a project
+  # that is not Laravel: no illuminate packages, no Pest, no Rector. Every
+  # other job installs the dev tree, so a runtime class that quietly depends on
+  # a dev package would pass them all and fail here.
+  runtime:
+    runs-on: ubuntu-latest
+    name: Runtime install (--no-dev)
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # The lowest supported PHP, and nothing beyond setup-php's defaults.
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install runtime dependencies only
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress
+
+      # A smoke test, not a quality gate: SelfCheckTest holds the source to
+      # its own rules. This proves the binary boots and analyses without dev
+      # packages.
+      - name: Scan the package's own source
+        run: php bin/sloppy scan --path=src --fail-on=never
+
+      - name: Round-trip the MCP server
+        run: |
+          RESPONSE="$(printf '%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | php bin/sloppy-mcp)"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"serverInfo":{"name":"sloppy"'
+          echo "$RESPONSE" | grep -q '"name":"sloppy_scan"'
+
+  # The phar is built only when a tag is pushed, which is the worst moment to
+  # learn it no longer builds or no longer runs. This builds it the way
+  # release.yml does on every pull request and exercises the commands that
+  # load the most of the package: a Rector config and a fix pass.
+  phar:
+    runs-on: ubuntu-latest
+    name: PHAR build
+
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl
+          ini-values: phar.readonly=0
+          tools: box
+          coverage: none
+
+      - name: Install runtime dependencies only
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress
+
+      # See release.yml: Box's own class-map generator misses enums.
+      - name: Dump the autoloader Composer's way
+        run: composer dump-autoload --classmap-authoritative --no-dev --no-interaction
+
+      - name: Compile
+        run: box compile --no-parallel
+
+      - name: Run the phar against a small project
+        run: |
+          php sloppy.phar --version
+          php sloppy.phar scan --project=tests/Fixtures/Vanilla --format=rector --fail-on=never > rector-sloppy.php
+          php -l rector-sloppy.php
+          php sloppy.phar fix --project=tests/Fixtures/Vanilla --dry-run --no-pint

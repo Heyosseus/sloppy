@@ -23,7 +23,7 @@ final class ScanCliCommand extends CliCommandBase
         $this->configureSharedOptions();
 
         $this
-            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'console, json, sarif, markdown or github', 'console')
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, OutputFormat::listing(), 'console')
             ->addOption('fail-on', null, InputOption::VALUE_REQUIRED, 'Lowest severity that fails the command, or "never"')
             ->addOption('explain', null, InputOption::VALUE_NONE, 'Include each rule\'s "why this matters" text')
             ->addOption('explain-risk', null, InputOption::VALUE_NONE, 'Show the arithmetic behind each risk value')

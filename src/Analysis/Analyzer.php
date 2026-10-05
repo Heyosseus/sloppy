@@ -109,7 +109,8 @@ final readonly class Analyzer
         $index = ProjectIndex::build($files);
         $architecture = new ArchitectureMap($this->architecture);
         $reportable = $only === null ? null : array_fill_keys($only, true);
-        $findings = [];
+        /** @var list<list<Finding>> $perFile */
+        $perFile = [];
         $lines = 0;
         $analyzed = [];
 
@@ -121,8 +122,12 @@ final readonly class Analyzer
             $analyzed[] = $file->relativePath;
             $lines += $file->codeLineCount();
 
-            $findings = [...$findings, ...$this->inspect(new AnalysisContext($file, $index, $architecture), $errors)];
+            $perFile[] = $this->inspect(new AnalysisContext($file, $index, $architecture), $errors);
         }
+
+        // Merged once at the end: spreading each file's findings into a
+        // growing list is quadratic in the size of the project.
+        $findings = array_merge(...$perFile);
 
         sort($analyzed);
 

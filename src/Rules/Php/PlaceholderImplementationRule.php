@@ -24,7 +24,6 @@ use PhpParser\Node\Stmt\Expression;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Nop;
 use PhpParser\Node\Stmt\Return_;
-use PhpParser\NodeFinder;
 
 /**
  * SL112 -- a function that is only standing in for one.
@@ -78,7 +77,13 @@ final class PlaceholderImplementationRule extends BaseRule
      */
     private const array UNWRITTEN = [
         '/^\s*(this )?(method |function |feature )?(is )?(not (yet )?implemented|unimplemented)( yet)?\s*[.!]*\s*$/iu',
-        '/\b(not implemented yet|not yet implemented|to be implemented|implement me|todo|stub)\b/iu',
+        // The message is the marker, or leads with it: `TODO: wire up refunds`.
+        '/^\s*(todo|fixme|tbd|not implemented yet|not yet implemented|to be implemented|implement me)\b/iu',
+        // ...or ends by saying so: `Method export() is not implemented.`
+        '/\b(is )?not (yet )?implemented( yet)?\s*[.!]*\s*$/iu',
+        // A stub that says it is one, and nothing else. `Cannot stub a final
+        // class` is a message about stubbing, not a stub.
+        '/^\s*(this is (just )?a |a )?stub( method| function| implementation)?\s*[.!]*\s*$/iu',
     ];
 
     /**
@@ -316,7 +321,9 @@ final class PlaceholderImplementationRule extends BaseRule
     {
         $comments = [];
 
-        $nodes = (new NodeFinder)->find($body, static fn (Node $node): bool => $node->getComments() !== []);
+        // A nested anonymous class or function is inspected as itself, so its
+        // comments are not this body's.
+        $nodes = array_filter(NodeHelper::findOwn(array_values($body), Node::class), static fn (Node $node): bool => $node->getComments() !== []);
 
         foreach ($nodes as $node) {
             foreach ($node->getComments() as $comment) {

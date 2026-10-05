@@ -87,6 +87,9 @@ it('keeps the runtime dependencies small enough to ship in one file', function (
         'nikic/php-parser',
         'symfony/console',
         'symfony/finder',
+        // Polyfills, so the phar runs on a PHP built without mbstring or ctype.
+        'symfony/polyfill-ctype',
+        'symfony/polyfill-mbstring',
         'symfony/process',
         // Only to read a deptrac.yaml for `sloppy architecture import`. A
         // hand-written YAML reader would be the larger risk.
@@ -94,13 +97,72 @@ it('keeps the runtime dependencies small enough to ship in one file', function (
     ]);
 });
 
-it('suggests ext-xml rather than requiring it', function (): void {
+it('suggests ext-xmlreader rather than requiring it', function (): void {
     // Coverage is optional. Requiring an extension for an optional feature
     // would make the phar refuse to install on a PHP build that never wanted
     // the feature at all -- and every coverage lookup already returns null
     // when the extension is missing.
     $composer = manifest('composer.json');
 
-    expect($composer['suggest'])->toHaveKey('ext-xml')
-        ->and($composer['require'])->not->toHaveKey('ext-xml');
+    expect($composer['suggest'])->toHaveKey('ext-xmlreader')
+        ->and($composer['require'])->not->toHaveKey('ext-xmlreader');
+});
+
+it('packs every directory the code reads files from into the phar', function (): void {
+    // A file read through __DIR__ is not a class the autoloader finds: if its
+    // directory is missing from box.json the phar builds, and then fails the
+    // first time the file is needed -- resources/rector-rules.php was exactly
+    // that. Every such path is found here and checked against the list.
+    $root = str_replace('\\', '/', dirname(__DIR__, 3));
+
+    /** @var list<string> $packed */
+    $packed = manifest('box.json.dist')['directories'];
+
+    $files = [$root.'/bin/sloppy', $root.'/bin/sloppy-mcp'];
+
+    foreach (['src', 'config', 'pest'] as $directory) {
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root.'/'.$directory, FilesystemIterator::SKIP_DOTS));
+
+        foreach ($iterator as $file) {
+            if ($file instanceof SplFileInfo && $file->getExtension() === 'php') {
+                $files[] = str_replace('\\', '/', $file->getPathname());
+            }
+        }
+    }
+
+    $referenced = [];
+
+    foreach ($files as $file) {
+        preg_match_all("/(?:dirname\(__DIR__(?:,\s*(\d+))?\)|__DIR__)\s*\.\s*'(\/[^'\"]*)'/", (string) file_get_contents($file), $matches, PREG_SET_ORDER);
+
+        foreach ($matches as $match) {
+            $base = str_starts_with($match[0], 'dirname') ? dirname(dirname($file), max(1, (int) ($match[1] ?: 1))) : dirname($file);
+            $segments = [];
+
+            foreach (explode('/', $base.$match[2]) as $segment) {
+                if ($segment === '..') {
+                    array_pop($segments);
+                } elseif ($segment !== '.' && $segment !== '') {
+                    $segments[] = $segment;
+                }
+            }
+
+            $resolved = implode('/', $segments);
+            $relative = str_starts_with($resolved, ltrim($root, '/').'/') ? substr($resolved, strlen(ltrim($root, '/')) + 1) : null;
+
+            // Outside the package (the autoloader of the project it is
+            // installed in), or Composer's own vendor directory: not ours.
+            if ($relative === null || str_starts_with($relative, 'vendor/')) {
+                continue;
+            }
+
+            $referenced[explode('/', $relative)[0]] = $file;
+        }
+    }
+
+    expect($referenced)->toHaveKey('resources');
+
+    foreach (array_keys($referenced) as $directory) {
+        expect($packed)->toContain($directory);
+    }
 });

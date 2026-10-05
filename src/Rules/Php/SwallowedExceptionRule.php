@@ -7,6 +7,7 @@ namespace Heyosseus\Sloppy\Rules\Php;
 use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Ast\CodeUnit;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use PhpParser\Node;
@@ -85,13 +86,15 @@ final class SwallowedExceptionRule extends BaseRule
 
     public function analyze(AnalysisContext $context): iterable
     {
-        foreach ($context->classLikes() as $classLike) {
-            $className = NodeHelper::shortName($classLike) ?? 'anonymous class';
+        /** @var array<string, int> $seen */
+        $seen = [];
 
-            /** @var array<string, int> $seen */
-            $seen = [];
-
-            foreach (NodeHelper::find($classLike, Catch_::class) as $catch) {
+        // Every body in the file -- methods, functions, property hooks and
+        // top-level code such as route closures -- each walked without
+        // descending into a nested declaration, so a catch is reported once,
+        // against the code it belongs to.
+        foreach (CodeUnit::inFile($context->file, withTopLevel: true) as $unit) {
+            foreach (NodeHelper::findOwn($unit->root(), Catch_::class) as $catch) {
                 if ($this->handlesFailure($catch)) {
                     continue;
                 }
@@ -104,21 +107,18 @@ final class SwallowedExceptionRule extends BaseRule
                 $broad = array_intersect($types, self::BROAD_TYPES) !== [];
                 $empty = $this->meaningfulStatements($catch) === [];
                 $explained = $this->isExplained($catch);
-                $method = NodeHelper::enclosingMethod($catch);
-                $methodName = $method?->name->toString() ?? 'closure';
 
                 // Two identical swallowing catches in one method are two
                 // findings, so the fingerprint has to tell them apart.
-                $key = sprintf('%s::%s:%s', $className, $methodName, implode('|', $types));
+                $key = sprintf('%s:%s', $unit->label(), implode('|', $types));
                 $ordinal = $seen[$key] = ($seen[$key] ?? 0) + 1;
 
                 yield $this->report(
                     context: $context,
                     at: $catch,
                     message: sprintf(
-                        '%s::%s() catches %s and %s.',
-                        $className,
-                        $methodName,
+                        '%s catches %s and %s.',
+                        $unit->subject(),
                         implode('|', $types === [] ? ['Throwable'] : $types),
                         $empty ? 'does nothing at all' : 'returns without recording the failure',
                     ),

@@ -54,6 +54,8 @@ final readonly class ScanTool implements McpTool
                 ],
                 'min_confidence' => [
                     'type' => 'integer',
+                    'minimum' => 0,
+                    'maximum' => 100,
                     'description' => 'Drop findings below this confidence (0-100).',
                 ],
                 'format' => [

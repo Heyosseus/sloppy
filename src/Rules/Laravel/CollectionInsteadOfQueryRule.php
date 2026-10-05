@@ -9,6 +9,7 @@ use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\LaravelRule;
+use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
 
@@ -61,7 +62,7 @@ final class CollectionInsteadOfQueryRule extends LaravelRule
 
     public function description(): string
     {
-        return 'Flags a full table load followed immediately by a collection operation the database could have performed.';
+        return 'Flags a full table load, or a query run to completion with ->get(), followed immediately by a collection operation the database could have performed.';
     }
 
     public function explanation(): string
@@ -86,25 +87,14 @@ final class CollectionInsteadOfQueryRule extends LaravelRule
         foreach ($context->classLikes() as $classLike) {
             $className = NodeHelper::shortName($classLike) ?? 'anonymous class';
 
-            foreach (NodeHelper::find($classLike, MethodCall::class) as $call) {
-                $inner = $call->var;
+            foreach (NodeHelper::findOwn($classLike, MethodCall::class) as $call) {
+                $load = $this->loadOf($call->var, $context);
 
-                if (! $inner instanceof StaticCall) {
+                if ($load === null) {
                     continue;
                 }
 
-                $loader = NodeHelper::callName($inner);
-
-                if (! NodeHelper::isNameOneOf($loader, ['all', 'get'])) {
-                    continue;
-                }
-
-                // `SomeHelper::all()` on a class we can see is not a model has
-                // no query to push the filtering into.
-                if (! LaravelCalls::targetsDatabase($inner, $context->index)) {
-                    continue;
-                }
-
+                [$root, $loader] = $load;
                 $operation = NodeHelper::callName($call);
 
                 if ($operation === null) {
@@ -117,7 +107,8 @@ final class CollectionInsteadOfQueryRule extends LaravelRule
                     continue;
                 }
 
-                $model = NodeHelper::baseName(NodeHelper::staticCallClass($inner) ?? 'Model');
+                $model = NodeHelper::baseName(NodeHelper::staticCallClass($root) ?? 'Model');
+                $whole = $root === $call->var;
                 $method = NodeHelper::enclosingMethod($call);
                 $methodName = $method?->name->toString() ?? 'closure';
 
@@ -125,24 +116,63 @@ final class CollectionInsteadOfQueryRule extends LaravelRule
                     context: $context,
                     at: $call,
                     message: sprintf(
-                        '%s::%s() loads every %s row with %s::%s() and then filters it in PHP with ->%s().',
+                        '%s::%s() loads %s %s rows with %s::%s() and then filters them in PHP with ->%s().',
                         $className,
                         $methodName,
+                        $whole ? 'every' : 'all the matching',
                         $model,
                         $model,
-                        $loader,
+                        str_replace('->', '()->', $loader),
                         $operation,
                     ),
-                    suggestion: sprintf('Let the database do it: %s::%s.', $model, $replacement['suggestion']),
+                    suggestion: $whole
+                        ? sprintf('Let the database do it: %s::%s.', $model, $replacement['suggestion'])
+                        : sprintf('Let the database do it: fold ->%s() into the query instead of running it on what ->get() returned -- %s.', $operation, $replacement['suggestion']),
                     confidence: $replacement['confidence'],
                     fingerprint: sprintf('%s::%s:%s::%s->%s', $className, $methodName, $model, $loader, $operation),
                     metrics: [
                         'model' => $model,
-                        'loader' => (string) $loader,
+                        'loader' => $loader,
                         'operation' => $operation,
                     ],
                 );
             }
         }
+    }
+
+    /**
+     * The model load a collection operation runs on, as the static call the
+     * query starts from and the methods that ran it -- or null when it is not
+     * a load the database could have narrowed.
+     *
+     * Two shapes count: the whole table, `Order::all()` or `Order::get()`, and
+     * a query run to completion, `Order::where(...)->get()` or
+     * `Order::query()->get()`. Either way, the rows came from a model or the
+     * DB facade -- `SomeHelper::all()` on a class the index can see is not a
+     * model has no query to push the filtering into.
+     *
+     * @return array{0: StaticCall, 1: string}|null
+     */
+    private function loadOf(Expr $loaded, AnalysisContext $context): ?array
+    {
+        if ($loaded instanceof StaticCall) {
+            $loader = NodeHelper::callName($loaded);
+
+            return $loader !== null && NodeHelper::isNameOneOf($loader, ['all', 'get']) && LaravelCalls::targetsDatabase($loaded, $context->index)
+                ? [$loaded, $loader]
+                : null;
+        }
+
+        if (! $loaded instanceof MethodCall || NodeHelper::callName($loaded) !== 'get') {
+            return null;
+        }
+
+        $root = NodeHelper::chainRoot($loaded);
+
+        if (! $root instanceof StaticCall || ! LaravelCalls::targetsDatabase($root, $context->index)) {
+            return null;
+        }
+
+        return [$root, implode('->', NodeHelper::chainMethodNames($loaded))];
     }
 }

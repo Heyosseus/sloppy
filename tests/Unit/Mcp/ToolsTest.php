@@ -69,6 +69,19 @@ it('resolves the project the server was started in, or one an argument names', f
     removeTree($root);
 });
 
+it('resolves a relative project argument against the server root', function (): void {
+    $root = tempProject([
+        'composer.json' => '{}',
+        'packages/billing/composer.json' => '{"autoload":{"psr-4":{"Billing\\\\":"src/"}}}',
+    ]);
+
+    $resolved = rtrim(str_replace('\\', '/', (string) realpath($root.'/packages/billing')), '/');
+
+    expect((new ProjectResolver($root))->resolve('packages/billing')->configuration->basePath)->toBe($resolved);
+
+    removeTree($root);
+});
+
 it('scans a project and reports what it found', function (): void {
     $root = toolProject();
     $tool = new ScanTool(new ProjectResolver($root));

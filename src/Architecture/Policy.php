@@ -65,8 +65,9 @@ final readonly class Policy
             return true;
         }
 
+        // PHP method names are case-insensitive: `Handle()` is `handle()`.
         foreach ($this->publicMethods as $allowed) {
-            if ($allowed->matches($name)) {
+            if ((new Glob(mb_strtolower($allowed->pattern)))->matches(mb_strtolower($name))) {
                 return true;
             }
         }

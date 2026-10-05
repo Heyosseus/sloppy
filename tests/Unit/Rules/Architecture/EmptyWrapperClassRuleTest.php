@@ -167,3 +167,22 @@ it('ignores abstract classes', function (): void {
     }
     PHP))->toBeEmpty();
 });
+
+it('does not crash on, or count as forwarding, a method that returns a first-class callable', function (): void {
+    expect(findings(emptyWrapper(), <<<'PHP'
+    class Callables
+    {
+        public function __construct(private Inner $inner) {}
+
+        public function first(): \Closure
+        {
+            return $this->inner->first(...);
+        }
+
+        public function second(): \Closure
+        {
+            return $this->inner->second(...);
+        }
+    }
+    PHP))->toBeEmpty();
+});

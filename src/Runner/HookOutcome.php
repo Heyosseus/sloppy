@@ -67,7 +67,7 @@ final readonly class HookOutcome
     {
         return json_encode(
             ['decision' => 'block', 'reason' => rtrim($feedback)],
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         )."\n";
     }
 }

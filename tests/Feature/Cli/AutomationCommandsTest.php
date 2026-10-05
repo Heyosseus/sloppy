@@ -204,7 +204,7 @@ it('reports a non-numeric option rather than running', function (): void {
     ], ['capture_stderr_separately' => true]);
 
     expect($code)->toBe(ExitCode::Error->value)
-        ->and(output($tester))->toContain('--top must be a number.');
+        ->and(output($tester))->toContain('--top must be a number without a fraction, got "lots".');
 
     removeTree($project);
 });
@@ -309,6 +309,60 @@ it('draws the graph, places a class and drafts a profile from the command line',
         ->and($place->getDisplay())->toContain('- File: src/Services/Refund.php')
         ->and($initCode)->toBe(ExitCode::Success->value)
         ->and(is_file($project.'/sloppy-architecture.php'))->toBeTrue();
+
+    removeTree($project);
+});
+
+it('refuses a number with a fraction or an exponent, rather than reading a different one', function (string $value): void {
+    $project = automationProject();
+    $tester = automationTester();
+
+    $code = $tester->run([
+        'command' => 'scan',
+        '--project' => $project,
+        '--min-confidence' => $value,
+    ], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Error->value)
+        ->and(output($tester))->toContain(sprintf('--min-confidence must be a number without a fraction, got "%s".', $value));
+
+    removeTree($project);
+})->with(['abc', '80.5', '1e2']);
+
+it('does not offer an option a command would ignore', function (string $command, string $option): void {
+    $definition = (new SloppyApplication('test'))->find($command)->getDefinition();
+
+    expect($definition->hasOption($option))->toBeFalse();
+})->with([
+    'rules --rule' => ['rules', 'rule'],
+    'rules --path' => ['rules', 'path'],
+    'rules --min-confidence' => ['rules', 'min-confidence'],
+    'architecture --rule' => ['architecture', 'rule'],
+    'architecture --min-confidence' => ['architecture', 'min-confidence'],
+]);
+
+it('reports an option a command does not have as a usage error, exit code 2', function (): void {
+    $project = automationProject();
+    $application = new SloppyApplication('test');
+    $application->setAutoExit(false);
+    $tester = new ApplicationTester($application);
+
+    $code = $tester->run(['command' => 'rules', '--project' => $project, '--rule' => ['SL101'], '--stdout' => true], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Error->value)
+        ->and(output($tester))->toContain('The "--rule" option does not exist.');
+
+    removeTree($project);
+});
+
+it('reports a malformed watch interval as a message, not a stack trace', function (): void {
+    $project = automationProject();
+    $tester = automationTester();
+
+    $code = $tester->run(['command' => 'watch', '--project' => $project, '--interval' => 'abc'], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Error->value)
+        ->and(output($tester))->toContain('--interval must be a number without a fraction, got "abc".');
 
     removeTree($project);
 });

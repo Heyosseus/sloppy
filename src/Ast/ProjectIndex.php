@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Ast;
 
 use PhpParser\Modifiers;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\NullsafeMethodCall;
@@ -17,7 +18,10 @@ use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Enum_;
 use PhpParser\Node\Stmt\Interface_;
+use PhpParser\Node\Stmt\Property;
+use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\Stmt\Trait_;
 use PhpParser\Node\UseItem;
 
@@ -73,28 +77,36 @@ final readonly class ProjectIndex
             foreach ($file->classLikes() as $classLike) {
                 $fqn = NodeHelper::className($classLike);
 
-                if ($fqn === null) {
-                    continue;
-                }
-
-                $declared[$fqn] = true;
-                $classes[$fqn] = self::summarize($classLike, $file, $fqn);
-
+                // Implementing or extending something is not using it, for
+                // an anonymous class as much as for a named one.
                 foreach (self::inheritanceClauses($classLike) as $name) {
                     $inheritanceNames[spl_object_id($name)] = true;
                 }
 
-                foreach (NodeHelper::interfaceNames($classLike) as $interface) {
-                    if ($classLike instanceof Class_) {
-                        $implementations[$interface][] = $fqn;
+                // An enum implements an interface as surely as a class does,
+                // and so does `new class implements Clock`. An anonymous class
+                // has no name to be listed under, so it is listed as where it
+                // is declared.
+                $implementor = $fqn ?? self::anonymousName($file, $classLike);
+
+                if ($classLike instanceof Class_ || $classLike instanceof Enum_) {
+                    foreach (NodeHelper::interfaceNames($classLike) as $interface) {
+                        $implementations[$interface][] = $implementor;
                     }
                 }
 
                 $parent = NodeHelper::parentName($classLike);
 
                 if ($parent !== null && $classLike instanceof Class_) {
-                    $implementations[$parent][] = $fqn;
+                    $implementations[$parent][] = $implementor;
                 }
+
+                if ($fqn === null) {
+                    continue;
+                }
+
+                $declared[$fqn] = true;
+                $classes[$fqn] = self::summarize($classLike, $file, $fqn);
 
                 self::collectDuplicates($classLike, $file, $fqn, $duplicates, $signatures);
             }
@@ -193,6 +205,45 @@ final readonly class ProjectIndex
 
             $seen[$class] = true;
             $class = $this->classes[$class]->parent ?? null;
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a class is an Eloquent model, however many of the project's own
+     * base classes stand between it and Eloquent: `Invoice extends BaseModel`
+     * is a model when the index knows `BaseModel extends Model`.
+     *
+     * A class the index has never seen is not known to be a model, so the
+     * answer for it is false; callers decide what an unknown class means.
+     */
+    public function isEloquentModel(string $class): bool
+    {
+        $seen = [];
+        $current = $class;
+
+        while (! isset($seen[$current])) {
+            $summary = $this->classes[$current] ?? null;
+
+            if (! $summary instanceof ClassSummary) {
+                return false;
+            }
+
+            if ($summary->kind !== 'class') {
+                return false;
+            }
+
+            if (NodeHelper::extendsEloquentModel($summary->parent)) {
+                return true;
+            }
+
+            if ($summary->parent === null) {
+                return false;
+            }
+
+            $seen[$current] = true;
+            $current = $summary->parent;
         }
 
         return false;
@@ -313,7 +364,82 @@ final readonly class ProjectIndex
             hasDynamicAccess: $classLike instanceof Trait_ && NodeHelper::hasDynamicAccess($classLike),
             isValueObject: $classLike instanceof Class_ && self::isValueObject($classLike),
             attributes: NodeHelper::attributeNames($classLike),
+            castAttributes: $classLike instanceof Class_ ? self::castAttributes($classLike) : [],
         );
+    }
+
+    /**
+     * Whether the index knows a class declares an attribute as a cast or a
+     * date -- a value, never a relation -- here or on one of its parents.
+     */
+    public function castsAttribute(string $class, string $attribute): bool
+    {
+        $seen = [];
+        $summary = $this->classes[$class] ?? null;
+
+        while ($summary instanceof ClassSummary && ! isset($seen[$summary->fqn])) {
+            if (in_array($attribute, $summary->castAttributes, true)) {
+                return true;
+            }
+
+            $seen[$summary->fqn] = true;
+            $summary = $summary->parent === null ? null : ($this->classes[$summary->parent] ?? null);
+        }
+
+        return false;
+    }
+
+    /**
+     * Attributes a model declares as casts or dates: the keys of `$casts` and
+     * of the array `casts()` returns, and the values of `$dates`.
+     *
+     * @return list<string>
+     */
+    private static function castAttributes(Class_ $class): array
+    {
+        $names = [];
+
+        foreach ($class->stmts as $statement) {
+            if ($statement instanceof Property) {
+                foreach ($statement->props as $property) {
+                    $name = $property->name->toString();
+
+                    if (($name === 'casts' || $name === 'dates') && $property->default instanceof Array_) {
+                        $names = [...$names, ...self::arrayStrings($property->default, keys: $name === 'casts')];
+                    }
+                }
+            }
+
+            if ($statement instanceof ClassMethod && $statement->name->toLowerString() === 'casts') {
+                foreach (NodeHelper::findOwn($statement, Return_::class) as $return) {
+                    if ($return->expr instanceof Array_) {
+                        $names = [...$names, ...self::arrayStrings($return->expr, keys: true)];
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * The string keys, or the string values, of an array literal.
+     *
+     * @return list<string>
+     */
+    private static function arrayStrings(Array_ $array, bool $keys): array
+    {
+        $strings = [];
+
+        foreach ($array->items as $item) {
+            $node = $keys ? $item->key : $item->value;
+
+            if ($node instanceof String_) {
+                $strings[] = $node->value;
+            }
+        }
+
+        return $strings;
     }
 
     /**
@@ -462,6 +588,22 @@ final readonly class ProjectIndex
             }
         }
 
+        if ($classLike instanceof Enum_) {
+            foreach ($classLike->implements as $interface) {
+                $names[] = $interface;
+            }
+        }
+
         return $names;
+    }
+
+    /**
+     * The name an anonymous class is listed under among an interface's or a
+     * parent's implementations: where it is declared, the way PHP itself
+     * names one.
+     */
+    private static function anonymousName(ParsedFile $file, ClassLike $classLike): string
+    {
+        return 'class@anonymous@'.$file->relativePath.':'.$classLike->getStartLine();
     }
 }

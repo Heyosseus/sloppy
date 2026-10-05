@@ -23,12 +23,14 @@ final class SloppyDiffCommand extends SloppyDiffLikeCommand
     protected $signature = 'sloppy:diff
         {base=HEAD : Revision to compare the working tree against, e.g. HEAD~1 or main}
         {--path=* : Analyse these paths instead of the configured ones}
-        {--format=console : console or json}
+        {--format=console : console, json, sarif, markdown, github, gitlab or rector; sarif, gitlab and rector carry the new findings}
         {--fail-on= : Lowest severity of NEW finding that fails the command, or "never"}
+        {--merge-base : Compare against where HEAD forked from the base (git merge-base) rather than its tip}
         {--min-confidence= : Drop findings below this confidence (0-100)}
         {--rule=* : Run only these rule IDs, e.g. --rule=SL101}
         {--coverage= : Path to a clover or cobertura report; findings in untested files rank higher}
-        {--explain : Include each rule\'s "why this matters" text}';
+        {--explain : Include each rule\'s "why this matters" text}
+        {--explain-risk : Show the arithmetic behind each risk value (the console report becomes the risk-ordered review)}';
 
     protected $description = 'Report the findings a change introduced, relative to a git revision';
 
@@ -36,7 +38,7 @@ final class SloppyDiffCommand extends SloppyDiffLikeCommand
     {
         return $this->runWith(fn (LaravelRunnerOutput $output): ExitCode => (new DiffRunner)->run(
             $sloppy,
-            $this->diffOptionsFrom(explain: $this->boolOption('explain')),
+            $this->diffOptionsFrom(explain: $this->boolOption('explain'), explainRisk: $this->boolOption('explain-risk')),
             $output,
         ));
     }

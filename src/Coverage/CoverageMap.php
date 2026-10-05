@@ -68,8 +68,12 @@ final readonly class CoverageMap
         return $this->generatedAt;
     }
 
+    /**
+     * Only a leading `./` -- or a leading slash -- is noise: `.hidden/` and
+     * `../shared/` are paths, and stripping their dots names another file.
+     */
     private function normalise(string $path): string
     {
-        return ltrim(str_replace('\\', '/', $path), './');
+        return (string) preg_replace('#^(?:\./|/)+#', '', str_replace('\\', '/', $path));
     }
 }

@@ -41,6 +41,7 @@ final class TerminalDashboard implements Dashboard
         private readonly int $width = 80,
         private readonly int $interval = 250,
         private readonly bool $terminal = true,
+        private readonly InterruptHandler $interrupts = new InterruptHandler,
     ) {
         $this->cursor = new Cursor($this->output);
     }
@@ -55,9 +56,20 @@ final class TerminalDashboard implements Dashboard
         $this->drawn = 0;
 
         $this->cursor->hide();
+
+        // Ctrl+C would otherwise kill the process past the runner's `finally`
+        // and leave the shell with no echo and no cursor.
+        $this->interrupts->install($this->restore(...));
     }
 
     public function close(): void
+    {
+        $this->interrupts->uninstall();
+
+        $this->restore();
+    }
+
+    private function restore(): void
     {
         $this->cursor->show();
 

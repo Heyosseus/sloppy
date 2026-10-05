@@ -99,3 +99,16 @@ it('ignores non-null comparisons', function (): void {
         ->and(NodeHelper::printAny($expr))->toBe('$a === 5')
         ->and(ConditionShape::of($expr))->toBeNull();
 });
+
+it('lets a check imply only what it actually settles', function (): void {
+    // Not-null says nothing about truthiness: 0, '' and false are not null.
+    expect(shapeOf('isset($o["force"])')?->implies(shapeOf('$o["force"]')))->toBeFalse()
+        ->and(shapeOf('$count !== null')?->implies(shapeOf('$count')))->toBeFalse()
+        ->and(shapeOf('$count')?->implies(shapeOf('$count !== null')))->toBeTrue()
+        ->and(shapeOf('! empty($count)')?->implies(shapeOf('$count')))->toBeTrue()
+        // Null settles falsy, but falsy leaves null open.
+        ->and(shapeOf('$code === null')?->implies(shapeOf('! $code')))->toBeTrue()
+        ->and(shapeOf('! $code')?->implies(shapeOf('$code === null')))->toBeFalse()
+        ->and(shapeOf('$u !== null')?->implies(shapeOf('! is_null($u)')))->toBeTrue()
+        ->and(shapeOf('$u === null')?->implies(shapeOf('$order === null')))->toBeFalse();
+});

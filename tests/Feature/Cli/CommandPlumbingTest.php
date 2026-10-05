@@ -158,3 +158,38 @@ it('registers nothing but views outside the console', function (): void {
 
     expect($application->bound(Heyosseus\Sloppy\Sloppy::class))->toBeTrue();
 });
+
+it('serves MCP from a file redirected into the real binary, warnings and all', function (): void {
+    // Two ways `sloppy mcp < requests.jsonl` used to answer nothing usable on
+    // Windows: Symfony's terminal probe swallowed the redirected file before
+    // the server read it, and a PHP warning from the project's own config
+    // landed in the middle of the JSON-RPC stream.
+    $project = tempProject([
+        'composer.json' => '{}',
+        'config/sloppy.php' => "<?php\n\$level = \$_ENV['SLOPPY_NOT_SET'];\n\nreturn [];\n",
+        'app/A.php' => "<?php\n\nclass A\n{\n}\n",
+        'in.jsonl' => '{"jsonrpc":"2.0","id":1,"method":"ping"}'."\n"
+            .'{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sloppy_health","arguments":{"fresh":true}}}'."\n",
+    ]);
+
+    $process = Symfony\Component\Process\Process::fromShellCommandline(
+        '"${:PHP}" -d display_errors=stdout "${:BINARY}" mcp < in.jsonl',
+        $project,
+        ['PHP' => PHP_BINARY, 'BINARY' => dirname(__DIR__, 3).'/bin/sloppy', 'COLUMNS' => false, 'LINES' => false],
+    );
+    $process->run();
+
+    $lines = array_values(array_filter(explode("\n", str_replace("\r\n", "\n", $process->getOutput()))));
+
+    removeTree($project);
+
+    expect($lines)->toHaveCount(2)
+        ->and($lines[0])->toBe('{"jsonrpc":"2.0","id":1,"result":{}}');
+
+    /** @var array{id: int, result: array{isError: bool}} $health */
+    $health = json_decode($lines[1], true, 512, JSON_THROW_ON_ERROR);
+
+    expect($health['id'])->toBe(2)
+        ->and($health['result']['isError'])->toBeFalse()
+        ->and($process->getErrorOutput())->toContain('SLOPPY_NOT_SET');
+});

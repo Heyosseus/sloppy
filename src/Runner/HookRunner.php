@@ -114,7 +114,10 @@ final readonly class HookRunner
         }
 
         try {
-            return $sloppy->diff(self::BASE);
+            // A hook reads only what the change introduced, never a score,
+            // and it runs after every edit: the whole tree's score would be
+            // a full scan per keystroke that nobody sees.
+            return $sloppy->diff(self::BASE, scored: false);
         } catch (Throwable $exception) {
             return HookOutcome::pass(sprintf("Sloppy: the check did not run (%s).\n", $exception->getMessage()));
         }

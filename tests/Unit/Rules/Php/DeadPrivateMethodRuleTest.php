@@ -283,3 +283,26 @@ it('stays quiet when a used trait calls methods dynamically', function (): void 
         PHP,
     ]))->toBeEmpty();
 });
+
+it('does not flag private methods in a class that calls its own methods dynamically', function (string $call): void {
+    expect(findings(deadPrivate(), <<<PHP
+    class Dispatcher
+    {
+        public function handle(string \$event): mixed
+        {
+            \$method = 'on'.\$event;
+
+            return {$call};
+        }
+
+        private function onCreated(): void {}
+    }
+    PHP))->toBeEmpty();
+})->with([
+    'static variable call' => ['static::$method()'],
+    'self braced call' => ['self::{$method}()'],
+    'nullsafe dynamic call' => ['$this?->$method()'],
+    'callable array on $this' => ['call_user([$this, $method])'],
+    'callable array on static::class' => ['array_map([static::class, $method], [])'],
+    'callable array on self::class' => ['array_map([self::class, $method], [])'],
+]);

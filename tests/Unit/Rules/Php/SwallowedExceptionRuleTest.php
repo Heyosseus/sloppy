@@ -348,3 +348,90 @@ it('does not count a comment too short to be a reason', function (): void {
     expect($found[0]->severity)->toBe(Severity::High)
         ->and($found[0]->metrics['explained'])->toBeFalse();
 });
+
+it('reports a catch inside an anonymous class once, against the anonymous class', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    class Factory
+    {
+        public function make(): object
+        {
+            return new class {
+                public function run(): void
+                {
+                    try {
+                        $this->go();
+                    } catch (\Throwable $e) {
+                    }
+                }
+            };
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->fingerprint)->toBe('anonymous class::run:Throwable');
+});
+
+it('looks inside top-level and namespaced functions', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    namespace App\Support;
+
+    function load(string $path): ?string
+    {
+        if ($path !== '') {
+            foreach ([1] as $a) {
+                while (true) {
+                    try {
+                        return file_get_contents($path);
+                    } catch (\Throwable $e) {
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->fingerprint)->toBe('load:Throwable')
+        ->and($found[0]->message)->toStartWith('load() catches Throwable');
+});
+
+it('looks inside closures at the top level of a file, such as routes', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    Route::get('/health', function () {
+        try {
+            DB::select('select 1');
+        } catch (\Throwable $e) {
+        }
+
+        return 'ok';
+    });
+    PHP, 'routes/web.php');
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->fingerprint)->toBe('{main}:Throwable')
+        ->and($found[0]->message)->toStartWith('top-level code catches Throwable');
+});
+
+it('looks inside property hooks', function (): void {
+    $found = findings(swallowed(), <<<'PHP'
+    class Settings
+    {
+        public string $theme {
+            get {
+                try {
+                    return $this->load();
+                } catch (\Throwable $e) {
+                }
+
+                return 'light';
+            }
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->fingerprint)->toBe('Settings::$theme::get:Throwable');
+});

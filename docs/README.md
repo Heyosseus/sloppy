@@ -10,6 +10,6 @@
 | [Everyday workflow](workflow.md) | `diff` and `review`, what to read first, `sloppy fix` over Rector and Pint, Pest expectations, `watch`, Filament and NativePHP |
 | [CI and code scanning](ci.md) | `sloppy ci`, the GitHub Action, GitLab Code Quality, SARIF, inline annotations, PR comments, exit codes |
 | [Score, severity and risk](scoring.md) | The slop score formula, severity versus confidence, the risk model and its arithmetic, coverage and PHPStan baselines as evidence |
-| [Configuration](configuration.md) | `config/sloppy.php`, and tuning a noisy first run |
+| [Configuration](configuration.md) | `config/sloppy.php`, where the binary looks for it, `sloppy-architecture.php`, and tuning a noisy first run |
 | [JSON output](json-output.md) | The report's shape and the contract it keeps |
 | [Custom rules](custom-rules.md) | Writing a rule, registering it, and where it shows up |

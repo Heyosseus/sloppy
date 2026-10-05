@@ -295,3 +295,37 @@ it('describes itself', function (): void {
         ->and($rule->category())->toBe(Category::DeadCode)
         ->and($rule->severity())->toBe(Severity::High);
 });
+
+it('does not take a message about stubs or todos for a stub', function (string $message): void {
+    expect(findings(new PlaceholderImplementationRule, <<<PHP
+    <?php
+    class Mocker
+    {
+        public function mock(string \$class): object
+        {
+            throw new \LogicException('{$message}');
+        }
+    }
+    PHP))->toBeEmpty();
+})->with([
+    'Cannot stub a final class',
+    'The todo list is full.',
+    'Stubbed services cannot be resolved twice.',
+]);
+
+it('still flags a message that leads with TODO or ends by saying it is not implemented', function (string $message): void {
+    expect(findings(new PlaceholderImplementationRule, <<<PHP
+    <?php
+    class Exporter
+    {
+        public function export(): string
+        {
+            throw new \LogicException('{$message}');
+        }
+    }
+    PHP))->toHaveCount(1);
+})->with([
+    'TODO: wire up the CSV writer',
+    'Method export() is not implemented.',
+    'This is a stub.',
+]);

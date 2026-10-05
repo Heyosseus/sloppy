@@ -51,14 +51,27 @@ it('errors when every rule is filtered out and none were skipped for a framework
         ]);
 });
 
-it('warns and succeeds when the configured paths hold no PHP', function () use ($fixtures): void {
+it('warns and succeeds when the configured paths hold no PHP', function (): void {
+    $root = tempProject(['empty/README.md' => 'Nothing to see.']);
+    $output = new RecordingRunnerOutput;
+    $sloppy = new Sloppy(Configuration::fromArray(['paths' => ['empty']], $root));
+
+    $code = (new ScanRunner)->run($sloppy, new ScanOptions, $output);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and($output->messages())->toBe(['warn: No PHP files found in: empty.']);
+
+    removeTree($root);
+});
+
+it('errors when none of the configured paths exist', function () use ($fixtures): void {
     $output = new RecordingRunnerOutput;
     $sloppy = new Sloppy(Configuration::fromArray(['paths' => ['Nope']], $fixtures));
 
     $code = (new ScanRunner)->run($sloppy, new ScanOptions, $output);
 
-    expect($code)->toBe(ExitCode::Success)
-        ->and($output->messages())->toBe(['warn: No PHP files found in: Nope.']);
+    expect($code)->toBe(ExitCode::Error)
+        ->and($output->messages())->toBe([sprintf('error: None of the configured paths exist: Nope (in %s).', str_replace('\\', '/', $fixtures))]);
 });
 
 it('reports findings as json and fails on the configured threshold', function () use ($fixtures): void {

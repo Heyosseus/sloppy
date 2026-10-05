@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Cli\InterruptHandler;
 use Heyosseus\Sloppy\Cli\TerminalDashboard;
 use Heyosseus\Sloppy\Tests\Support\ScriptedTerminalMode;
 use Heyosseus\Sloppy\Watch\KeyPress;
@@ -142,3 +143,62 @@ it('starts a fresh frame when it takes the terminal back', function (): void {
 
     expect(substr(written($output), $before))->not->toContain("\e[3A");
 });
+
+it('gives the terminal back before an interrupt ends the process', function (): void {
+    $handle = fopen('php://memory', 'r+');
+    $output = new StreamOutput($handle === false ? fopen('php://temp', 'r+') : $handle, StreamOutput::VERBOSITY_NORMAL, true);
+    $mode = new ScriptedTerminalMode(true);
+    $exits = [];
+    $interrupts = new InterruptHandler(static function (int $code) use (&$exits): void {
+        $exits[] = $code;
+    });
+
+    $dashboard = new TerminalDashboard($output, new SplTempFileObject, $mode, 80, 0, true, $interrupts);
+    $dashboard->open();
+
+    // What Ctrl+C delivers -- SIGINT, or the Windows console event.
+    $interrupts->interrupt(2);
+
+    expect($mode->restored)->toBeTrue()
+        ->and(strrpos(written($output), "\e[?25h"))->toBeGreaterThan(strrpos(written($output), "\e[?25l"))
+        ->and($exits)->toBe([130]);
+});
+
+it('restores once, and not at all after it was closed the ordinary way', function (): void {
+    $mode = new ScriptedTerminalMode(true);
+    $restores = 0;
+    $interrupts = new InterruptHandler(static function (int $code): void {});
+
+    $interrupts->install(static function () use (&$restores): void {
+        $restores++;
+    });
+    $interrupts->restore();
+    $interrupts->restore();
+
+    expect($restores)->toBe(1);
+
+    $handle = fopen('php://memory', 'r+');
+    $output = new StreamOutput($handle === false ? fopen('php://temp', 'r+') : $handle);
+    $dashboard = new TerminalDashboard($output, new SplTempFileObject, $mode, 80, 0, true, $interrupts);
+    $dashboard->open();
+    $dashboard->close();
+    $mode->restored = false;
+
+    // A shutdown after a clean close has nothing left to restore.
+    $interrupts->restore();
+
+    expect($mode->restored)->toBeFalse();
+});
+
+it('puts back the signal handlers that were there before', function (): void {
+    $before = pcntl_signal_get_handler(SIGINT);
+    $interrupts = new InterruptHandler(static function (int $code): void {});
+
+    $interrupts->install(static function (): void {});
+
+    expect(pcntl_signal_get_handler(SIGINT))->not->toBe($before);
+
+    $interrupts->uninstall();
+
+    expect(pcntl_signal_get_handler(SIGINT))->toBe($before);
+})->skip(! function_exists('pcntl_signal'), 'pcntl is not available on this platform.');

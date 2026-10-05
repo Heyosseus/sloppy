@@ -32,11 +32,23 @@ enum OutputFormat: string
             throw new InvalidArgumentException(sprintf(
                 'Unknown --format [%s]. Expected %s.',
                 $normalised,
-                implode(' or ', array_map(static fn (self $case): string => $case->value, self::cases())),
+                self::listing(),
             ));
         }
 
         return $format;
+    }
+
+    /**
+     * Every format, as a command's help text names them: `console, json,
+     * ... or rector`. Read from the cases, so a new format cannot be left out.
+     */
+    public static function listing(): string
+    {
+        $values = array_map(static fn (self $case): string => $case->value, self::cases());
+        $last = array_pop($values);
+
+        return implode(', ', $values).' or '.$last;
     }
 
     /**

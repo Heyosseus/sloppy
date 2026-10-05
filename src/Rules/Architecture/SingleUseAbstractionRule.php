@@ -64,7 +64,7 @@ final class SingleUseAbstractionRule extends BaseRule
         $skipInflated = $this->boolOption('skip_layer_stacks', true);
         $minLayers = max(2, $this->intOption('layer_stack_depth', 3));
 
-        $stacks = $skipInflated ? LayerStack::group($context->index) : [];
+        $stacks = $skipInflated ? LayerStack::group($context->index, $this->listOption('layer_suffixes', LayerStack::LAYER_SUFFIXES)) : [];
 
         foreach ($context->classLikes() as $classLike) {
             if (! $this->isCandidate($context, $classLike)) {

@@ -89,7 +89,7 @@ final readonly class CommandCatalogue
                 CommandGroup::Agents,
                 'agents',
                 'sloppy:agents',
-                'Hook Sloppy into Claude Code, so it checks every edit and every finish.',
+                'Hook Sloppy into Claude Code, so it checks every edit and every finish; `agents uninstall` takes it out again.',
                 'the agent should fix its own findings before you ever see them.',
             ),
             new CommandSummary(

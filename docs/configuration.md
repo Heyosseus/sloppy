@@ -1,17 +1,37 @@
 # Configuration
 
-Every option lives in one file. This page is the tour; the published `config/sloppy.php` is the reference.
+Every option lives in one PHP file, with the architecture profile optionally in a second. This page is the tour; the published `config/sloppy.php` is the reference.
 
 [← Back to the README](../README.md) · [All documentation](README.md)
 
 ## Configuration
 
-Everything lives in `config/sloppy.php`. There is deliberately no second
-configuration format to keep in sync.
+Configuration is one PHP file returning an array, in one format. Where Sloppy
+looks for it depends on how it runs:
+
+| Run through | Where the configuration comes from |
+| --- | --- |
+| `php artisan sloppy:*` | Laravel's `config('sloppy')`: your published `config/sloppy.php`, merged over the package defaults key by key at the top level (a key you leave out keeps its default). |
+| `vendor/bin/sloppy`, the phar, `sloppy-mcp` | The file named by `--config`, if given (relative to the current directory). Otherwise the **first** of these that exists in the project root: `config/sloppy.php`, `sloppy.php`, `.sloppy.php`. Otherwise the package defaults. |
+
+Outside Laravel the file found is merged over the package defaults the same
+way, key by key at the top level, so a file that only sets `fail_on` keeps the
+default `exclude` list and every rule's thresholds. Every standalone command prints which file it used
+(`config: sloppy.php`, or `config: package defaults`). When no file sets
+`paths` and the default `app` directory does not exist, the PSR-4 roots from
+`composer.json` are analysed instead.
+
+The architecture profile is the one setting that may also live in a file of
+its own, `sloppy-architecture.php` in the project root. See
+[Writing the profile down](#writing-the-profile-down) for how it relates to
+`sloppy.architecture`; declaring an architecture in both places is an error
+rather than a precedence question.
 
 ```php
 return [
-    'enabled' => env('SLOPPY_ENABLED', true),
+    // The guarded form works with and without Laravel: a bare env() call is
+    // a fatal error when the file is loaded by the standalone binary.
+    'enabled' => function_exists('env') ? env('SLOPPY_ENABLED', true) : true,
 
     'paths' => ['app'],
 
@@ -275,6 +295,13 @@ presets set it on their ports, adapters and repositories.
     'gateway' => ['suffix' => 'Gateway', 'intended_abstraction' => true],
 ],
 ```
+
+Two options decide what counts as a layer at all, independent of roles:
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `SL301.layer_suffixes` | `Interface`, `Contract`, `Repository`, `Service`, `Manager`, `Factory`, `Handler`, `Provider`, `Adapter`, `Wrapper`, `Decorator`, `Proxy`, `Impl`, `Implementation`, `Abstract`, `Base`, `Builder`, `Resolver`, `Mapper`, `Transformer` | Name endings that make classes built on the same noun (`OrderService`, `OrderRepository`, `OrderRepositoryInterface`) layers of one stack. Setting it replaces the list. |
+| `SL303.layer_stack_depth` | `3` (never less than `2`) | With `skip_layer_stacks` on, `SL303` leaves an abstraction alone when it sits in a stack at least this deep, since `SL301` already reports that layering. `SL303` groups stacks by its own `layer_suffixes`; the shipped config gives both rules the same list. |
 
 ### Tuning a noisy first run
 

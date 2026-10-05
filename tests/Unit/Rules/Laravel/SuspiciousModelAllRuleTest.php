@@ -161,3 +161,25 @@ it('flags iterating the call directly', function (): void {
     }
     PHP))->toHaveCount(1);
 });
+
+it('reads a full load a foreach iterates as walked once, not reloaded per iteration', function (): void {
+    $found = findings(modelAll(), <<<'PHP'
+    class Rows
+    {
+        public function build(): array
+        {
+            $rows = [];
+
+            foreach (Order::all() as $order) {
+                $rows[] = $order->total;
+            }
+
+            return $rows;
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->metrics['evidence'])->toBe('iterated')
+        ->and($found[0]->message)->not->toContain('every iteration');
+});

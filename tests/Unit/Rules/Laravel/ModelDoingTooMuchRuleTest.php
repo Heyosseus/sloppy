@@ -128,3 +128,26 @@ it('can require more than one signal', function (): void {
     }
     PHP))->toBeEmpty();
 });
+
+it('sees a model that extends the project\'s own base model', function (): void {
+    $found = findingsAcross(overreachingModel(), [
+        'app/Models/BaseModel.php' => "<?php namespace App\Models;\nuse Illuminate\Database\Eloquent\Model;\nabstract class BaseModel extends Model {}",
+        'app/Models/Invoice.php' => <<<'PHP'
+        <?php
+        namespace App\Models;
+
+        use Illuminate\Support\Facades\Http;
+
+        class Invoice extends BaseModel
+        {
+            public function sync(): void
+            {
+                Http::post('https://x.example.com', []);
+            }
+        }
+        PHP,
+    ]);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->fingerprint)->toBe('Invoice');
+});

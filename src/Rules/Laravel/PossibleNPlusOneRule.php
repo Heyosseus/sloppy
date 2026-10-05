@@ -131,7 +131,7 @@ final class PossibleNPlusOneRule extends LaravelRule
     {
         $assignments = NodeHelper::assignedVariables($method);
 
-        foreach (NodeHelper::find($method, Foreach_::class) as $loop) {
+        foreach (NodeHelper::findOwn($method, Foreach_::class) as $loop) {
             if (! $loop->valueVar instanceof Variable || ! is_string($loop->valueVar->name)) {
                 continue;
             }
@@ -144,8 +144,12 @@ final class PossibleNPlusOneRule extends LaravelRule
                 continue;
             }
 
-            $eager = $source instanceof Expr ? $this->eagerLoaded($source) : [];
+            $eager = array_values(array_unique([
+                ...($source instanceof Expr ? $this->eagerLoaded($source) : []),
+                ...$this->loadedBefore($method, $loop),
+            ]));
             $fromAll = $source instanceof Expr && $this->isModelAll($source);
+            $model = $source instanceof Expr ? $this->modelOf($source) : null;
 
             // Whether the thing being iterated is recognisably database-backed.
             // When it is not, `$node->child->name` is just as likely to be a
@@ -153,25 +157,8 @@ final class PossibleNPlusOneRule extends LaravelRule
             // unmistakably Eloquent are reported.
             $databaseBacked = $this->isDatabaseBacked($context, $loop, $classLike, $method, $source);
 
-            /** @var array<string, true> $reported */
-            $reported = [];
-
-            foreach ($this->accesses($loop, $item) as $access) {
+            foreach ($this->unexplained($context, $loop, $item, $ignored, $databaseBacked, $model, $eager) as $access) {
                 $relation = $access['relation'];
-
-                if (NodeHelper::isNameOneOf($relation, $ignored) || isset($reported[$relation])) {
-                    continue;
-                }
-
-                if (! $databaseBacked && ! $access['triggering']) {
-                    continue;
-                }
-
-                if ($this->isEagerLoaded($relation, $eager)) {
-                    continue;
-                }
-
-                $reported[$relation] = true;
 
                 yield $this->report(
                     context: $context,
@@ -211,6 +198,44 @@ final class PossibleNPlusOneRule extends LaravelRule
     }
 
     /**
+     * The relation reads in a loop that nothing accounts for, once per
+     * relation: not ignored, not eager loaded, not a value attribute, and
+     * on a source that is either database-backed or read in a way only
+     * Eloquent reads.
+     *
+     * @param  list<string>  $ignored
+     * @param  list<string>  $eager
+     * @return list<array{node: Node, relation: string, triggering: bool}>
+     */
+    private function unexplained(AnalysisContext $context, Foreach_ $loop, string $item, array $ignored, bool $databaseBacked, ?string $model, array $eager): array
+    {
+        $unexplained = [];
+
+        foreach ($this->accesses($loop, $item) as $access) {
+            $relation = $access['relation'];
+
+            if (NodeHelper::isNameOneOf($relation, $ignored) || isset($unexplained[$relation])) {
+                continue;
+            }
+
+            if (! $databaseBacked && ! $access['triggering']) {
+                continue;
+            }
+
+            // `$order->created_at->year` reads a date, not a relation.
+            if (! $access['triggering'] && $this->isValueAttribute($context, $model, $relation)) {
+                continue;
+            }
+
+            if (! $this->isEagerLoaded($relation, $eager)) {
+                $unexplained[$relation] = $access;
+            }
+        }
+
+        return array_values($unexplained);
+    }
+
+    /**
      * Whether the loop is walking rows that came from the database.
      *
      * The bar is deliberately high, because `$node->child->name` is a
@@ -244,7 +269,7 @@ final class PossibleNPlusOneRule extends LaravelRule
 
         // `foreach ($this->items as $item)` inside a model walks a relation;
         // the same line in a service walks whatever that property holds.
-        return NodeHelper::isEloquentModel($classLike)
+        return NodeHelper::isEloquentModel($classLike, $context->index)
             && $loop->expr instanceof PropertyFetch
             && $loop->expr->var instanceof Variable
             && $loop->expr->var->name === 'this';
@@ -284,7 +309,7 @@ final class PossibleNPlusOneRule extends LaravelRule
 
         // $item->relation->attribute -- a two-level property chain means the
         // first level had to be hydrated.
-        foreach (NodeHelper::find(array_values($loop->stmts), PropertyFetch::class) as $fetch) {
+        foreach (NodeHelper::findOwn(array_values($loop->stmts), PropertyFetch::class) as $fetch) {
             if (! $fetch->var instanceof PropertyFetch || ! $fetch->var->name instanceof Identifier) {
                 continue;
             }
@@ -300,7 +325,7 @@ final class PossibleNPlusOneRule extends LaravelRule
             ];
         }
 
-        foreach (NodeHelper::find(array_values($loop->stmts), MethodCall::class) as $call) {
+        foreach (NodeHelper::findOwn(array_values($loop->stmts), MethodCall::class) as $call) {
             $name = NodeHelper::callName($call);
 
             if ($name === null) {
@@ -385,7 +410,7 @@ final class PossibleNPlusOneRule extends LaravelRule
                     continue;
                 }
 
-                foreach ($call->getArgs() as $arg) {
+                foreach (NodeHelper::arguments($call) as $arg) {
                     foreach ($this->relationNames($arg->value) as $relation) {
                         $relations[] = $relation;
                     }
@@ -397,9 +422,78 @@ final class PossibleNPlusOneRule extends LaravelRule
     }
 
     /**
+     * Relations loaded onto the iterated variable by a statement of its own
+     * before the loop -- `$orders->load('customer');` -- which eager loads
+     * just as surely as `with()` on the query did.
+     *
+     * @return list<string>
+     */
+    private function loadedBefore(ClassMethod $method, Foreach_ $loop): array
+    {
+        if (! $loop->expr instanceof Variable || ! is_string($loop->expr->name)) {
+            return [];
+        }
+
+        $relations = [];
+
+        foreach (NodeHelper::findOwn($method, MethodCall::class) as $call) {
+            if ($call->getStartFilePos() >= $loop->getStartFilePos()
+                || ! $call->var instanceof Variable
+                || $call->var->name !== $loop->expr->name
+                || ! NodeHelper::isNameOneOf(NodeHelper::callName($call), ['load', 'loadMissing', 'loadCount'])) {
+                continue;
+            }
+
+            foreach (NodeHelper::arguments($call) as $arg) {
+                $relations = [...$relations, ...$this->relationNames($arg->value)];
+            }
+        }
+
+        return $relations;
+    }
+
+    /**
+     * The model the iterated rows come from, when the query names one.
+     */
+    private function modelOf(Expr $source): ?string
+    {
+        $root = NodeHelper::chainRoot($source);
+
+        return $root instanceof StaticCall ? NodeHelper::staticCallClass($root) : null;
+    }
+
+    /**
+     * Whether a property read on a row is a value rather than a relation: a
+     * timestamp by Laravel's `_at` convention, or an attribute the model
+     * declares as a cast or a date.
+     */
+    private function isValueAttribute(AnalysisContext $context, ?string $model, string $attribute): bool
+    {
+        if (str_ends_with($attribute, '_at')) {
+            return true;
+        }
+
+        return $model !== null && $context->index->castsAttribute($model, $attribute);
+    }
+
+    /**
+     * Relation names as `with()` and `load()` accept them. A column list --
+     * `customer:id,name` -- loads the relation all the same.
+     *
      * @return list<string>
      */
     private function relationNames(Expr $expr): array
+    {
+        return array_map(
+            static fn (string $name): string => explode(':', $name, 2)[0],
+            $this->rawRelationNames($expr),
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function rawRelationNames(Expr $expr): array
     {
         if ($expr instanceof String_) {
             return [$expr->value];

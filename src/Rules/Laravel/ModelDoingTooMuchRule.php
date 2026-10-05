@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
 use Heyosseus\Sloppy\Ast\NodeHelper;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Rules\LaravelRule;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
@@ -64,7 +65,7 @@ final class ModelDoingTooMuchRule extends LaravelRule
         $minSignals = max(1, $this->intOption('min_signals', 1));
 
         foreach ($context->classLikes() as $classLike) {
-            if (! NodeHelper::isEloquentModel($classLike)) {
+            if (! NodeHelper::isEloquentModel($classLike, $context->index)) {
                 continue;
             }
 
@@ -74,7 +75,7 @@ final class ModelDoingTooMuchRule extends LaravelRule
                 continue;
             }
 
-            $http = $this->countHttp($classLike);
+            $http = $this->countHttp($classLike, $context->index);
             $dispatches = $this->countDispatches($classLike);
             $workflows = $this->longBusinessMethods($classLike, $maxWorkflowLines);
 
@@ -123,13 +124,17 @@ final class ModelDoingTooMuchRule extends LaravelRule
         }
     }
 
-    private function countHttp(ClassLike $classLike): int
+    /**
+     * Calls anywhere in the model, an anonymous class inside it included: it
+     * is the model's code, and it is never reported as a model of its own.
+     */
+    private function countHttp(ClassLike $classLike, ProjectIndex $index): int
     {
         $count = 0;
 
         foreach ([StaticCall::class, New_::class, FuncCall::class] as $type) {
             foreach (NodeHelper::find($classLike, $type) as $node) {
-                if (LaravelCalls::isHttpCall($node)) {
+                if (LaravelCalls::isHttpCall($node, $index)) {
                     $count++;
                 }
             }

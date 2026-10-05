@@ -39,8 +39,10 @@ enum AgentHost: string
      * A project with Sloppy installed gets a path through the agent's own
      * project variable, so the committed file works on every checkout. A
      * global or phar install has nothing inside the project to point at, so it
-     * gets the binary that ran the installer. `php` is spelled out because the
-     * binary's shebang means nothing to Windows.
+     * gets the binary that ran the installer -- a path on this machine, which
+     * the runner only ever writes to the personal settings file. PHP is
+     * spelled out because the binary's shebang means nothing to Windows: as
+     * `php` in a shared file, and as this machine's own PHP in a personal one.
      *
      * The variable is braced because Claude Code runs hooks through
      * PowerShell on Windows when it cannot find Git Bash, and PowerShell
@@ -48,12 +50,39 @@ enum AgentHost: string
      * the command became `php "/vendor/bin/sloppy"`. Claude Code substitutes
      * the braced form itself, and Bash expands it the same way.
      */
-    public function command(string $basePath, string $runningBinary): string
+    public function command(string $basePath, string $runningBinary, bool $local = false, string $phpBinary = PHP_BINARY): string
     {
-        if (is_file($basePath.'/vendor/bin/sloppy')) {
-            return 'php "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"';
+        $php = $local ? $this->php($phpBinary) : 'php';
+
+        if ($this->hasProjectCopy($basePath)) {
+            return $php.' "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"';
         }
 
-        return sprintf('php "%s"', str_replace('\\', '/', $runningBinary));
+        return sprintf('%s "%s"', $php, str_replace('\\', '/', $runningBinary));
+    }
+
+    /**
+     * Whether the project has its own Sloppy to point the hooks at. Without
+     * one, a hook names a path on this machine, which belongs in the personal
+     * settings file and never in the one the team shares.
+     */
+    public function hasProjectCopy(string $basePath): bool
+    {
+        return is_file($basePath.'/vendor/bin/sloppy');
+    }
+
+    /**
+     * The PHP that is running now, for a personal settings file: a shared one
+     * has to say `php` and trust the PATH of every machine it is checked out
+     * on, but this machine's own PHP is known, and may not be the one first
+     * on its PATH. A path with a space in it would have to be quoted, which
+     * PowerShell then reads as a string rather than a command, so that one
+     * falls back to `php` too.
+     */
+    private function php(string $binary): string
+    {
+        $binary = str_replace('\\', '/', $binary);
+
+        return $binary === '' || preg_match('/\s/', $binary) === 1 ? 'php' : $binary;
     }
 }

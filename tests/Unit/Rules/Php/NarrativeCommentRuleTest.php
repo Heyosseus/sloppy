@@ -226,3 +226,18 @@ it('ignores an empty comment and a lone divider', function (): void {
     }
     SNIPPET))->toBeEmpty();
 });
+
+it('does not judge an end-of-line comment against the next line', function (): void {
+    expect(findings(narrative(), <<<'PHP'
+    class Users
+    {
+        public function name(string $input): string
+        {
+            $name = trim($input); // user name
+            $user = $this->users->name($name);
+
+            return $user;
+        }
+    }
+    PHP))->toBeEmpty();
+});

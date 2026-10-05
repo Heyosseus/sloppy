@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Tests\Support;
 
+use Closure;
 use Heyosseus\Sloppy\Integrations\Tooling\ToolResult;
 use Heyosseus\Sloppy\Integrations\Tooling\ToolRunner;
 
@@ -22,12 +23,21 @@ final class RecordingToolRunner implements ToolRunner
 
     /**
      * @param  array<string, int>  $exitCodes  Exit code per tool; anything unlisted succeeds.
+     * @param  (Closure(string, list<string>, string): void)|null  $effect  What the tool does to the project, e.g. rewrite a file.
      */
-    public function __construct(private readonly array $exitCodes = [], private readonly string $output = 'done') {}
+    public function __construct(
+        private readonly array $exitCodes = [],
+        private readonly string $output = 'done',
+        private readonly ?Closure $effect = null,
+    ) {}
 
     public function run(string $tool, array $command, string $workingDirectory): ToolResult
     {
         $this->calls[] = ['tool' => $tool, 'command' => $command, 'cwd' => $workingDirectory];
+
+        if ($this->effect instanceof Closure) {
+            ($this->effect)($tool, $command, $workingDirectory);
+        }
 
         return new ToolResult($tool, $this->exitCodes[$tool] ?? 0, $this->output);
     }

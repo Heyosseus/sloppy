@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Agent;
 
 use InvalidArgumentException;
-use JsonException;
 use stdClass;
 
 /**
@@ -14,11 +13,8 @@ use stdClass;
  * `.claude/settings.json` usually already holds permissions, environment and
  * other people's hooks. Every one of them survives: ours are found by their
  * command and replaced in place, so installing twice, or after moving from a
- * phar to a Composer install, leaves exactly one of each.
- *
- * The file is decoded to objects rather than arrays on purpose. An empty
- * `"env": {}` decoded to an array comes back out as `[]`, which Claude Code
- * then refuses to load -- a settings writer that breaks settings.
+ * phar to a Composer install, leaves exactly one of each. The rest of the file
+ * keeps its bytes: see {@see JsonDocument}.
  */
 final readonly class ClaudeSettingsFile
 {
@@ -33,7 +29,8 @@ final readonly class ClaudeSettingsFile
      */
     public static function merge(?string $existing, string $command): string
     {
-        $settings = self::decode($existing);
+        $document = JsonDocument::parse($existing);
+        $settings = $document->data;
         $hooks = $settings->hooks ?? new stdClass;
 
         if (! $hooks instanceof stdClass) {
@@ -62,7 +59,54 @@ final readonly class ClaudeSettingsFile
 
         $settings->hooks = $hooks;
 
-        return self::encode($settings);
+        return $document->render();
+    }
+
+    /**
+     * The file with our hooks taken out, and everything else as it was.
+     *
+     * An event list left empty is dropped, and so is a `hooks` object left
+     * empty, so a file the installer added them to reads as it did before.
+     *
+     * @return string|null The new contents; '' when nothing at all is left, null when none of our hooks were there.
+     *
+     * @throws InvalidArgumentException When the existing file is not a settings object.
+     */
+    public static function remove(string $existing): ?string
+    {
+        $document = JsonDocument::parse($existing);
+        $hooks = $document->data->hooks ?? null;
+
+        if (! $hooks instanceof stdClass) {
+            return null;
+        }
+
+        $removed = false;
+
+        foreach (get_object_vars($hooks) as $event => $groups) {
+            if (! is_array($groups) || ! self::holdsOurs($groups)) {
+                continue;
+            }
+
+            $removed = true;
+            $kept = self::withoutOurs($groups);
+
+            if ($kept === []) {
+                unset($hooks->{$event});
+            } else {
+                $hooks->{$event} = $kept;
+            }
+        }
+
+        if (! $removed) {
+            return null;
+        }
+
+        if (get_object_vars($hooks) === []) {
+            unset($document->data->hooks);
+        }
+
+        return $document->isEmpty() ? '' : $document->render();
     }
 
     /**
@@ -74,23 +118,20 @@ final readonly class ClaudeSettingsFile
         return preg_match('/sloppy[^\s"]*"?\s+hook\s+(?:post-edit|stop)\b/i', $command) === 1;
     }
 
-    private static function decode(?string $existing): stdClass
+    /**
+     * @param  array<mixed>  $groups
+     */
+    private static function holdsOurs(array $groups): bool
     {
-        if ($existing === null || trim($existing) === '') {
-            return new stdClass;
+        foreach ($groups as $group) {
+            foreach ($group instanceof stdClass && is_array($group->hooks ?? null) ? $group->hooks : [] as $hook) {
+                if ($hook instanceof stdClass && is_string($hook->command ?? null) && self::isSloppyHook($hook->command)) {
+                    return true;
+                }
+            }
         }
 
-        try {
-            $decoded = json_decode($existing, false, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new InvalidArgumentException('It is not valid JSON: '.$exception->getMessage(), 0, $exception);
-        }
-
-        if (! $decoded instanceof stdClass) {
-            throw new InvalidArgumentException('It is not a JSON object.');
-        }
-
-        return $decoded;
+        return false;
     }
 
     /**
@@ -133,22 +174,5 @@ final readonly class ClaudeSettingsFile
     private static function hook(string $command, HookEvent $event): stdClass
     {
         return (object) ['type' => 'command', 'command' => $command.' hook '.$event->value];
-    }
-
-    /**
-     * Pretty-printed with two-space indentation, which is how Claude Code and
-     * most editors write this file, so a reinstall does not reformat it.
-     */
-    private static function encode(stdClass $settings): string
-    {
-        $json = json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-
-        $indented = preg_replace_callback(
-            '/^(?: {4})+/m',
-            static fn (array $indent): string => str_repeat('  ', intdiv(strlen($indent[0]), 4)),
-            $json,
-        );
-
-        return ($indented ?? $json)."\n";
     }
 }

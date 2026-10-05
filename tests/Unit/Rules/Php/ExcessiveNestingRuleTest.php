@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Rules\Php\ExcessiveNestingRule;
+use Heyosseus\Sloppy\Tests\Support\RuleTester;
 
 /**
  * @param  array<string, mixed>  $options
@@ -142,4 +143,85 @@ it('raises confidence with depth', function (): void {
     PHP);
 
     expect($deep[0]->confidence)->toBeGreaterThan($shallow[0]->confidence);
+});
+
+it('does not count else if as a level deeper than elseif', function (): void {
+    expect(findings(nesting(['max_depth' => 2]), <<<'PHP'
+    class Router
+    {
+        public function route(array $rows): void
+        {
+            foreach ($rows as $row) {
+                if ($row === 'a') {
+                    $this->a();
+                } else if ($row === 'b') {
+                    $this->b();
+                } else if ($row === 'c') {
+                    $this->c();
+                } else if ($row === 'd') {
+                    $this->d();
+                }
+            }
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('measures functions, property hooks and top-level code too', function (): void {
+    $deep = 'if ($a) { foreach ($b as $c) { while ($c) { if ($d) { try { $e = 1; } catch (\Throwable $x) { throw $x; } } } } }';
+
+    $found = findings(nesting(), <<<PHP
+    function helper(\$a, \$b, \$d): void
+    {
+        {$deep}
+    }
+
+    class Settings
+    {
+        public int \$level {
+            set (int \$a) {
+                \$b = []; \$d = true;
+                {$deep}
+                \$this->level = \$a;
+            }
+        }
+    }
+
+    Route::get('/', function () use (\$a, \$b, \$d) {
+        {$deep}
+    });
+    PHP);
+
+    expect(RuleTester::fingerprints($found))->toBe(['helper', 'Settings::$level::set', '{main}']);
+});
+
+it('does not count the body of an anonymous class against the method that creates it', function (): void {
+    $found = findings(nesting(['max_depth' => 3]), <<<'PHP'
+    class Factory
+    {
+        public function make(array $rows): object
+        {
+            if ($rows !== []) {
+                return new class {
+                    public function run(array $rows): void
+                    {
+                        foreach ($rows as $row) {
+                            if ($row) {
+                                while ($row) {
+                                    if ($row > 1) {
+                                        $row--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+
+            return new \stdClass;
+        }
+    }
+    PHP);
+
+    expect(RuleTester::fingerprints($found))->toBe(['anonymous class::run']);
 });

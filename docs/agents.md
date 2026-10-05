@@ -13,12 +13,18 @@ done, whether or not the model thought to ask.
 
 ```bash
 vendor/bin/sloppy agents install          # or: php artisan sloppy:agents
-vendor/bin/sloppy agents install --local  # .claude/settings.local.json, out of git
+vendor/bin/sloppy agents install --local  # .claude/settings.local.json and CLAUDE.local.md, out of git
 vendor/bin/sloppy agents install --dry-run
+vendor/bin/sloppy agents uninstall        # take it all out again
 ```
 
 That adds two hooks to `.claude/settings.json` and writes the ruleset into
-`CLAUDE.md` as [`sloppy:rules`](#rules-for-coding-agents) would:
+`CLAUDE.md` as [`sloppy:rules`](#rules-for-coding-agents) would. With
+`--local`, the hooks go into `.claude/settings.local.json` and the ruleset
+into `CLAUDE.local.md` -- the personal files Claude Code reads beside the
+shared ones -- and the committed `CLAUDE.md` is not touched. Sloppy warns if
+git does not ignore either file, since a `git add .` would otherwise share
+them after all.
 
 | When | What runs | What the agent sees |
 | --- | --- | --- |
@@ -52,12 +58,43 @@ Sloppy: this edit to app/Services/Billing.php introduced 1 finding.
 ```
 
 Installing is safe to repeat. Your permissions, environment and other hooks
-are left exactly as they were. Sloppy's own entries are found by their command
-and replaced in place, and a settings file that is not valid JSON is refused
-rather than rewritten. In a project with Sloppy in `vendor/`, the hooks call
-`php "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"`, so the committed file works on
-every checkout. With a global or phar install they call the binary that
-installed them.
+are left exactly as they were -- byte for byte, down to the indentation, the
+line endings and how each number was written -- and a file that already holds
+Sloppy's hooks is not rewritten at all. Sloppy's own entries are found by their
+command and replaced in place, and a settings file that is not valid JSON is
+refused rather than rewritten.
+
+What the hooks run depends on where Sloppy is installed:
+
+| Install | Hook command | Written to |
+| --- | --- | --- |
+| In the project's `vendor/` | `php "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"` | `.claude/settings.json`, so it works on every checkout |
+| In the project's `vendor/`, with `--local` | This machine's PHP, e.g. `/usr/bin/php8.4 "${CLAUDE_PROJECT_DIR}/vendor/bin/sloppy"` | `.claude/settings.local.json` |
+| Globally, or as the phar | The binary that ran the installer, by its absolute path | `.claude/settings.local.json` only, with a warning |
+
+A path that exists on one machine would break every other checkout, so a hook
+that needs one never goes into the shared file: run `composer require --dev
+heyosseus/sloppy` and install again to share the hooks with the team. The
+shared file says `php` because it cannot know where PHP lives on each machine;
+a personal file uses the PHP that ran the installer, which may not be the one
+first on the PATH (a PHP path with a space in it falls back to `php`, because
+PowerShell would read a quoted one as a string rather than a command).
+
+### Uninstalling
+
+```bash
+vendor/bin/sloppy agents uninstall           # or: php artisan sloppy:agents uninstall
+vendor/bin/sloppy agents uninstall --local   # only the personal files
+vendor/bin/sloppy agents uninstall --dry-run # say what would go, change nothing
+```
+
+`uninstall` takes out what `install` put in, and nothing else: Sloppy's hooks
+from `.claude/settings.json` and `.claude/settings.local.json`, the Sloppy
+block from `CLAUDE.md` and `CLAUDE.local.md`, the Boost guideline Sloppy wrote
+(`.ai/guidelines/sloppy.blade.php`, and only if Sloppy wrote it), and the
+Sloppy server from `.mcp.json`. Every other setting, hook, line and server in
+those files is left byte for byte. A file that held nothing but Sloppy's
+entries -- because `install` created it -- is deleted.
 
 "New" means new compared with `HEAD`, so uncommitted work from before the
 session counts as part of the change. That is the same rule `sloppy diff` uses.
@@ -193,12 +230,24 @@ Register it with your editor or agent, for example in `.mcp.json`:
 {
   "mcpServers": {
     "sloppy": {
-      "command": "vendor/bin/sloppy-mcp",
-      "args": []
+      "command": "php",
+      "args": ["vendor/bin/sloppy-mcp"]
     }
   }
 }
 ```
+
+The command is `php` with the script as its argument, rather than the script
+itself, because a client spawns the command directly: on Windows a PHP script
+is not something that can be spawned, and the server would never start.
+`agents uninstall` takes this entry out again.
+
+The server speaks MCP revisions `2025-06-18`, `2025-03-26` and `2024-11-05`,
+agreeing on the one the client asks for. Tool arguments are checked against
+each tool's schema, and one that does not fit -- `"format": "xml"`, or a
+string where a list of paths belongs -- comes back as a tool error naming the
+argument, rather than being quietly ignored. A relative `project` argument is
+taken relative to the directory the server was started in.
 
 Seven tools:
 

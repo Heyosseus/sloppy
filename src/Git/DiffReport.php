@@ -134,10 +134,10 @@ final readonly class DiffReport
     {
         return new AnalysisResult(
             findings: $findings,
-            analyzedFiles: array_map(
+            analyzedFiles: array_values(array_map(
                 static fn (ChangedFile $file): string => $file->relativePath,
-                $this->changedFiles,
-            ),
+                array_filter($this->changedFiles, static fn (ChangedFile $file): bool => $file->status !== 'deleted'),
+            )),
             analyzedLines: $this->changedLineCount(),
             score: $this->currentScore,
             errors: $this->errors,

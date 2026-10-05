@@ -106,3 +106,36 @@ it('does not flag a mapped collection, which the database cannot do', function (
     }
     PHP))->toBeEmpty();
 });
+
+it('flags a query run to completion and then filtered in PHP', function (string $chain, string $operation): void {
+    $found = findings(collectionInsteadOfQuery(), <<<PHP
+    class Customers
+    {
+        public function active(): mixed
+        {
+            return {$chain}->{$operation}(fn (\$c) => \$c->active);
+        }
+    }
+    PHP);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->metrics['model'])->toBe('Customer')
+        ->and($found[0]->metrics['operation'])->toBe($operation)
+        ->and($found[0]->message)->toContain('matching Customer rows');
+})->with([
+    'where()->get()->filter()' => ["Customer::where('team_id', 1)->get()", 'filter'],
+    'query()->get()->count()' => ['Customer::query()->get()', 'count'],
+    'with()->get()->first()' => ["Customer::with('orders')->get()", 'first'],
+]);
+
+it('does not flag a collection operation on a query result it cannot see came from a model', function (): void {
+    expect(findings(collectionInsteadOfQuery(), <<<'PHP'
+    class Customers
+    {
+        public function active(): mixed
+        {
+            return $this->repository->query()->get()->filter(fn ($c) => $c->active);
+        }
+    }
+    PHP))->toBeEmpty();
+});

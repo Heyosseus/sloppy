@@ -1,6 +1,6 @@
 {
     "name": "heyosseus/sloppy",
-    "description": "Static analysis for the debt AI coding agents leave behind, on any PHP project: 26 rules, architecture policies and module boundaries you describe, git-diff review, coverage-aware reading order, PHPStan baseline-growth detection, a Rector and Pint fix pass, Pest expectations, CI annotations, agent rulesets, Claude Code hooks, an MCP server and a PHPStan extension. Extra rules and dashboards for Laravel. Deterministic, local, no LLM.",
+    "description": "Static analysis for the debt AI coding agents leave behind, on any PHP project: 26 rules, architecture policies and module boundaries you describe, git-diff review, coverage-aware reading order, PHPStan baseline-growth detection, a Rector and Pint fix pass, Pest expectations, CI annotations, agent rulesets, Claude Code hooks and an MCP server. Runs inside PHPStan through the separate heyosseus/phpstan-sloppy extension. Extra rules and dashboards for Laravel. Deterministic, local, no LLM.",
     "keywords": [
         "php",
         "static-analysis",
@@ -35,6 +35,8 @@
         "nikic/php-parser": "^5.3",
         "symfony/console": "^7.0 || ^8.0",
         "symfony/finder": "^7.0 || ^8.0",
+        "symfony/polyfill-ctype": "^1.27",
+        "symfony/polyfill-mbstring": "^1.27",
         "symfony/process": "^7.0 || ^8.0",
         "symfony/yaml": "^7.0 || ^8.0"
     },
@@ -60,7 +62,8 @@
         "laravel/pint": "Used by sloppy fix to format the files Rector rewrote.",
         "filament/filament": "Required for the Filament panel plugin and health widget.",
         "pestphp/pest": "Required for the expectCleanSloppyDiff() test expectation.",
-        "ext-xml": "Used to read clover and cobertura coverage reports, which raise untested changed files in the review order. Without it coverage is skipped and nothing else changes."
+        "ext-xmlreader": "Used to read clover and cobertura coverage reports, which raise untested changed files in the review order. Without it coverage is skipped and nothing else changes.",
+        "heyosseus/phpstan-sloppy": "The PHPStan extension: reports Sloppy findings as PHPStan errors, inside your existing PHPStan run and baseline."
     },
     "autoload": {
         "psr-4": {

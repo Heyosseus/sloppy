@@ -37,13 +37,17 @@ final readonly class JsonFormatter implements Formatter
             $flags |= JSON_PRETTY_PRINT;
         }
 
-        $encoded = json_encode([
+        $report = $this->withRisk($result->toArray(), $result);
+
+        // `errors` is keyed by path, so it is an object -- including when it
+        // is empty, which a PHP array would otherwise encode as `[]`.
+        $report['errors'] = (object) $result->errors;
+
+        return (new JsonEncoder($flags))->encode([
             'schema' => self::SCHEMA,
             'tool' => 'sloppy',
-            ...$this->withRisk($result->toArray(), $result),
-        ], $flags);
-
-        return ($encoded === false ? '{}' : $encoded)."\n";
+            ...$report,
+        ])."\n";
     }
 
     /**
@@ -63,12 +67,27 @@ final readonly class JsonFormatter implements Formatter
             return $report;
         }
 
-        $decorated = [];
-
         // The findings are decorated from the result rather than matched back
         // against the rendered rows: the two lists are the same list in the
         // same order, and a lookup between them would only be able to fail.
-        foreach ($result->findings as $finding) {
+        $report['findings'] = $this->rows($result->findings);
+
+        return $report;
+    }
+
+    /**
+     * Findings as the report renders them, each with its `risk` and `tier`.
+     * Diff mode renders its three lists through this too, so a finding has
+     * the same shape whichever command reported it.
+     *
+     * @param  list<Finding>  $findings
+     * @return list<array<string, mixed>>
+     */
+    public function rows(array $findings): array
+    {
+        $rows = [];
+
+        foreach ($findings as $finding) {
             $risk = $this->risk->for($finding);
             $row = $finding->toArray();
             $row['risk'] = round($risk->value, 2);
@@ -79,11 +98,9 @@ final readonly class JsonFormatter implements Formatter
                 $row['risk_arithmetic'] = $risk->explain();
             }
 
-            $decorated[] = $row;
+            $rows[] = $row;
         }
 
-        $report['findings'] = $decorated;
-
-        return $report;
+        return $rows;
     }
 }

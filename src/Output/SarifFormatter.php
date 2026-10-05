@@ -33,16 +33,25 @@ final readonly class SarifFormatter implements Formatter
 
     public const string VERSION = '2.1.0';
 
-    public function __construct(private string $toolVersion = 'dev') {}
+    /**
+     * @param  string  $pathPrefix  The project's path inside the repository: code scanning resolves
+     *                              `%SRCROOT%` to the repository root, not to a package within it.
+     */
+    public function __construct(
+        private string $toolVersion = 'dev',
+        private string $pathPrefix = '',
+    ) {}
 
     public function format(AnalysisResult $result): string
     {
-        return json_encode([
+        $fingerprints = (new OccurrenceFingerprints)->for($result->findings);
+
+        return (new JsonEncoder)->encode([
             '$schema' => self::SCHEMA,
             'version' => self::VERSION,
             'runs' => [[
                 'tool' => ['driver' => $this->driver($result)],
-                'results' => array_map($this->result(...), $result->findings),
+                'results' => array_map($this->result(...), $result->findings, $fingerprints),
                 'invocations' => [[
                     'executionSuccessful' => $result->errors === [],
                     // Rules skipped for a missing framework are part of what
@@ -51,7 +60,7 @@ final readonly class SarifFormatter implements Formatter
                     'toolExecutionNotifications' => $this->notifications($result),
                 ]],
             ]],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL;
+        ]).PHP_EOL;
     }
 
     /**
@@ -112,7 +121,7 @@ final readonly class SarifFormatter implements Formatter
     /**
      * @return array<string, mixed>
      */
-    private function result(Finding $finding): array
+    private function result(Finding $finding, string $fingerprint): array
     {
         $region = ['startLine' => max(1, $finding->location->line)];
 
@@ -131,7 +140,7 @@ final readonly class SarifFormatter implements Formatter
             'locations' => [[
                 'physicalLocation' => [
                     'artifactLocation' => [
-                        'uri' => $finding->location->relativePath,
+                        'uri' => $this->uri($finding->location->relativePath),
                         'uriBaseId' => '%SRCROOT%',
                     ],
                     'region' => $region,
@@ -139,14 +148,26 @@ final readonly class SarifFormatter implements Formatter
             ]],
             // The mechanism GitHub uses to recognise a finding it has already
             // seen. `identity()` excludes the line number by design, which is
-            // exactly the property a fingerprint needs.
-            'partialFingerprints' => ['sloppyIdentity/v1' => $finding->identity()],
+            // exactly the property a fingerprint needs. Two findings sharing an
+            // identity are told apart by their occurrence.
+            'partialFingerprints' => ['sloppyIdentity/v1' => $fingerprint],
             'properties' => [
                 'confidence' => $finding->confidence,
                 'category' => $finding->category->value,
                 'severity' => $finding->severity->value,
             ] + $finding->metrics,
         ];
+    }
+
+    /**
+     * A relative URI reference, as SARIF requires: each segment of the
+     * repository-relative path percent-encoded per RFC 3986, the separators
+     * left alone. A space in a file name is otherwise an invalid URI that
+     * GitHub rejects the whole upload over.
+     */
+    private function uri(string $relativePath): string
+    {
+        return implode('/', array_map(rawurlencode(...), explode('/', $this->pathPrefix.$relativePath)));
     }
 
     /**

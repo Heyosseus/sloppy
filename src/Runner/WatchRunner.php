@@ -41,7 +41,7 @@ final readonly class WatchRunner
     public function run(Sloppy $sloppy, WatchOptions $options, RunnerOutput $output): ExitCode
     {
         try {
-            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options);
+            $sloppy = (new ConfigurationResolver)->resolve($sloppy, $options, $output);
         } catch (Throwable $exception) {
             $output->error($exception->getMessage());
 
@@ -133,13 +133,20 @@ final readonly class WatchRunner
         FileWatcher $watcher,
         WatchOptions $options,
     ): WatchState {
+        // An idle tree is walked less and less often; keypresses are still
+        // read every tick, so the dashboard stays responsive meanwhile.
+        if (! $watcher->due()) {
+            return $state;
+        }
+
         // The one walk of the tree this tick gets: polling and analysing both
         // read it, and reading it twice per tick would double the cost of the
         // thing the loop does most often.
+        $walked = microtime(true);
         $files = $sloppy->fileMap();
         $tree = TreeState::of($files);
 
-        $changed = $watcher->poll($tree);
+        $changed = $watcher->poll($tree, microtime(true) - $walked);
 
         if ($changed === []) {
             return $state;

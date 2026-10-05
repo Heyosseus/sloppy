@@ -268,3 +268,15 @@ it('has a fingerprint that survives the block moving down the file', function ()
 
     expect($before[0]->fingerprint)->toBe($after[0]->fingerprint);
 });
+
+it('reports one finding for an odd value out used at several places in one body', function (): void {
+    $body = 'public function pay($d) { $g = new %1$s(); $r = $g->charge($d->total, $d->currency); $this->log->info("paid"); $d->markPaid($r->id); %1$s::audit($r); return $r->id; }';
+
+    $findings = RuleTester::runAcross(copyPasteDrift(['min_statements' => 4]), [
+        'app/One.php' => 'class One { '.sprintf($body, 'StripeGateway').' }',
+        'app/Two.php' => 'class Two { '.sprintf($body, 'StripeGateway').' }',
+        'app/Three.php' => 'class Three { '.sprintf($body, 'PaypalGateway').' }',
+    ]);
+
+    expect(RuleTester::fingerprints($findings))->toBe(['Three::pay~class:PaypalGateway']);
+});

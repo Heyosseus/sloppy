@@ -41,6 +41,10 @@ final class McpCliCommand extends CliCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // Standard output belongs to the protocol from here on: a warning
+        // printed into it is an unparseable message and the end of the session.
+        ini_set('display_errors', 'stderr');
+
         $workingDirectory = $this->stringOption($input, 'project') ?? (string) getcwd();
 
         (new StdioTransport(McpServer::default($workingDirectory)))->serve(

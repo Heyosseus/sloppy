@@ -254,3 +254,22 @@ it('indexes every parsed file but reports only the ones asked for', function ():
     expect($result->count())->toBe(1)
         ->and($result->analyzedFiles)->toBe(['app/B.php']);
 });
+
+it('keeps every file\'s findings, and runs in time linear in their number', function (): void {
+    $sources = [];
+
+    for ($i = 0; $i < 2000; $i++) {
+        $sources[sprintf('app/C%04d.php', $i)] = '<?php class C'.$i.' {}';
+    }
+
+    $started = hrtime(true);
+    $result = analyzerWith(RuleRegistry::of([new AlwaysFiresRule]))->analyzeSources($sources);
+    $seconds = (hrtime(true) - $started) / 1e9;
+
+    expect($result->count())->toBe(2000)
+        ->and(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->fingerprint, $result->findings))->toBe(array_keys($sources))
+        ->and($result->findings[0]->metrics['subject'] ?? null)->toBe('C0')
+        // Quadratic merging and a per-finding scan of every class took
+        // tens of seconds here; linear work takes well under a few.
+        ->and($seconds)->toBeLessThan(20.0);
+});

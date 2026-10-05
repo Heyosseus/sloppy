@@ -8,15 +8,17 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Ast\CodeUnit;
 use Heyosseus\Sloppy\Ast\ConditionShape;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
+use PhpParser\Node;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\BinaryOp\BooleanAnd;
 use PhpParser\Node\Expr\BinaryOp\BooleanOr;
+use PhpParser\Node\Expr\CallLike;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Stmt;
-use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Nop;
 
@@ -63,22 +65,33 @@ final class RedundantConditionRule extends BaseRule
 
     public function analyze(AnalysisContext $context): iterable
     {
-        foreach ($context->classLikes() as $classLike) {
-            $className = NodeHelper::shortName($classLike) ?? 'anonymous class';
+        // Methods, named functions and property hooks, each walked without
+        // descending into a nested class or function, so a condition is
+        // reported once, against the code it belongs to.
+        foreach (CodeUnit::inFile($context->file) as $unit) {
+            if (! $unit->hasBody()) {
+                continue;
+            }
 
-            yield from $this->literalConditions($context, $classLike, $className);
-            yield from $this->nestedRepeats($context, $classLike, $className);
-            yield from $this->chainRepeats($context, $classLike, $className);
-            yield from $this->duplicatedOperands($context, $classLike, $className);
+            // Fingerprints stay keyed on the class, as they were before
+            // functions and hooks were analysed, so existing baselines match.
+            $owner = $unit->className ?? $unit->subject();
+            $root = $unit->root();
+
+            yield from $this->literalConditions($context, $root, $owner, $unit->name);
+            yield from $this->nestedRepeats($context, $root, $owner);
+            yield from $this->chainRepeats($context, $root, $owner);
+            yield from $this->duplicatedOperands($context, $root, $owner);
         }
     }
 
     /**
+     * @param  Node|list<Stmt>  $root
      * @return iterable<Finding>
      */
-    private function literalConditions(AnalysisContext $context, ClassLike $classLike, string $className): iterable
+    private function literalConditions(AnalysisContext $context, Node|array $root, string $className, string $scope): iterable
     {
-        foreach (NodeHelper::find($classLike, If_::class) as $if) {
+        foreach (NodeHelper::findOwn($root, If_::class) as $if) {
             if (! $if->cond instanceof ConstFetch) {
                 continue;
             }
@@ -97,7 +110,7 @@ final class RedundantConditionRule extends BaseRule
                     ? 'Remove the condition and keep the body.'
                     : 'Remove the branch, or restore the condition it was meant to have.',
                 confidence: 95,
-                fingerprint: sprintf('%s:literal-if:%s:%s', $className, $literal, $this->scopeOf($if)),
+                fingerprint: sprintf('%s:literal-if:%s:%s', $className, $literal, $scope),
                 metrics: ['literal' => $literal],
             );
         }
@@ -107,11 +120,12 @@ final class RedundantConditionRule extends BaseRule
      * `if (X) { if (X) { ... } }` -- the inner test is the first thing the
      * outer branch does, so nothing can have changed in between.
      *
+     * @param  Node|list<Stmt>  $root
      * @return iterable<Finding>
      */
-    private function nestedRepeats(AnalysisContext $context, ClassLike $classLike, string $className): iterable
+    private function nestedRepeats(AnalysisContext $context, Node|array $root, string $className): iterable
     {
-        foreach (NodeHelper::find($classLike, If_::class) as $outer) {
+        foreach (NodeHelper::findOwn($root, If_::class) as $outer) {
             $first = $this->firstMeaningful(array_values($outer->stmts));
 
             if (! $first instanceof If_) {
@@ -145,11 +159,12 @@ final class RedundantConditionRule extends BaseRule
      * The same condition twice in one `if`/`elseif` chain: the second branch is
      * unreachable.
      *
+     * @param  Node|list<Stmt>  $root
      * @return iterable<Finding>
      */
-    private function chainRepeats(AnalysisContext $context, ClassLike $classLike, string $className): iterable
+    private function chainRepeats(AnalysisContext $context, Node|array $root, string $className): iterable
     {
-        foreach (NodeHelper::find($classLike, If_::class) as $if) {
+        foreach (NodeHelper::findOwn($root, If_::class) as $if) {
             $seen = [NodeHelper::printAny($if->cond) => true];
 
             foreach ($if->elseifs as $elseif) {
@@ -179,37 +194,92 @@ final class RedundantConditionRule extends BaseRule
     }
 
     /**
-     * `$x !== null && $x !== null` -- one side is dead weight.
+     * `$x !== null && $x !== null`, or `$a && $b && $a` -- one operand is
+     * dead weight.
      *
+     * A chain of one operator is read whole, so a repeat further along it is
+     * found too. Operands with side effects are left alone: `$it->next() &&
+     * $it->next()` advances twice and means it.
+     *
+     * @param  Node|list<Stmt>  $root
      * @return iterable<Finding>
      */
-    private function duplicatedOperands(AnalysisContext $context, ClassLike $classLike, string $className): iterable
+    private function duplicatedOperands(AnalysisContext $context, Node|array $root, string $className): iterable
     {
         foreach ([BooleanAnd::class, BooleanOr::class] as $type) {
-            foreach (NodeHelper::find($classLike, $type) as $operation) {
-                $left = NodeHelper::printAny($operation->left);
-                $right = NodeHelper::printAny($operation->right);
+            foreach (NodeHelper::findOwn($root, $type) as $operation) {
+                // Only the top of a chain: its operands include the rest.
+                $parent = $operation->getAttribute('parent');
 
-                if ($left !== $right) {
+                if ($parent instanceof $type) {
                     continue;
                 }
 
-                yield $this->report(
-                    context: $context,
-                    at: $operation,
-                    message: sprintf(
-                        '%s repeats `%s` on both sides of a boolean operator.',
-                        $className,
-                        $left,
-                    ),
-                    suggestion: 'Keep one side. If the two were meant to test different things, one of them has the '
-                        .'wrong subject.',
-                    confidence: 90,
-                    fingerprint: sprintf('%s:operand:%s', $className, $left),
-                    metrics: ['operand' => $left],
-                );
+                $seen = [];
+
+                foreach ($this->operands($operation, $type) as $operand) {
+                    if ($this->hasSideEffects($operand)) {
+                        continue;
+                    }
+
+                    $printed = NodeHelper::printAny($operand);
+
+                    if (! isset($seen[$printed])) {
+                        $seen[$printed] = true;
+
+                        continue;
+                    }
+
+                    yield $this->report(
+                        context: $context,
+                        at: $operation,
+                        message: sprintf(
+                            '%s repeats `%s` on both sides of a boolean operator.',
+                            $className,
+                            $printed,
+                        ),
+                        suggestion: 'Keep one side. If the two were meant to test different things, one of them has the '
+                            .'wrong subject.',
+                        confidence: 90,
+                        fingerprint: sprintf('%s:operand:%s', $className, $printed),
+                        metrics: ['operand' => $printed],
+                    );
+
+                    break;
+                }
             }
         }
+    }
+
+    /**
+     * The operands of a chain of one boolean operator, left to right.
+     *
+     * @param  class-string<BooleanAnd|BooleanOr>  $type
+     * @return list<Expr>
+     */
+    private function operands(Expr $expr, string $type): array
+    {
+        if (! $expr instanceof $type) {
+            return [$expr];
+        }
+
+        /** @var BooleanAnd|BooleanOr $expr */
+        return [...$this->operands($expr->left, $type), ...$this->operands($expr->right, $type)];
+    }
+
+    /**
+     * Whether evaluating an expression can change something, so evaluating
+     * it twice is not the same as evaluating it once.
+     */
+    private function hasSideEffects(Expr $expr): bool
+    {
+        foreach ([CallLike::class, Expr\Assign::class, Expr\AssignOp::class, Expr\AssignRef::class, Expr\PreInc::class, Expr\PreDec::class, Expr\PostInc::class, Expr\PostDec::class, Expr\Yield_::class, Expr\YieldFrom::class, Expr\Include_::class, Expr\Eval_::class, Expr\Exit_::class, Expr\Print_::class, Expr\ShellExec::class, Expr\Throw_::class] as $type) {
+            if ($expr instanceof $type || NodeHelper::findFirst($expr, $type) instanceof Node) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -224,7 +294,7 @@ final class RedundantConditionRule extends BaseRule
         $outerShape = ConditionShape::of($outer);
         $innerShape = ConditionShape::of($inner);
 
-        if ($outerShape instanceof ConditionShape && $innerShape instanceof ConditionShape && $outerShape->equivalentTo($innerShape)) {
+        if ($outerShape instanceof ConditionShape && $innerShape instanceof ConditionShape && $outerShape->implies($innerShape)) {
             return 'equivalent';
         }
 
@@ -243,14 +313,5 @@ final class RedundantConditionRule extends BaseRule
         }
 
         return null;
-    }
-
-    /**
-     * The enclosing method name, so two literal `if (true)` guards in one class
-     * do not share a fingerprint.
-     */
-    private function scopeOf(If_ $if): string
-    {
-        return NodeHelper::enclosingMethod($if)?->name->toString() ?? 'closure';
     }
 }

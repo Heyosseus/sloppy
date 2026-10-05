@@ -334,3 +334,84 @@ it('still flags a per-row write inside a loop over chunks', function (): void {
     }
     PHP))->toHaveCount(1);
 });
+
+it('does not count the query a loop iterates as a query inside it', function (): void {
+    expect(findings(queryInLoop(), <<<'PHP'
+    class Rows
+    {
+        public function build(): void
+        {
+            foreach (Order::where('paid', true)->get() as $order) {
+                $order->touch();
+            }
+
+            for ($i = 0, $max = Order::count(); $i < $max; $i++) {
+                $this->tick($i);
+            }
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('does not take a static call on an unknown class for a query unless a model would answer it', function (): void {
+    expect(findings(queryInLoop(), <<<'PHP'
+    class Rows
+    {
+        public function build(array $dates, $limit): array
+        {
+            $rows = [];
+
+            foreach ($dates as $date) {
+                $rows[] = Carbon::parse($date)->max($limit);
+            }
+
+            return $rows;
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('recognises a model that extends the project\'s own base model', function (): void {
+    $found = findingsAcross(queryInLoop(), [
+        'app/Models/BaseModel.php' => "<?php namespace App\Models;\nuse Illuminate\Database\Eloquent\Model;\nabstract class BaseModel extends Model {}",
+        'app/Models/Invoice.php' => "<?php namespace App\Models;\nclass Invoice extends BaseModel {}",
+        'app/Services/Loop.php' => <<<'PHP'
+        <?php
+        namespace App\Services;
+
+        use App\Models\Invoice;
+
+        final class Loop
+        {
+            public function run(array $ids): void
+            {
+                foreach ($ids as $id) {
+                    Invoice::where('id', $id)->first();
+                }
+            }
+        }
+        PHP,
+    ]);
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->metrics['subject'])->toBe('Invoice');
+});
+
+it('reports a query in an anonymous class once', function (): void {
+    expect(findings(queryInLoop(), <<<'PHP'
+    class Rows
+    {
+        public function build(): object
+        {
+            return new class {
+                public function run(array $ids): void
+                {
+                    foreach ($ids as $id) {
+                        Order::where('id', $id)->first();
+                    }
+                }
+            };
+        }
+    }
+    PHP))->toHaveCount(1);
+});

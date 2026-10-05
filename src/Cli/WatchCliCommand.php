@@ -35,21 +35,23 @@ final class WatchCliCommand extends CliCommandBase
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $options = new WatchOptions(
-            paths: $this->stringListOption($input, 'path'),
-            rules: $this->stringListOption($input, 'rule'),
-            minConfidence: $this->intOption($input, 'min-confidence'),
-            top: $this->intOption($input, 'top'),
-            interval: max(50, $this->intOption($input, 'interval') ?? 250),
-        );
+        // The options are read inside runWith so a malformed one is a message
+        // and exit code 2, like every other command's, not a stack trace.
+        return $this->runWith($input, $output, function (Sloppy $sloppy, RunnerOutput $runnerOutput) use ($input, $output): ExitCode {
+            $options = new WatchOptions(
+                paths: $this->stringListOption($input, 'path'),
+                rules: $this->stringListOption($input, 'rule'),
+                minConfidence: $this->intOption($input, 'min-confidence'),
+                top: $this->intOption($input, 'top'),
+                interval: max(50, $this->intOption($input, 'interval') ?? 250),
+            );
 
-        $dashboard = $this->dashboard($output, $options);
-
-        return $this->runWith($input, $output, fn (Sloppy $sloppy, RunnerOutput $runnerOutput): ExitCode => (new WatchRunner(
-            $dashboard,
-            EditorCommand::from(getenv()),
-            new ShellEditorLauncher,
-        ))->run($sloppy, $options, $runnerOutput));
+            return (new WatchRunner(
+                $this->dashboard($output, $options),
+                EditorCommand::from(getenv()),
+                new ShellEditorLauncher,
+            ))->run($sloppy, $options, $runnerOutput);
+        });
     }
 
     /**

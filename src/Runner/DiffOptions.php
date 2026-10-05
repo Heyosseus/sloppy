@@ -12,6 +12,10 @@ use Heyosseus\Sloppy\Output\OutputFormat;
  * There is no `noBaseline` here: diff mode separates new findings from
  * inherited ones itself, so a baseline would be answering a question that has
  * already been answered.
+ *
+ * `$mergeBase` compares against where the working tree forked from `$base`
+ * rather than against its tip, so commits that landed on the base branch since
+ * are not mistaken for this change's.
  */
 final readonly class DiffOptions implements RunnerOptions
 {
@@ -30,6 +34,7 @@ final readonly class DiffOptions implements RunnerOptions
         public bool $explainRisk = false,
         public bool $review = false,
         public ?string $coverage = null,
+        public bool $mergeBase = false,
     ) {}
 
     /** @return list<string> */

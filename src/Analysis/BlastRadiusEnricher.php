@@ -32,7 +32,24 @@ use Heyosseus\Sloppy\Ast\ProjectIndex;
  */
 final readonly class BlastRadiusEnricher
 {
-    public function __construct(private ProjectIndex $index) {}
+    /**
+     * Indexed declarations grouped by the file they live in, so resolving a
+     * finding's subject looks at one file's classes rather than the project's.
+     *
+     * @var array<string, array<string, ClassSummary>>
+     */
+    private array $classesByFile;
+
+    public function __construct(private ProjectIndex $index)
+    {
+        $byFile = [];
+
+        foreach ($index->classes() as $fqn => $summary) {
+            $byFile[$summary->relativePath][$fqn] = $summary;
+        }
+
+        $this->classesByFile = $byFile;
+    }
 
     /**
      * @param  list<Finding>  $findings
@@ -108,11 +125,7 @@ final readonly class BlastRadiusEnricher
         $best = null;
         $bestSpan = PHP_INT_MAX;
 
-        foreach ($this->index->classes() as $fqn => $summary) {
-            if ($summary->relativePath !== $finding->location->relativePath) {
-                continue;
-            }
-
+        foreach ($this->classesByFile[$finding->location->relativePath] ?? [] as $fqn => $summary) {
             if (! $this->contains($summary, $finding->location->line)) {
                 continue;
             }
@@ -129,11 +142,12 @@ final readonly class BlastRadiusEnricher
     }
 
     /**
-     * A span is at least one line -- a class declared and closed on the same
-     * line spans that line -- so the range covers the single-line case too.
+     * A span counts both its first and its last line, so the last line it
+     * covers is `line + lineSpan - 1`. A span is at least one line -- a class
+     * declared and closed on the same line spans that line.
      */
     private function contains(ClassSummary $summary, int $line): bool
     {
-        return $line >= $summary->line && $line <= $summary->line + $summary->lineSpan;
+        return $line >= $summary->line && $line <= $summary->line + max(1, $summary->lineSpan) - 1;
     }
 }

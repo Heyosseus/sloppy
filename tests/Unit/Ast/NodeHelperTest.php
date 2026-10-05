@@ -3,7 +3,13 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Ast\NodeHelper;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\Node\Stmt\For_;
+use PhpParser\Node\Stmt\Foreach_;
 
 describe('classification', function (): void {
     it('recognises a controller by namespace, name or parent', function (): void {
@@ -240,7 +246,7 @@ describe('traversal', function (): void {
         }
         PHP);
 
-        $static = NodeHelper::find($file->ast, PhpParser\Node\Expr\StaticCall::class)[0];
+        $static = NodeHelper::find($file->ast, StaticCall::class)[0];
         $outermost = NodeHelper::outermostChain($static);
 
         expect(NodeHelper::chainMethodNames($outermost))->toBe(['where', 'with', 'get'])
@@ -283,7 +289,7 @@ describe('traversal', function (): void {
         }
         PHP);
 
-        $call = NodeHelper::find($file->ast, PhpParser\Node\Expr\MethodCall::class)[0];
+        $call = NodeHelper::find($file->ast, MethodCall::class)[0];
         $ancestors = NodeHelper::ancestors($call);
 
         expect($ancestors)->not->toBeEmpty()
@@ -377,4 +383,115 @@ describe('printing and names', function (): void {
             ->and(NodeHelper::publicMethods($class))->toHaveCount(1)
             ->and(NodeHelper::constructor($class))->toBeNull();
     });
+});
+
+/**
+ * The first static call in a snippet's only class.
+ */
+function firstStaticCallIn(string $code): StaticCall
+{
+    $call = NodeHelper::findFirst(firstClass($code), StaticCall::class);
+
+    expect($call)->toBeInstanceOf(StaticCall::class);
+
+    return $call;
+}
+
+describe('loops', function (): void {
+    it('does not count the expression a foreach iterates as inside it', function (): void {
+        $call = firstStaticCallIn('class A { public function go(): void { foreach (Order::where("paid", true)->get() as $o) { $o->touch(); } } }');
+
+        expect(NodeHelper::enclosingLoop($call))->toBeNull();
+    });
+
+    it('does not count a for initialiser as inside the loop, but does count its condition', function (): void {
+        $init = firstStaticCallIn('class A { public function go(): void { for ($i = 0, $max = Order::count(); $i < $max; $i++) {} } }');
+        $condition = firstStaticCallIn('class A { public function go(): void { for ($i = 0; $i < Order::count(); $i++) {} } }');
+
+        expect(NodeHelper::enclosingLoop($init))->toBeNull()
+            ->and(NodeHelper::enclosingLoop($condition))->toBeInstanceOf(For_::class);
+    });
+
+    it('still finds an outer loop around a nested loop source', function (): void {
+        $call = firstStaticCallIn('class A { public function go(array $ids): void { foreach ($ids as $id) { foreach (Order::where("id", $id)->get() as $o) {} } } }');
+
+        expect(NodeHelper::enclosingLoop($call))->toBeInstanceOf(Foreach_::class);
+    });
+
+    it('stops at a closure stored for later, but not at a callback run on the spot', function (): void {
+        $stored = firstStaticCallIn('class A { public function go(array $ids): void { foreach ($ids as $id) { $this->handlers[] = fn () => Order::find($id); } } }');
+        $callback = firstStaticCallIn('class A { public function go(array $ids): void { foreach ($ids as $id) { DB::transaction(function () use ($id) { Order::find($id); }); } } }');
+
+        expect(NodeHelper::enclosingLoop($stored))->toBeNull()
+            ->and(NodeHelper::enclosingLoop($callback))->toBeInstanceOf(Foreach_::class);
+    });
+
+    it('stops at a method declared inside a loop body', function (): void {
+        $call = firstStaticCallIn('class A { public function go(array $ids): void { foreach ($ids as $id) { $x = new class { public function run(): void { Order::find(1); } }; } } }');
+
+        expect(NodeHelper::enclosingLoop($call))->toBeNull();
+    });
+});
+
+describe('own scope', function (): void {
+    it('finds nodes without descending into an anonymous class or a nested function', function (): void {
+        $class = firstClass('class A { public function go(): void { try {} catch (E $e) {} $x = new class { public function b(): void { try {} catch (E $e) {} } }; } }');
+
+        expect(NodeHelper::findOwn($class, Catch_::class))->toHaveCount(1)
+            ->and(NodeHelper::find($class, Catch_::class))->toHaveCount(2);
+    });
+
+    it('leaves an anonymous class body out of a method\'s statements and complexity', function (): void {
+        $plain = firstMethod('class A { public function go(): void { $a = 1; } }');
+        $withAnon = firstMethod('class A { public function go(): void { $a = new class { public function b(int $x): int { if ($x) { return 1; } if ($x > 2) { return 2; } return 3; } }; } }');
+
+        expect(NodeHelper::countStatements($withAnon))->toBe(NodeHelper::countStatements($plain))
+            ->and(NodeHelper::cyclomaticComplexity($withAnon))->toBe(1)
+            ->and(NodeHelper::maxNestingDepth($withAnon))->toBe(0);
+    });
+
+    it('reads else if as one chain, the same as elseif', function (): void {
+        $elseIf = firstMethod('class A { public function go(int $x): void { if ($x === 1) { $a = 1; } else if ($x === 2) { $a = 2; } else if ($x === 3) { $a = 3; } else { $a = 4; } } }');
+        $elseif = firstMethod('class A { public function go(int $x): void { if ($x === 1) { $a = 1; } elseif ($x === 2) { $a = 2; } elseif ($x === 3) { $a = 3; } else { $a = 4; } } }');
+        $nested = firstMethod('class A { public function go(int $x): void { if ($x === 1) { $a = 1; } else { $b = 0; if ($x === 2) { $a = 2; } } } }');
+
+        expect(NodeHelper::maxNestingDepth($elseIf))->toBe(1)
+            ->and(NodeHelper::maxNestingDepth($elseif))->toBe(1)
+            ->and(NodeHelper::maxNestingDepth($nested))->toBe(2);
+    });
+
+    it('has no arguments for a first-class callable instead of failing an assertion', function (): void {
+        $call = NodeHelper::findFirst(firstClass('class A { public function go(): \Closure { return $this->inner->foo(...); } }'), MethodCall::class);
+
+        expect($call)->toBeInstanceOf(MethodCall::class)
+            ->and(NodeHelper::arguments($call))->toBe([]);
+    });
+});
+
+it('sees dynamic static, nullsafe and callable-array access as dynamic', function (string $body): void {
+    expect(NodeHelper::hasDynamicAccess(firstClass('class A { public function go(string $m): mixed { '.$body.' } }')))->toBeTrue();
+})->with([
+    'static variable call' => ['return static::$m();'],
+    'self braced call' => ['return self::{$m}();'],
+    'nullsafe dynamic call' => ['return $this->x?->$m();'],
+    'this callable array' => ['return array_map([$this, $m], []);'],
+    'static::class callable array' => ['return call([static::class, "pre".$m]);'],
+    'self::class callable array' => ['return [self::class, $m];'],
+]);
+
+it('does not see a literal callable array as dynamic', function (): void {
+    expect(NodeHelper::hasDynamicAccess(firstClass('class A { public function go(): mixed { return array_map([$this, "b"], []); } }')))->toBeFalse();
+});
+
+it('recognises a model that extends one of the project\'s own base models', function (): void {
+    $files = [
+        parsedFile("namespace App\\Models;\nuse Illuminate\\Database\\Eloquent\\Model;\nabstract class BaseModel extends Model {}"),
+        parsedFile("namespace App\\Models;\nclass Invoice extends BaseModel {}"),
+    ];
+    $index = ProjectIndex::build($files);
+    $invoice = $files[1]->classLikes()[0];
+
+    expect(NodeHelper::isEloquentModel($invoice))->toBeFalse()
+        ->and(NodeHelper::isEloquentModel($invoice, $index))->toBeTrue()
+        ->and($index->class('App\Models\Invoice')?->isEloquentModel($index))->toBeTrue();
 });

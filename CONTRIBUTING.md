@@ -96,7 +96,9 @@ order:
 
 `tests/Feature/FixtureCorpusTest.php` asserts that all rules report **zero**
 findings on `tests/Fixtures/Good` — deliberately ordinary Laravel code — with a
-score of 100. If your rule breaks that test, the rule is wrong, not the
+score of 100, including under a declared architecture (`CORPUS_ARCHITECTURE`)
+and as a change in diff mode. `tests/Fixtures/Architecture` holds the
+counterpart that breaks that architecture. If your rule breaks that test, the rule is wrong, not the
 fixture. A static analyser that constantly complains gets switched off.
 
 `tests/Feature/SelfCheckTest.php` runs the whole rule set over Sloppy's own
@@ -107,12 +109,18 @@ or record the decision there with the reasoning.
 
 | Peer | Range |
 | --- | --- |
-| PHP | 8.3, 8.4 |
+| PHP | 8.3, 8.4, 8.5 |
 | Laravel | 12, 13 |
+| OS | Linux, Windows |
 
-CI proves every combination, and both ends of the range are additionally run with
-`--prefer-lowest` to catch a constraint in `composer.json` that is wider than the
-code actually supports.
+CI runs PHP 8.3 and 8.4 against both Laravel majors, PHP 8.5 against Laravel
+13, and one Windows leg (PHP 8.4, Laravel 13). Both ends of the range are
+additionally run with `--prefer-lowest` to catch a constraint in
+`composer.json` that is wider than the code actually supports. Every pull
+request also installs the package with `--no-dev` and runs the binary and the
+MCP server from that install, and builds and runs the phar, so a runtime class
+that leans on a dev dependency, or a phar that no longer boots, fails before a
+release rather than after.
 
 Laravel 11 is not supported. Its security window has closed, so every 11.x
 release now carries advisories that will never be patched and Composer's

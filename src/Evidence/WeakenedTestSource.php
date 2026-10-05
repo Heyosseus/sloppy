@@ -25,8 +25,8 @@ use Heyosseus\Sloppy\Git\ChangedFile;
  * at the base revision and now, and compares the tests by name.
  *
  * Test files are not source roots -- the analyser never scans them -- so this
- * asks git for the change list itself rather than using the context's, which
- * has already been narrowed to the analysed paths.
+ * uses the whole change list rather than the context's changed files, which
+ * have already been narrowed to the analysed paths.
  */
 final readonly class WeakenedTestSource implements EvidenceSource
 {
@@ -72,7 +72,7 @@ final readonly class WeakenedTestSource implements EvidenceSource
     public function evidence(EvidenceContext $context): iterable
     {
         $files = array_values(array_filter(
-            $context->git->changedFiles($context->baseRevision),
+            $context->repositoryChanges(),
             fn (ChangedFile $file): bool => $file->status !== 'deleted' && $this->isTest($file->relativePath),
         ));
 

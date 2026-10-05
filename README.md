@@ -19,6 +19,7 @@
   <img alt="php" src="https://img.shields.io/packagist/dependency-v/heyosseus/sloppy/php.svg">
   <a href="LICENSE.md"><img alt="license" src="https://img.shields.io/packagist/l/heyosseus/sloppy.svg"></a>
   <a href="https://ko-fi.com/ratirukhadze"><img alt="ko-fi" src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white"></a>
+  <a href="https://m8ven.ai/mcp/heyosseus/sloppy?s=readme"><img alt="M8ven Score" src="https://m8ven.ai/badge/mcp/heyosseus/sloppy"></a>
 </p>
 
 <p align="center">
@@ -68,7 +69,8 @@ It's built never to get in the way. Findings a file already had are never
 reported, so the agent doesn't wander off "fixing" code nobody asked it to
 touch. The finish check blocks once, so a false positive costs one round trip,
 not the session. And if Sloppy can't run (no git, a broken config), the agent
-carries on.
+carries on. `sloppy agents uninstall` takes it all back out, leaving every
+other setting byte for byte as it was.
 
 There's also an [MCP server](docs/agents.md#mcp-server) for agents that should
 scan on demand. See [Coding agents](docs/agents.md).
@@ -111,7 +113,8 @@ findings, `sloppy baseline` for the debt that is already there. `--all` lists
 everything.
 
 **Review a change.** `sloppy diff main` reports only what your branch
-*introduced*, never what it inherited. `sloppy review main` ranks the same
+*introduced*, never what it inherited; add `--merge-base` to compare with
+where your branch forked, as `sloppy ci` does. `sloppy review main` ranks the same
 findings by risk, so you know which file to read first and where to stop.
 
 ![php artisan sloppy:diff main](.github/assets/diff.svg)
@@ -211,7 +214,7 @@ If PHPStan can prove it, Sloppy stays out of it.
 | [Everyday workflow](docs/workflow.md) | Diff and review, `sloppy fix` over Rector, Pint and narrating comments, Pest expectations, `watch`, Filament and NativePHP |
 | [CI and code scanning](docs/ci.md) | `sloppy ci`, the GitHub Action, GitLab, SARIF, annotations, exit codes |
 | [Score, severity and risk](docs/scoring.md) | How every number is calculated, and what coverage, git history and PHPStan baselines feed |
-| [Configuration](docs/configuration.md) | `config/sloppy.php`, and taming a noisy first run |
+| [Configuration](docs/configuration.md) | `config/sloppy.php`, where the binary looks for it, `sloppy-architecture.php`, and taming a noisy first run |
 | [JSON output](docs/json-output.md) | The machine-readable report and its contract |
 | [Custom rules](docs/custom-rules.md) | Writing your own rule, and where it shows up |
 

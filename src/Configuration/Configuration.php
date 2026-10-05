@@ -24,14 +24,33 @@ final readonly class Configuration
 {
     private ConfigReader $values;
 
+    /** @var array<string, mixed> */
+    private array $config;
+
+    /** @var list<string> Values of the wrong type or out of range: the runner refuses these. */
+    public array $problems;
+
+    /** @var list<string> Keys {@see ConfigSchema} does not know: the runner only warns. */
+    public array $unknownSettings;
+
     /**
-     * @param  array<string, mixed>  $config
+     * Values that mean one obvious thing -- a single path, `'90'`, `'false'`
+     * -- are read in that meaning. Anything else is kept in {@see $problems}:
+     * constructing a configuration never throws, so every surface decides for
+     * itself where a bad one is reported.
+     *
+     * @param  array<array-key, mixed>  $config
      */
     public function __construct(
-        private array $config,
+        array $config,
         public string $basePath,
     ) {
-        $this->values = new ConfigReader($config);
+        $checked = (new ConfigSchema)->normalise($config);
+
+        $this->config = $checked['config'];
+        $this->problems = $checked['problems'];
+        $this->unknownSettings = $checked['unknown'];
+        $this->values = new ConfigReader($this->config);
     }
 
     /**

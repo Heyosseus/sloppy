@@ -33,29 +33,33 @@ final class SloppyWatchCommand extends SloppyCommandBase
 
     public function handle(Sloppy $sloppy): int
     {
-        $options = new WatchOptions(
-            paths: $this->stringListOption('path'),
-            rules: $this->stringListOption('rule'),
-            minConfidence: $this->intOption('min-confidence'),
-            top: $this->intOption('top'),
-            interval: max(50, $this->intOption('interval') ?? 250),
-        );
+        // The options are read inside runWith so a malformed one is a message
+        // and exit code 2, like every other command's, not a stack trace.
+        return $this->runWith(function (LaravelRunnerOutput $output) use ($sloppy): ExitCode {
+            $options = new WatchOptions(
+                paths: $this->stringListOption('path'),
+                rules: $this->stringListOption('rule'),
+                minConfidence: $this->intOption('min-confidence'),
+                top: $this->intOption('top'),
+                interval: max(50, $this->intOption('interval') ?? 250),
+            );
 
-        $dashboard = new TerminalDashboard(
-            $this->getOutput(),
-            new SplFileObject('php://stdin'),
-            new SttyTerminalMode,
-            (new Terminal)->getWidth(),
-            $options->interval,
-            // Redirected into a file or a pipe there is nothing to draw on and no
-            // key to stop with, so the runner declines rather than looping.
-            stream_isatty(STDOUT),
-        );
+            $dashboard = new TerminalDashboard(
+                $this->getOutput(),
+                new SplFileObject('php://stdin'),
+                new SttyTerminalMode,
+                (new Terminal)->getWidth(),
+                $options->interval,
+                // Redirected into a file or a pipe there is nothing to draw on and no
+                // key to stop with, so the runner declines rather than looping.
+                stream_isatty(STDOUT),
+            );
 
-        return $this->runWith(fn (LaravelRunnerOutput $output): ExitCode => (new WatchRunner(
-            $dashboard,
-            EditorCommand::from(getenv()),
-            new ShellEditorLauncher,
-        ))->run($sloppy, $options, $output));
+            return (new WatchRunner(
+                $dashboard,
+                EditorCommand::from(getenv()),
+                new ShellEditorLauncher,
+            ))->run($sloppy, $options, $output);
+        });
     }
 }

@@ -115,8 +115,11 @@ confidence alone.
 
 ### Show me the arithmetic
 
-Add `--explain-risk` to any command and every derived number prints its own
-working:
+Add `--explain-risk` to `scan`, `diff`, `review` or `ci` and every derived
+number prints its own working -- in the console report, in Markdown, and as
+`risk_factors` and `risk_arithmetic` in JSON. On `diff` the console report
+becomes the risk-ordered review, since that is the report that shows risk.
+(`health` lists each top finding's risk but has no arithmetic to show.)
 
 ```bash
 vendor/bin/sloppy scan --explain-risk
@@ -157,6 +160,14 @@ would make `sloppy scan` and `sloppy diff main` report different scores for the
 same working tree. It still counts against `--fail-on`, because a build may
 legitimately refuse a change that silenced three errors.
 
+For the same reason diff mode scores both sides as whole trees: `score.current`
+is exactly what `sloppy scan` reports now, and `score.base` is the base tree --
+today's with the changed files rewound -- including for a change that touches
+no PHP at all, whose delta is 0 rather than a score of 100. The files the change
+did not touch keep the findings they have today on the base side; they are
+byte-identical at both revisions, so only a cross-file rule reacting to the
+change could tell the two apart.
+
 ### Coverage
 
 Point Sloppy at a clover or cobertura report and a changed file your tests
@@ -195,5 +206,5 @@ path and the date it was written, and leave the judgement to you. A staleness
 heuristic would be a number that cannot show its arithmetic, which is the one
 thing every number in this package can do.
 
-`ext-xml` is suggested, not required. Without it coverage is skipped and
+`ext-xmlreader` is suggested, not required. Without it coverage is skipped and
 nothing else changes.

@@ -27,14 +27,29 @@ use Throwable;
  */
 abstract class CliCommandBase extends Command
 {
-    protected function configureSharedOptions(): void
+    /**
+     * Only the options a command actually reads: one that accepted `--rule`
+     * and ignored it would answer a question nobody asked, and the user would
+     * never find out.
+     *
+     * @param  bool  $paths  Whether the command analyses a choice of paths.
+     * @param  bool  $filters  Whether it filters findings by rule and confidence.
+     */
+    protected function configureSharedOptions(bool $paths = true, bool $filters = true): void
     {
         $this
             ->addOption('project', null, InputOption::VALUE_REQUIRED, 'Project directory to analyse (default: the nearest one above the working directory)')
-            ->addOption('config', null, InputOption::VALUE_REQUIRED, 'Path to a sloppy configuration file')
-            ->addOption('path', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Analyse these paths instead of the configured ones')
-            ->addOption('min-confidence', null, InputOption::VALUE_REQUIRED, 'Drop findings below this confidence (0-100)')
-            ->addOption('rule', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run only these rule IDs, e.g. --rule=SL101');
+            ->addOption('config', null, InputOption::VALUE_REQUIRED, 'Path to a sloppy configuration file');
+
+        if ($paths) {
+            $this->addOption('path', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Analyse these paths instead of the configured ones');
+        }
+
+        if ($filters) {
+            $this
+                ->addOption('min-confidence', null, InputOption::VALUE_REQUIRED, 'Drop findings below this confidence (0-100)')
+                ->addOption('rule', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Run only these rule IDs, e.g. --rule=SL101');
+        }
     }
 
     /**
@@ -67,19 +82,12 @@ abstract class CliCommandBase extends Command
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 
+    /**
+     * @throws InvalidArgumentException When the value is not a whole number.
+     */
     protected function intOption(InputInterface $input, string $name): ?int
     {
-        $value = $this->stringOption($input, $name);
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (! is_numeric($value)) {
-            throw new InvalidArgumentException(sprintf('--%s must be a number.', $name));
-        }
-
-        return (int) $value;
+        return IntegerOption::parse($name, $this->stringOption($input, $name));
     }
 
     /**
@@ -115,6 +123,7 @@ abstract class CliCommandBase extends Command
             explainRisk: $explainRisk,
             review: $review,
             coverage: $this->stringOption($input, 'coverage'),
+            mergeBase: $input->hasOption('merge-base') && $input->getOption('merge-base') === true,
         );
     }
 

@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Baseline;
 
 use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Finding;
+use Heyosseus\Sloppy\Output\JsonEncoder;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use RuntimeException;
 
@@ -70,11 +71,7 @@ final readonly class BaselineManager
 
     public function save(Baseline $baseline, string $path): void
     {
-        $encoded = json_encode($baseline->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        if ($encoded === false) {
-            throw new RuntimeException('Baseline could not be encoded as JSON.');
-        }
+        $encoded = (new JsonEncoder)->encode($baseline->toArray());
 
         $directory = dirname($path);
 
@@ -94,26 +91,30 @@ final readonly class BaselineManager
      * Occurrences beyond the recorded count are treated as new: if a file had
      * one swallowed exception and now has three, two of them are new.
      *
+     * An entry's identity includes its file, so a file that moved -- even with
+     * `git mv` -- would otherwise turn every finding it carries back into a
+     * new one. A finding with no entry of its own is therefore matched, second,
+     * against an entry for the same rule and fingerprint in a file that is no
+     * longer there, using up that entry's count so a moved finding cannot be
+     * accepted twice.
+     *
      * @param  list<Finding>  $findings
+     * @param  list<string>|null  $presentFiles  Files the run covered; an entry for one of these
+     *                                           still has its own file and is never borrowed.
      * @return array{new: list<Finding>, baselined: list<Finding>}
      */
-    public function partition(array $findings, ?Baseline $baseline): array
+    public function partition(array $findings, ?Baseline $baseline, ?array $presentFiles = null): array
     {
         if (! $baseline instanceof Baseline) {
             return ['new' => $findings, 'baselined' => []];
         }
 
-        /** @var array<string, int> $used */
-        $used = [];
+        $accepted = $this->match($findings, $baseline, $presentFiles)['accepted'];
         $new = [];
         $baselined = [];
 
-        foreach ($findings as $finding) {
-            $id = $finding->identity();
-            $seen = $used[$id] ?? 0;
-
-            if ($seen < $baseline->allowanceFor($finding)) {
-                $used[$id] = $seen + 1;
+        foreach ($findings as $index => $finding) {
+            if (isset($accepted[$index])) {
                 $baselined[] = $finding;
 
                 continue;
@@ -123,6 +124,66 @@ final readonly class BaselineManager
         }
 
         return ['new' => $new, 'baselined' => $baselined];
+    }
+
+    /**
+     * Which findings the baseline accepts, and how much of each entry they
+     * used: exact identities first, then moved files.
+     *
+     * @param  list<Finding>  $findings
+     * @param  list<string>|null  $presentFiles
+     * @return array{accepted: array<int, true>, used: array<string, int>}
+     */
+    private function match(array $findings, Baseline $baseline, ?array $presentFiles): array
+    {
+        /** @var array<string, int> $used */
+        $used = [];
+        $accepted = [];
+        $unmatched = [];
+
+        foreach ($findings as $index => $finding) {
+            $id = $finding->identity();
+            $seen = $used[$id] ?? 0;
+
+            if ($seen < $baseline->allowanceFor($finding)) {
+                $used[$id] = $seen + 1;
+                $accepted[$index] = true;
+
+                continue;
+            }
+
+            $unmatched[] = $index;
+        }
+
+        if ($unmatched === []) {
+            return ['accepted' => $accepted, 'used' => $used];
+        }
+
+        $present = $presentFiles === null ? [] : array_fill_keys($presentFiles, true);
+        $moved = [];
+
+        foreach ($baseline->entries() as $entry) {
+            if (! isset($present[$entry->file])) {
+                $moved[$entry->ruleId."\0".$entry->fingerprint][] = $entry;
+            }
+        }
+
+        foreach ($unmatched as $index) {
+            $finding = $findings[$index];
+
+            foreach ($moved[$finding->ruleId."\0".$finding->fingerprint] ?? [] as $entry) {
+                $seen = $used[$entry->id] ?? 0;
+
+                if ($seen < $entry->count) {
+                    $used[$entry->id] = $seen + 1;
+                    $accepted[$index] = true;
+
+                    break;
+                }
+            }
+        }
+
+        return ['accepted' => $accepted, 'used' => $used];
     }
 
     /**
@@ -137,27 +198,25 @@ final readonly class BaselineManager
             return $result;
         }
 
-        return $result->withFindings($this->partition($result->findings, $baseline)['new'], $scores);
+        return $result->withFindings($this->partition($result->findings, $baseline, $result->analyzedFiles)['new'], $scores);
     }
 
     /**
      * Baseline entries that no longer correspond to any finding -- debt that
-     * has been paid off and can be pruned.
+     * has been paid off and can be pruned. An entry a moved file's finding
+     * still answers to is not paid off.
      *
      * @param  list<Finding>  $findings
+     * @param  list<string>|null  $presentFiles
      * @return list<BaselineEntry>
      */
-    public function resolved(array $findings, Baseline $baseline): array
+    public function resolved(array $findings, Baseline $baseline, ?array $presentFiles = null): array
     {
-        $present = [];
-
-        foreach ($findings as $finding) {
-            $present[$finding->identity()] = true;
-        }
+        $used = $this->match($findings, $baseline, $presentFiles)['used'];
 
         return array_values(array_filter(
             $baseline->entries(),
-            static fn (BaselineEntry $entry): bool => ! isset($present[$entry->id]),
+            static fn (BaselineEntry $entry): bool => ! isset($used[$entry->id]),
         ));
     }
 }

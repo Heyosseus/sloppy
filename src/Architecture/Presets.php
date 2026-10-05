@@ -28,7 +28,9 @@ final readonly class Presets
     private const array MODEL = [
         'description' => 'An Eloquent model: data and its relationships.',
         'kind' => 'class',
-        'parent' => [
+        // Any ancestor, so `Invoice extends BaseModel extends Model` is a
+        // model too, as far as the project declares its base classes.
+        'extends' => [
             \Illuminate\Foundation\Auth\User::class,
             \Illuminate\Database\Eloquent\Relations\Pivot::class,
             '*\Model',

@@ -22,14 +22,21 @@ use Heyosseus\Sloppy\Contracts\Formatter;
  */
 final readonly class GitlabFormatter implements Formatter
 {
-    public function __construct(private bool $pretty = true) {}
+    /**
+     * @param  string  $pathPrefix  The project's path inside the repository, which GitLab names files from.
+     */
+    public function __construct(
+        private bool $pretty = true,
+        private string $pathPrefix = '',
+    ) {}
 
     public function format(AnalysisResult $result): string
     {
         $issues = [];
+        $fingerprints = (new OccurrenceFingerprints)->for($result->findings);
 
-        foreach ($result->findings as $finding) {
-            $issues[] = $this->issue($finding);
+        foreach ($result->findings as $index => $finding) {
+            $issues[] = $this->issue($finding, $fingerprints[$index]);
         }
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
@@ -38,15 +45,13 @@ final readonly class GitlabFormatter implements Formatter
             $flags |= JSON_PRETTY_PRINT;
         }
 
-        $encoded = json_encode($issues, $flags);
-
-        return ($encoded === false ? '[]' : $encoded)."\n";
+        return (new JsonEncoder($flags))->encode($issues)."\n";
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function issue(Finding $finding): array
+    private function issue(Finding $finding, string $fingerprint): array
     {
         return [
             'type' => 'issue',
@@ -59,10 +64,11 @@ final readonly class GitlabFormatter implements Formatter
             'severity' => $this->severity($finding->severity),
             // GitLab uses the fingerprint to follow one finding across
             // pipelines, so it must be the identity that survives the file
-            // moving down a few lines -- not a hash of the line it is on.
-            'fingerprint' => $finding->identity(),
+            // moving down a few lines -- not a hash of the line it is on --
+            // and distinct for two findings that share that identity.
+            'fingerprint' => $fingerprint,
             'location' => [
-                'path' => $finding->location->relativePath,
+                'path' => $this->pathPrefix.$finding->location->relativePath,
                 'lines' => [
                     'begin' => max(1, $finding->location->line),
                     'end' => max(1, $finding->location->endLine ?? $finding->location->line),

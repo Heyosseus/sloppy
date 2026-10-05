@@ -62,7 +62,7 @@ final readonly class ConditionShape
         }
 
         if ($expr instanceof FuncCall && $expr->name instanceof Name && NodeHelper::baseName($expr->name->toString()) === 'is_null') {
-            $args = $expr->getArgs();
+            $args = NodeHelper::arguments($expr);
 
             if (count($args) !== 1) {
                 return null;
@@ -90,6 +90,21 @@ final readonly class ConditionShape
     {
         return $this->subject === $other->subject
             && $this->kind->family() === $other->kind->family();
+    }
+
+    /**
+     * Whether this check passing guarantees the other passes too.
+     *
+     * Stricter than {@see equivalentTo()}, which only compares direction.
+     * `$x` being truthy settles `$x !== null`, but `$x !== null` settles
+     * nothing about `$x` -- it may be `0`, `''` or `false`. Likewise `$x ===
+     * null` settles `! $x`, while `! $x` leaves `$x === null` open. This is
+     * the test for "the second check cannot change anything".
+     */
+    public function implies(self $other): bool
+    {
+        return $this->subject === $other->subject
+            && in_array($other->kind, $this->kind->implied(), true);
     }
 
     public function describe(): string

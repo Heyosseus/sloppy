@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Heyosseus\Sloppy\Rules\Laravel\DirectExternalApiRule;
+use Heyosseus\Sloppy\Tests\Support\RuleTester;
 
 function directApi(): DirectExternalApiRule
 {
@@ -140,4 +141,79 @@ it('reports one finding per method, not per call', function (): void {
     PHP);
 
     expect($found)->toHaveCount(1);
+});
+
+it('does not crash on a first-class callable in a controller', function (): void {
+    expect(findings(directApi(), <<<'PHP'
+    namespace App\Http\Controllers;
+
+    class ImportController extends Controller
+    {
+        public function store(array $paths): array
+        {
+            return array_map(file_get_contents(...), $paths);
+        }
+    }
+    PHP))->toBeEmpty();
+});
+
+it('does not take any class named Client for an HTTP client', function (): void {
+    $found = findingsAcross(directApi(), [
+        'app/Models/Client.php' => "<?php namespace App\Models;\nuse Illuminate\Database\Eloquent\Model;\nclass Client extends Model {}",
+        'app/Http/Controllers/ClientController.php' => <<<'PHP'
+        <?php
+        namespace App\Http\Controllers;
+
+        use App\Models\Client;
+        use Vendor\Crm\Client as CrmRecord;
+
+        class ClientController extends Controller
+        {
+            public function store(): Client
+            {
+                new CrmRecord();
+
+                return new Client();
+            }
+
+            public function sync(): void
+            {
+                (new \GuzzleHttp\Client())->post('https://crm.example.com');
+            }
+        }
+        PHP,
+    ]);
+
+    expect(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->fingerprint, $found))->toBe(['ClientController::sync']);
+});
+
+it('reports a call made from an anonymous class once, against the class that hosts it', function (): void {
+    $found = findings(directApi(), <<<'PHP'
+    namespace App\Http\Controllers;
+
+    class ReportController extends Controller
+    {
+        public function show(): object
+        {
+            return new class {
+                public function run(): mixed
+                {
+                    return Http::get('https://example.com');
+                }
+            };
+        }
+    }
+    PHP, 'app/Http/Controllers/ReportController.php');
+
+    expect($found)->toHaveCount(1)
+        ->and($found[0]->fingerprint)->toBe('ReportController::run');
+});
+
+it('sees a model that extends the project\'s own base model', function (): void {
+    $found = findingsAcross(directApi(), [
+        'app/Models/BaseModel.php' => "<?php namespace App\Models;\nuse Illuminate\Database\Eloquent\Model;\nabstract class BaseModel extends Model {}",
+        'app/Models/Invoice.php' => "<?php namespace App\Models;\nuse Illuminate\Support\Facades\Http;\nclass Invoice extends BaseModel { public function sync(): void { Http::post('https://x.example.com', []); } }",
+    ]);
+
+    expect(RuleTester::fingerprints($found))->toBe(['Invoice::sync']);
 });

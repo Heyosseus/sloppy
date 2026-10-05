@@ -31,9 +31,18 @@ final readonly class HealthReporter
     /**
      * The current snapshot: cached when it is fresh enough, otherwise
      * analysed now and cached for whoever asks next.
+     *
+     * A run narrowed by rule, path or confidence describes something other
+     * than the project, so with `$shared` off it neither reads the shared
+     * cache -- which holds the whole project -- nor writes its partial answer
+     * into it for the dashboard to show as the project's.
      */
-    public function current(bool $fresh = false, ?int $now = null): HealthSnapshot
+    public function current(bool $fresh = false, ?int $now = null, bool $shared = true): HealthSnapshot
     {
+        if (! $shared) {
+            return $this->snapshot();
+        }
+
         $cache = $this->cache();
 
         if ($fresh) {

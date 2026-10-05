@@ -36,6 +36,10 @@ final class SloppyMcpCommand extends Command
 
     public function handle(): int
     {
+        // Standard output belongs to the protocol from here on: a warning
+        // printed into it is an unparseable message and the end of the session.
+        ini_set('display_errors', 'stderr');
+
         $project = $this->option('project');
         $root = is_string($project) && trim($project) !== '' ? trim($project) : $this->laravel->basePath();
 
