@@ -57,7 +57,7 @@ query inside a loop. Code review catches them late. Sloppy catches them while
 the agent still has the code in hand.
 
 1. **The rules go in first.** `CLAUDE.md` (or `AGENTS.md`, `.cursorrules`,
-   Copilot, Windsurf, Laravel Boost) gets this project's rules, each written as
+   Copilot, Windsurf, Gemini CLI, Laravel Boost) gets this project's rules, each written as
    an instruction the agent can follow.
 2. **Every edit is checked.** After each change to a PHP file, Claude Code runs
    Sloppy and hands the model anything *that edit* introduced, then the model

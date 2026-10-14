@@ -122,6 +122,7 @@ unusual case:
 | `agents` | `AGENTS.md` |
 | `copilot` | `.github/copilot-instructions.md` |
 | `windsurf` | `.windsurfrules` |
+| `gemini` | `GEMINI.md` |
 | `markdown` | `sloppy-rules.md` |
 | `json` | `sloppy-rules.json` |
 

@@ -77,6 +77,7 @@ it('knows where each agent looks for its instructions', function (): void {
         ->and(RulesetFormat::parse(' agents ')->defaultFile())->toBe('AGENTS.md')
         ->and(RulesetFormat::Copilot->defaultFile())->toBe('.github/copilot-instructions.md')
         ->and(RulesetFormat::Windsurf->defaultFile())->toBe('.windsurfrules')
+        ->and(RulesetFormat::Gemini->defaultFile())->toBe('GEMINI.md')
         ->and(RulesetFormat::Markdown->defaultFile())->toBe('sloppy-rules.md')
         ->and(RulesetFormat::Json->defaultFile())->toBe('sloppy-rules.json')
         ->and(RulesetFormat::Json->isJson())->toBeTrue()
