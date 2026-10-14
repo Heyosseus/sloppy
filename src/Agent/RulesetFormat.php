@@ -20,6 +20,7 @@ enum RulesetFormat: string
     case Agents = 'agents';
     case Copilot = 'copilot';
     case Windsurf = 'windsurf';
+    case Gemini = 'gemini';
     case Boost = 'boost';
     case Markdown = 'markdown';
     case Json = 'json';
@@ -51,6 +52,7 @@ enum RulesetFormat: string
             self::Agents => 'AGENTS.md',
             self::Copilot => '.github/copilot-instructions.md',
             self::Windsurf => '.windsurfrules',
+            self::Gemini => 'GEMINI.md',
             self::Boost => '.ai/guidelines/sloppy.blade.php',
             self::Markdown => 'sloppy-rules.md',
             self::Json => 'sloppy-rules.json',
@@ -65,6 +67,7 @@ enum RulesetFormat: string
             self::Agents => 'AGENTS.md (Codex, Jules, Amp and others)',
             self::Copilot => 'GitHub Copilot',
             self::Windsurf => 'Windsurf',
+            self::Gemini => 'Gemini CLI',
             self::Boost => 'Laravel Boost',
             self::Markdown => 'Markdown',
             self::Json => 'JSON',
@@ -82,6 +85,7 @@ enum RulesetFormat: string
             self::Agents => 'Instructions for coding agents working in this repository.',
             self::Copilot => 'Instructions for GitHub Copilot working in this repository.',
             self::Windsurf => 'Instructions for Windsurf working in this repository.',
+            self::Gemini => 'Instructions for Gemini CLI working in this repository.',
             self::Boost => 'Instructions for coding agents working in this repository.',
             self::Markdown, self::Json => 'The patterns Sloppy flags in this repository.',
         };
