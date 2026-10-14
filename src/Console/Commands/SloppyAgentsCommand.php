@@ -23,10 +23,11 @@ final class SloppyAgentsCommand extends SloppyCommandBase
 {
     protected $signature = 'sloppy:agents
         {action=install : install or uninstall}
+        {--host=* : claude, gemini or codex (repeatable; default: claude to install, every agent to uninstall)}
         {--local : Write .claude/settings.local.json and CLAUDE.local.md, which stay out of git, instead of the shared files}
         {--dry-run : Say what would be written or removed, and write nothing}';
 
-    protected $description = 'Install (or uninstall) hooks so Claude Code runs Sloppy after every edit and before it finishes';
+    protected $description = 'Install (or uninstall) hooks so Claude Code, Gemini CLI or Codex runs Sloppy after every edit and before it finishes';
 
     public function handle(Sloppy $sloppy): int
     {
@@ -41,6 +42,7 @@ final class SloppyAgentsCommand extends SloppyCommandBase
                 local: $this->boolOption('local'),
                 dryRun: $this->boolOption('dry-run'),
                 binary: $sloppy->configuration->basePath.'/vendor/bin/sloppy',
+                hosts: AgentsOptions::parseHosts($this->stringListOption('host')),
             );
 
             return $action === 'uninstall'

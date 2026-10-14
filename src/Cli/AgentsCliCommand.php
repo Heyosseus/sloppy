@@ -21,7 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `sloppy agents install` -- make the agent check its own work, every time.
  * `sloppy agents uninstall` takes it all out again.
  */
-#[AsCommand(name: 'agents', description: 'Install (or uninstall) hooks so Claude Code runs Sloppy after every edit and before it finishes')]
+#[AsCommand(name: 'agents', description: 'Install (or uninstall) hooks so Claude Code, Gemini CLI or Codex runs Sloppy after every edit and before it finishes')]
 final class AgentsCliCommand extends CliCommandBase
 {
     protected function configure(): void
@@ -30,6 +30,7 @@ final class AgentsCliCommand extends CliCommandBase
             ->addArgument('action', InputArgument::OPTIONAL, 'install or uninstall', 'install')
             ->addOption('project', null, InputOption::VALUE_REQUIRED, 'Project directory (default: the nearest one above the working directory)')
             ->addOption('config', null, InputOption::VALUE_REQUIRED, 'Path to a sloppy configuration file')
+            ->addOption('host', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'claude, gemini or codex (repeatable; default: claude to install, every agent to uninstall)')
             ->addOption('local', null, InputOption::VALUE_NONE, 'Write .claude/settings.local.json and CLAUDE.local.md, which stay out of git, instead of the shared files')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Say what would be written or removed, and write nothing');
     }
@@ -47,6 +48,7 @@ final class AgentsCliCommand extends CliCommandBase
                 local: $input->getOption('local') === true,
                 dryRun: $input->getOption('dry-run') === true,
                 binary: $this->runningBinary(),
+                hosts: AgentsOptions::parseHosts($this->stringListOption($input, 'host')),
             );
 
             return $action === 'uninstall'

@@ -1,6 +1,6 @@
 # Coding agents
 
-Hooks that make Claude Code check its own work, rulesets that teach every agent what this project flags, and an MCP server they can call on demand.
+Hooks that make Claude Code, Gemini CLI and Codex check their own work, rulesets that teach every agent what this project flags, and an MCP server they can call on demand.
 
 [← Back to the README](../README.md) · [All documentation](README.md)
 
@@ -80,20 +80,64 @@ a personal file uses the PHP that ran the installer, which may not be the one
 first on the PATH (a PHP path with a space in it falls back to `php`, because
 PowerShell would read a quoted one as a string rather than a command).
 
+### Gemini CLI and Codex
+
+The same two checks work in Gemini CLI and Codex. Name the agents with
+`--host`, as many as you use:
+
+```bash
+vendor/bin/sloppy agents install --host=gemini
+vendor/bin/sloppy agents install --host=claude --host=gemini --host=codex
+```
+
+Without `--host`, `install` wires up Claude Code only, as it always has.
+
+| `--host=` | Hooks written to | After an edit | Before finishing | Ruleset |
+| --- | --- | --- | --- | --- |
+| `claude` (default) | `.claude/settings.json` | `PostToolUse` on `Edit`, `Write`, `MultiEdit` | `Stop` | `CLAUDE.md` |
+| `gemini` | `.gemini/settings.json` | `AfterTool` on `write_file`, `replace` | `AfterAgent` | `GEMINI.md` |
+| `codex` | `.codex/hooks.json` | `PostToolUse` on `apply_patch` | `Stop` | `AGENTS.md` |
+
+Where Laravel Boost is installed, every agent gets the Boost guideline instead,
+since Boost writes each agent's file from it.
+
+Each agent gets the findings the way it reads them best. Claude Code and Codex
+take a block decision. Gemini CLI would put a decision's reason *in place of*
+the tool's result, so the model could no longer tell its write went through;
+it gets the findings appended to the result as context instead. A Codex patch
+can touch several files in one edit, and each one's new findings are reported.
+The finish check blocks once in all three.
+
+Some differences to know about:
+
+- **Codex asks before it runs a project's hooks.** After installing, run
+  `/hooks` in Codex and trust the two Sloppy hooks. Codex has no variable for
+  the project directory, so its hooks run `php vendor/bin/sloppy` from the
+  directory the session started in: start Codex from the project root.
+- **Neither has a personal settings file inside the project.** Their hooks
+  always go in the shared file, so `--local`, or a global or phar install with
+  no `vendor/bin/sloppy` for the hook to name, skips them with a warning.
+  Claude Code, if you asked for it too, is still installed.
+- Gemini CLI's hooks use `$GEMINI_PROJECT_DIR`, which Gemini CLI fills in
+  itself, so the shared file works on every checkout.
+
 ### Uninstalling
 
 ```bash
 vendor/bin/sloppy agents uninstall           # or: php artisan sloppy:agents uninstall
 vendor/bin/sloppy agents uninstall --local   # only the personal files
 vendor/bin/sloppy agents uninstall --dry-run # say what would go, change nothing
+vendor/bin/sloppy agents uninstall --host=codex # only Codex's files
 ```
 
 `uninstall` takes out what `install` put in, and nothing else: Sloppy's hooks
-from `.claude/settings.json` and `.claude/settings.local.json`, the Sloppy
-block from `CLAUDE.md` and `CLAUDE.local.md`, the Boost guideline Sloppy wrote
-(`.ai/guidelines/sloppy.blade.php`, and only if Sloppy wrote it), and the
-Sloppy server from `.mcp.json`. Every other setting, hook, line and server in
-those files is left byte for byte. A file that held nothing but Sloppy's
+from `.claude/settings.json`, `.claude/settings.local.json`,
+`.gemini/settings.json` and `.codex/hooks.json`, the Sloppy block from
+`CLAUDE.md`, `CLAUDE.local.md`, `GEMINI.md` and `AGENTS.md`, the Boost
+guideline Sloppy wrote (`.ai/guidelines/sloppy.blade.php`, and only if Sloppy
+wrote it), and the Sloppy server from `.mcp.json` and `.gemini/settings.json`.
+Without `--host` it covers every agent; with it, only the ones named. Every
+other setting, hook, line and server in those files is left byte for byte. A file that held nothing but Sloppy's
 entries -- because `install` created it -- is deleted.
 
 "New" means new compared with `HEAD`, so uncommitted work from before the

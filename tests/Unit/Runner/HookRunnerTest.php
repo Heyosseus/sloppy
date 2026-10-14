@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Agent\AgentHost;
 use Heyosseus\Sloppy\Agent\HookEvent;
 use Heyosseus\Sloppy\Agent\HookPayload;
 use Heyosseus\Sloppy\Configuration\Configuration;
@@ -220,5 +221,67 @@ describe('against a real git repository', function (): void {
             ->and($edit->feedback)->toContain('is now skipped')
             ->and($stop->blocks())->toBeTrue()
             ->and($stop->feedback)->toContain('SL503');
+    });
+});
+
+it('keeps a notice off standard output for the agents that read it as JSON', function (): void {
+    $project = tempProject(['app/A.php' => '<?php class A {}']);
+    $payload = HookPayload::fromJson(json_encode(['tool_input' => ['file_path' => $project.'/app/A.php']], JSON_THROW_ON_ERROR));
+
+    // Not a repository, so the check cannot run and says so.
+    $outcome = (new HookRunner)->run(hookSloppy($project), HookEvent::PostEdit, $payload, AgentHost::Gemini);
+
+    removeTree($project);
+
+    expect($outcome->blocks())->toBeFalse()
+        ->and($outcome->stdout)->toBe('')
+        ->and($outcome->stderr)->toContain('not a git repository');
+});
+
+describe('against a real git repository, for other agents', function (): void {
+    beforeEach(function (): void {
+        if (! TempRepository::gitIsAvailable()) {
+            $this->markTestSkipped('git is not available on this machine.');
+        }
+    });
+
+    it('feeds back the findings of every file a Codex patch wrote', function (): void {
+        $repository = TempRepository::create();
+        $repository->write('app/Fine.php', "<?php\n\nclass Fine\n{\n}\n")->commit('first');
+        $repository->write('app/Bad.php', godMethodSource());
+        $repository->write('app/Worse.php', str_replace('class Bad', 'class Worse', godMethodSource()));
+
+        $payload = HookPayload::fromJson(json_encode([
+            'cwd' => $repository->path,
+            'tool_name' => 'apply_patch',
+            'tool_input' => ['command' => "*** Begin Patch\n*** Add File: app/Bad.php\n*** Add File: app/Worse.php\n*** Update File: README.md\n*** End Patch"],
+        ], JSON_THROW_ON_ERROR));
+
+        $outcome = (new HookRunner)->run(hookSloppy($repository->path), HookEvent::PostEdit, $payload, AgentHost::Codex);
+
+        $repository->remove();
+
+        $decision = json_decode($outcome->stdout, true, flags: JSON_THROW_ON_ERROR);
+
+        expect($outcome->blocks())->toBeTrue()
+            ->and($decision['decision'])->toBe('block')
+            ->and($decision['reason'])->toContain('this edit to app/Bad.php introduced')
+            ->and($decision['reason'])->toContain('this edit to app/Worse.php introduced');
+    });
+
+    it('hands Gemini CLI an edit\'s findings as context on the tool result', function (): void {
+        $repository = TempRepository::create();
+        $repository->write('app/Fine.php', "<?php\n\nclass Fine\n{\n}\n")->commit('first');
+        $repository->write('app/Bad.php', godMethodSource());
+
+        $outcome = (new HookRunner)->run(hookSloppy($repository->path), HookEvent::PostEdit, editPayload($repository, 'app/Bad.php'), AgentHost::Gemini);
+
+        $repository->remove();
+
+        $output = json_decode($outcome->stdout, true, flags: JSON_THROW_ON_ERROR);
+
+        expect($output)->not->toHaveKey('decision')
+            ->and($output['hookSpecificOutput']['hookEventName'])->toBe('AfterTool')
+            ->and($output['hookSpecificOutput']['additionalContext'])->toContain('SL101 God Method');
     });
 });

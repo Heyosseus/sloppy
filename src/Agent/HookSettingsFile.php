@@ -8,26 +8,26 @@ use InvalidArgumentException;
 use stdClass;
 
 /**
- * Adding our hooks to a Claude Code settings file somebody else owns.
+ * Adding our hooks to an agent's settings file somebody else owns.
  *
- * `.claude/settings.json` usually already holds permissions, environment and
- * other people's hooks. Every one of them survives: ours are found by their
+ * `.claude/settings.json`, `.gemini/settings.json` and `.codex/hooks.json` all
+ * map events to matcher groups of commands, and usually already hold
+ * permissions, environment and other people's hooks. Every one of them survives: ours are found by their
  * command and replaced in place, so installing twice, or after moving from a
  * phar to a Composer install, leaves exactly one of each. The rest of the file
  * keeps its bytes: see {@see JsonDocument}.
  */
-final readonly class ClaudeSettingsFile
+final readonly class HookSettingsFile
 {
-    private const string EDIT_TOOLS = 'Edit|Write|MultiEdit';
-
     /**
      * The new contents of the file, with our hooks in it.
      *
      * @param  string  $command  How to run Sloppy, without the `hook <event>` part.
+     * @param  AgentHost  $host  The agent whose events and tool names to write.
      *
      * @throws InvalidArgumentException When the existing file is not a settings object.
      */
-    public static function merge(?string $existing, string $command): string
+    public static function merge(?string $existing, string $command, AgentHost $host = AgentHost::ClaudeCode): string
     {
         $document = JsonDocument::parse($existing);
         $settings = $document->data;
@@ -38,12 +38,12 @@ final readonly class ClaudeSettingsFile
         }
 
         $ours = [
-            'PostToolUse' => (object) [
-                'matcher' => self::EDIT_TOOLS,
-                'hooks' => [self::hook($command, HookEvent::PostEdit)],
+            $host->editEvent() => (object) [
+                'matcher' => $host->editTools(),
+                'hooks' => [self::hook($host->hookCommand($command, HookEvent::PostEdit))],
             ],
-            'Stop' => (object) [
-                'hooks' => [self::hook($command, HookEvent::Stop)],
+            $host->stopEvent() => (object) [
+                'hooks' => [self::hook($host->hookCommand($command, HookEvent::Stop))],
             ],
         ];
 
@@ -171,8 +171,8 @@ final readonly class ClaudeSettingsFile
         return $kept;
     }
 
-    private static function hook(string $command, HookEvent $event): stdClass
+    private static function hook(string $command): stdClass
     {
-        return (object) ['type' => 'command', 'command' => $command.' hook '.$event->value];
+        return (object) ['type' => 'command', 'command' => $command];
     }
 }

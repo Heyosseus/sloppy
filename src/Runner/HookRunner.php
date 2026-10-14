@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Runner;
 
+use Heyosseus\Sloppy\Agent\AgentHost;
 use Heyosseus\Sloppy\Agent\HookEvent;
 use Heyosseus\Sloppy\Agent\HookPayload;
 use Heyosseus\Sloppy\Analysis\Finding;
@@ -30,45 +31,65 @@ final readonly class HookRunner
 
     public function __construct(private HookFeedbackFormatter $formatter = new HookFeedbackFormatter) {}
 
-    public function run(Sloppy $sloppy, HookEvent $event, HookPayload $payload): HookOutcome
+    public function run(Sloppy $sloppy, HookEvent $event, HookPayload $payload, AgentHost $host = AgentHost::ClaudeCode): HookOutcome
     {
         if (! $sloppy->configuration->enabled()) {
-            return HookOutcome::pass();
+            return HookOutcome::pass(host: $host);
         }
 
         return match ($event) {
-            HookEvent::PostEdit => $this->afterEdit($sloppy, $payload),
-            HookEvent::Stop => $this->beforeStop($sloppy, $payload),
+            HookEvent::PostEdit => $this->afterEdit($sloppy, $payload, $host),
+            HookEvent::Stop => $this->beforeStop($sloppy, $payload, $host),
         };
     }
 
-    private function afterEdit(Sloppy $sloppy, HookPayload $payload): HookOutcome
+    /**
+     * An edit touches one file, except through Codex, whose patches can
+     * touch several; the findings of each are handed back together.
+     */
+    private function afterEdit(Sloppy $sloppy, HookPayload $payload, AgentHost $host): HookOutcome
     {
-        $relative = $this->relativePath($sloppy->configuration->basePath, $payload->filePath);
+        $edited = [];
 
-        if ($relative === null || ! str_ends_with(mb_strtolower($relative), '.php')) {
-            return HookOutcome::pass();
+        foreach ($payload->filePaths as $filePath) {
+            $relative = $this->relativePath($sloppy->configuration->basePath, $filePath);
+
+            if ($relative !== null && str_ends_with(mb_strtolower($relative), '.php')) {
+                $edited[] = $relative;
+            }
         }
 
-        $report = $this->diff($sloppy);
+        if ($edited === []) {
+            return HookOutcome::pass(host: $host);
+        }
+
+        $report = $this->diff($sloppy, $host);
 
         if ($report instanceof HookOutcome) {
             return $report;
         }
 
-        $introduced = array_values(array_filter(
-            $report->new,
-            static fn (Finding $finding): bool => $finding->location->relativePath === $relative,
-        ));
+        $feedback = [];
 
-        return $introduced === []
-            ? HookOutcome::pass()
-            : HookOutcome::block($this->formatter->forEdit($relative, $introduced));
+        foreach ($edited as $relative) {
+            $introduced = array_values(array_filter(
+                $report->new,
+                static fn (Finding $finding): bool => $finding->location->relativePath === $relative,
+            ));
+
+            if ($introduced !== []) {
+                $feedback[] = $this->formatter->forEdit($relative, $introduced);
+            }
+        }
+
+        return $feedback === []
+            ? HookOutcome::pass(host: $host)
+            : HookOutcome::block(implode("\n", $feedback), $host, HookEvent::PostEdit);
     }
 
-    private function beforeStop(Sloppy $sloppy, HookPayload $payload): HookOutcome
+    private function beforeStop(Sloppy $sloppy, HookPayload $payload, AgentHost $host): HookOutcome
     {
-        $report = $this->diff($sloppy);
+        $report = $this->diff($sloppy, $host);
 
         if ($report instanceof HookOutcome) {
             return $report;
@@ -78,39 +99,39 @@ final readonly class HookRunner
         // findings and decided; blocking a second time would only prove that
         // a false positive can hold a session hostage.
         if ($payload->stopHookActive) {
-            return HookOutcome::pass($report->new === [] ? '' : $this->formatter->leftovers($report->new));
+            return HookOutcome::pass($report->new === [] ? '' : $this->formatter->leftovers($report->new), $host);
         }
 
         $threshold = $sloppy->configuration->failOn();
 
         if (! $threshold instanceof Severity) {
-            return HookOutcome::pass();
+            return HookOutcome::pass(host: $host);
         }
 
         $blocking = $report->newAtOrAbove($threshold);
 
         return $blocking === []
-            ? HookOutcome::pass()
-            : HookOutcome::block($this->formatter->forStop($blocking, $threshold));
+            ? HookOutcome::pass(host: $host)
+            : HookOutcome::block($this->formatter->forStop($blocking, $threshold), $host);
     }
 
     /**
      * The change against `HEAD`, or the reason there is none.
      */
-    private function diff(Sloppy $sloppy): DiffReport|HookOutcome
+    private function diff(Sloppy $sloppy, AgentHost $host): DiffReport|HookOutcome
     {
         $git = $sloppy->git();
 
         if (! $git->isAvailable()) {
-            return HookOutcome::pass("Sloppy: git is not available on PATH, so this change was not checked.\n");
+            return HookOutcome::pass("Sloppy: git is not available on PATH, so this change was not checked.\n", $host);
         }
 
         if (! $git->isRepository()) {
-            return HookOutcome::pass(sprintf("Sloppy: %s is not a git repository, so this change was not checked.\n", $sloppy->configuration->basePath));
+            return HookOutcome::pass(sprintf("Sloppy: %s is not a git repository, so this change was not checked.\n", $sloppy->configuration->basePath), $host);
         }
 
         if (! $git->revisionExists(self::BASE)) {
-            return HookOutcome::pass("Sloppy: there is no HEAD commit to compare with yet, so this change was not checked.\n");
+            return HookOutcome::pass("Sloppy: there is no HEAD commit to compare with yet, so this change was not checked.\n", $host);
         }
 
         try {
@@ -119,7 +140,7 @@ final readonly class HookRunner
             // a full scan per keystroke that nobody sees.
             return $sloppy->diff(self::BASE, scored: false);
         } catch (Throwable $exception) {
-            return HookOutcome::pass(sprintf("Sloppy: the check did not run (%s).\n", $exception->getMessage()));
+            return HookOutcome::pass(sprintf("Sloppy: the check did not run (%s).\n", $exception->getMessage()), $host);
         }
     }
 
@@ -133,12 +154,8 @@ final readonly class HookRunner
      * sent and resolved: a symlinked checkout or a Windows short name
      * (`RUNNER~1`) is the same file under a different spelling.
      */
-    private function relativePath(string $basePath, ?string $filePath): ?string
+    private function relativePath(string $basePath, string $filePath): ?string
     {
-        if ($filePath === null) {
-            return null;
-        }
-
         $prefix = $basePath.'/';
         $resolved = realpath($filePath);
 

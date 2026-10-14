@@ -108,6 +108,44 @@ it('fails open on anything it cannot make sense of', function (string $event, st
     'no project' => ['stop', '{"cwd": "/does/not/exist/anywhere"}', 'could not be resolved'],
 ]);
 
+it('installs hooks for the agents named with --host', function (): void {
+    $project = tempProject(['composer.json' => '{}', 'vendor/bin/sloppy' => '<?php']);
+    $tester = hookTester('');
+
+    $code = $tester->run(['command' => 'agents', '--project' => $project, '--host' => ['gemini', 'codex']], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Success->value)
+        ->and((string) file_get_contents($project.'/.gemini/settings.json'))->toContain('--host=gemini')
+        ->and((string) file_get_contents($project.'/.codex/hooks.json'))->toContain('--host=codex')
+        ->and(is_dir($project.'/.claude'))->toBeFalse();
+
+    $code = $tester->run(['command' => 'agents', '--project' => $project, '--host' => ['cursor']], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(ExitCode::Error->value)
+        ->and($tester->getErrorOutput().$tester->getDisplay())->toContain('Unknown agent [cursor]');
+
+    removeTree($project);
+});
+
+it('fails open on an agent it does not know', function (): void {
+    $tester = hookTester('{}');
+
+    $code = $tester->run(['command' => 'hook', 'event' => 'stop', '--host' => 'cursor'], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(0)
+        ->and($tester->getDisplay())->toContain('Unknown agent [cursor]');
+});
+
+it('keeps notices off standard output for Gemini CLI and Codex', function (): void {
+    $tester = hookTester('{nope');
+
+    $code = $tester->run(['command' => 'hook', 'event' => 'stop', '--host' => 'codex'], ['capture_stderr_separately' => true]);
+
+    expect($code)->toBe(0)
+        ->and($tester->getDisplay())->toBe('')
+        ->and($tester->getErrorOutput())->toContain('not valid JSON');
+});
+
 describe('against a real git repository', function (): void {
     beforeEach(function (): void {
         if (! TempRepository::gitIsAvailable()) {
