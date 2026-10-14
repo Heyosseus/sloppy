@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace Heyosseus\Sloppy\Runner;
 
 use Heyosseus\Sloppy\Agent\AgentHost;
-use Heyosseus\Sloppy\Agent\ClaudeSettingsFile;
-use Heyosseus\Sloppy\Agent\McpConfigFile;
-use Heyosseus\Sloppy\Agent\RulesetFile;
+use Heyosseus\Sloppy\Agent\HookSettingsFile;
 use Heyosseus\Sloppy\Agent\RulesetFormat;
-use Heyosseus\Sloppy\Agent\RulesetGenerator;
 use Heyosseus\Sloppy\Output\OutputFormat;
 use Heyosseus\Sloppy\Sloppy;
 use InvalidArgumentException;
@@ -32,24 +29,66 @@ final readonly class AgentsRunner
 
     public function run(Sloppy $sloppy, AgentsOptions $options, RunnerOutput $output): ExitCode
     {
-        $host = AgentHost::ClaudeCode;
+        $installed = [];
+        $written = [];
 
-        // A hook that names a path on this machine works on this machine
-        // only, so it never goes in the settings the team shares.
-        $local = $options->local || ! $host->hasProjectCopy($sloppy->configuration->basePath);
-        $relative = $host->settingsFile($local);
+        foreach ($options->installHosts() as $host) {
+            if (! $this->canInstall($sloppy, $host, $options, $output)) {
+                continue;
+            }
 
-        return $this->installHooks($sloppy, $host, $local, $options, $output)
-            ?? $this->installRules($sloppy, $relative, $options, $output);
+            // A hook that names a path on this machine works on this machine
+            // only, so it never goes in the settings the team shares.
+            $local = $options->local || ! $host->hasProjectCopy($sloppy->configuration->basePath);
+
+            if (! $this->installHooks($sloppy, $host, $local, $options, $output)) {
+                return ExitCode::Error;
+            }
+
+            $installed[] = $host;
+            $written[] = $host->settingsFile($local);
+        }
+
+        if ($installed === []) {
+            $output->error('No agent\'s hooks were installed.');
+
+            return ExitCode::Error;
+        }
+
+        if ($options->dryRun) {
+            $output->info(sprintf('Dry run: %s were not written.', $this->listed([...$written, ...$this->rulesFiles($installed, $options)])));
+
+            return ExitCode::Success;
+        }
+
+        return $this->installRules($sloppy, $installed, $options, $output);
     }
 
     /**
-     * Merge the hooks into the agent's settings file and write it.
-     *
-     * @return ExitCode|null The run's answer when it ends here -- an error or
-     *                       a dry run -- or null to go on to the ruleset.
+     * Whether this agent's hooks have somewhere to go. Only Claude Code has
+     * a personal settings file inside the project, so the others can take
+     * neither `--local` nor a hook that names a path on this machine.
      */
-    private function installHooks(Sloppy $sloppy, AgentHost $host, bool $local, AgentsOptions $options, RunnerOutput $output): ?ExitCode
+    private function canInstall(Sloppy $sloppy, AgentHost $host, AgentsOptions $options, RunnerOutput $output): bool
+    {
+        if ($host->hasLocalFile() || (! $options->local && $host->hasProjectCopy($sloppy->configuration->basePath))) {
+            return true;
+        }
+
+        $output->warn($options->local
+            ? sprintf('%s was skipped: it has no personal settings file inside the project, so its hooks cannot be kept out of git. Install without --local to share them with the team.', $host->label())
+            : sprintf('%1$s was skipped: this project has no vendor/bin/sloppy for its hooks to run, and %1$s has no personal settings file to hold a path on this machine. Run composer require --dev heyosseus/sloppy and install again.', $host->label()));
+
+        return false;
+    }
+
+    /**
+     * Merge the hooks into the agent's settings file and write it, or print
+     * it on a dry run.
+     *
+     * @return bool False when the file could not be read or written.
+     */
+    private function installHooks(Sloppy $sloppy, AgentHost $host, bool $local, AgentsOptions $options, RunnerOutput $output): bool
     {
         $configuration = $sloppy->configuration;
         $relative = $host->settingsFile($local);
@@ -57,35 +96,36 @@ final readonly class AgentsRunner
         $existing = is_file($path) ? @file_get_contents($path) : null;
 
         try {
-            $merged = ClaudeSettingsFile::merge(
+            $merged = HookSettingsFile::merge(
                 $existing === false ? null : $existing,
                 $host->command($configuration->basePath, $options->binary, $local),
+                $host,
             );
         } catch (InvalidArgumentException $exception) {
             $output->error(sprintf('%s was left alone. %s', $relative, $exception->getMessage()));
 
-            return ExitCode::Error;
+            return false;
         }
 
         if ($local && ! $options->local) {
             $output->warn(sprintf(
-                'This project has no vendor/bin/sloppy, so the hooks name %s, which exists on this machine only. They were written to %s instead of the shared .claude/settings.json. Run composer require --dev heyosseus/sloppy and install again to share them with the team.',
+                'This project has no vendor/bin/sloppy, so the hooks name %s, which exists on this machine only. They were written to %s instead of the shared %s. Run composer require --dev heyosseus/sloppy and install again to share them with the team.',
                 str_replace('\\', '/', $options->binary),
                 $relative,
+                $host->settingsFile(),
             ));
         }
 
         if ($options->dryRun) {
             $output->report($merged, OutputFormat::Json);
-            $output->info(sprintf('Dry run: %s and %s were not written.', $relative, $options->local ? self::LOCAL_RULES_FILE : 'CLAUDE.md'));
 
-            return ExitCode::Success;
+            return true;
         }
 
         if ($merged !== $existing && ! $this->write($path, $merged)) {
             $output->error(sprintf('Could not write %s.', $relative));
 
-            return ExitCode::Error;
+            return false;
         }
 
         $output->info(sprintf(
@@ -99,124 +139,100 @@ final readonly class AgentsRunner
             $host->label(),
         ));
 
-        return null;
+        if ($host === AgentHost::Codex) {
+            $output->info('Codex runs a project\'s hooks only once you trust them: run /hooks in Codex, from the project root, and trust the two Sloppy hooks.');
+        }
+
+        return true;
     }
 
     /**
-     * Write the ruleset beside the hooks, and point out what is left to do.
+     * Write each agent's ruleset beside its hooks, and point out what is left
+     * to do.
      *
      * The hooks catch what was written; the ruleset is what stops most of it
      * being written in the first place.
+     *
+     * @param  list<AgentHost>  $hosts
      */
-    private function installRules(Sloppy $sloppy, string $settingsFile, AgentsOptions $options, RunnerOutput $output): ExitCode
+    private function installRules(Sloppy $sloppy, array $hosts, AgentsOptions $options, RunnerOutput $output): ExitCode
     {
-        $rules = (new RulesRunner)->run($sloppy, $options->local
-            ? new RulesOptions(formats: [RulesetFormat::Claude], output: self::LOCAL_RULES_FILE)
-            : new RulesOptions, $output);
+        $rules = new RulesRunner;
+        $code = ExitCode::Success;
 
-        if ($options->local) {
-            $this->warnIfTracked($sloppy, [$settingsFile, self::LOCAL_RULES_FILE], $output);
+        if ($options->local && in_array(AgentHost::ClaudeCode, $hosts, true)) {
+            $code = $rules->run($sloppy, new RulesOptions(formats: [RulesetFormat::Claude], output: self::LOCAL_RULES_FILE), $output);
+            $this->warnIfTracked($sloppy, [AgentHost::ClaudeCode->settingsFile(true), self::LOCAL_RULES_FILE], $output);
         }
 
-        if (! $this->mcpRegistered($sloppy->configuration->absolutePath('.mcp.json'))) {
+        $shared = $this->sharedFormats($hosts, $options, $rules->usesBoost($sloppy->configuration));
+
+        if ($shared !== [] && $rules->run($sloppy, new RulesOptions(formats: $shared), $output) === ExitCode::Error) {
+            $code = ExitCode::Error;
+        }
+
+        if (in_array(AgentHost::ClaudeCode, $hosts, true) && ! $this->mcpRegistered($sloppy->configuration->absolutePath('.mcp.json'))) {
             $output->info('Optional: register the MCP server as well, so the agent can scan on demand: add "sloppy": {"command": "php", "args": ["vendor/bin/sloppy-mcp"]} under "mcpServers" in .mcp.json.');
         }
 
-        return $rules;
+        return $code;
     }
 
     /**
-     * Take out everything `install` put in: the hooks, the ruleset block (or
-     * the Boost guideline, which is Sloppy's own file) and the MCP server
-     * entry. Everything else in those files is left byte for byte, and a file
-     * left with nothing in it is deleted, since it only existed for Sloppy.
+     * The rulesets the team shares, one per agent installed. Boost writes
+     * every agent's file from its own guidelines, so where it is installed
+     * its guideline stands in for all of them.
      *
-     * `--local` limits it to the personal files.
+     * @param  list<AgentHost>  $hosts
+     * @return list<RulesetFormat>
+     */
+    private function sharedFormats(array $hosts, AgentsOptions $options, bool $usesBoost): array
+    {
+        $formats = [];
+
+        foreach ($hosts as $host) {
+            if ($host === AgentHost::ClaudeCode && $options->local) {
+                continue;
+            }
+
+            $formats[] = $usesBoost ? RulesetFormat::Boost : ($host->rulesetFormat() ?? RulesetFormat::Claude);
+        }
+
+        return array_values(array_unique($formats, SORT_REGULAR));
+    }
+
+    /**
+     * The ruleset files an install writes, as a dry run names them.
+     *
+     * @param  list<AgentHost>  $hosts
+     * @return list<string>
+     */
+    private function rulesFiles(array $hosts, AgentsOptions $options): array
+    {
+        return array_map(
+            static fn (AgentHost $host): string => $host === AgentHost::ClaudeCode && $options->local
+                ? self::LOCAL_RULES_FILE
+                : ($host->rulesetFormat() ?? RulesetFormat::Claude)->defaultFile(),
+            $hosts,
+        );
+    }
+
+    /**
+     * @param  list<string>  $items
+     */
+    private function listed(array $items): string
+    {
+        $last = (string) array_pop($items);
+
+        return $items === [] ? $last : implode(', ', $items).' and '.$last;
+    }
+
+    /**
+     * Take out everything `install` put in: see {@see AgentsUninstaller}.
      */
     public function uninstall(Sloppy $sloppy, AgentsOptions $options, RunnerOutput $output): ExitCode
     {
-        $host = AgentHost::ClaudeCode;
-
-        /** @var array<string, callable(string): ?string> $files */
-        $files = [$host->settingsFile(true) => ClaudeSettingsFile::remove(...), self::LOCAL_RULES_FILE => RulesetFile::remove(...)];
-
-        if (! $options->local) {
-            $files = [
-                $host->settingsFile(false) => ClaudeSettingsFile::remove(...),
-                ...$files,
-                'CLAUDE.md' => RulesetFile::remove(...),
-                RulesetFormat::Boost->defaultFile() => static fn (string $contents): ?string => str_starts_with($contents, RulesetGenerator::BOOST_MARKER) ? '' : null,
-                '.mcp.json' => McpConfigFile::remove(...),
-            ];
-        }
-
-        $failed = false;
-        $changed = 0;
-
-        foreach ($files as $relative => $remove) {
-            $outcome = $this->removeFrom($sloppy->configuration->absolutePath($relative), $relative, $remove, $options->dryRun, $output);
-            $failed = $outcome === null || $failed;
-            $changed += $outcome === true ? 1 : 0;
-        }
-
-        if ($changed === 0 && ! $failed) {
-            $output->info('Nothing to remove: no Sloppy hooks, ruleset or MCP server entry was found.');
-        } elseif ($options->dryRun) {
-            $output->info('Dry run: nothing was written.');
-        }
-
-        return $failed ? ExitCode::Error : ExitCode::Success;
-    }
-
-    /**
-     * @param  callable(string): ?string  $remove
-     * @return bool|null Whether the file changed; null when it could not be read or written.
-     */
-    private function removeFrom(string $path, string $relative, callable $remove, bool $dryRun, RunnerOutput $output): ?bool
-    {
-        $existing = is_file($path) ? @file_get_contents($path) : null;
-
-        if ($existing === null) {
-            return false;
-        }
-
-        if ($existing === false) {
-            $output->error(sprintf('Could not read %s.', $relative));
-
-            return null;
-        }
-
-        try {
-            $remaining = $remove($existing);
-        } catch (InvalidArgumentException $exception) {
-            $output->error(sprintf('%s was left alone. %s', $relative, $exception->getMessage()));
-
-            return null;
-        }
-
-        if ($remaining === null) {
-            return false;
-        }
-
-        $verb = $remaining === '' ? 'Deleted %s: Sloppy\'s entries were all it held.' : 'Removed Sloppy\'s entries from %s.';
-
-        if ($dryRun) {
-            $output->info(sprintf('Would have: '.lcfirst($verb), $relative));
-
-            return true;
-        }
-
-        $written = $remaining === '' ? @unlink($path) : @file_put_contents($path, $remaining) !== false;
-
-        if (! $written) {
-            $output->error(sprintf('Could not write %s.', $relative));
-
-            return null;
-        }
-
-        $output->info(sprintf($verb, $relative));
-
-        return true;
+        return (new AgentsUninstaller)->run($sloppy, $options, $output);
     }
 
     /**

@@ -52,7 +52,7 @@ final readonly class RulesRunner
      * them in git, so a block merged there is never committed. Where Boost is
      * installed, the rules belong in its guidelines instead.
      */
-    private function usesBoost(Configuration $configuration): bool
+    public function usesBoost(Configuration $configuration): bool
     {
         return (new ComposerJson($configuration->basePath))->requires('laravel/boost')
             || is_file($configuration->absolutePath('boost.json'));

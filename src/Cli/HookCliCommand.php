@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Heyosseus\Sloppy\Cli;
 
+use Heyosseus\Sloppy\Agent\AgentHost;
 use Heyosseus\Sloppy\Agent\HookEvent;
 use Heyosseus\Sloppy\Agent\HookPayload;
 use Heyosseus\Sloppy\Configuration\ConfigurationLoader;
@@ -41,6 +42,7 @@ final class HookCliCommand extends CliCommandBase
     {
         $this
             ->addArgument('event', InputArgument::REQUIRED, 'post-edit or stop')
+            ->addOption('host', null, InputOption::VALUE_REQUIRED, 'The agent running the hook: claude, gemini or codex', AgentHost::ClaudeCode->value)
             ->addOption('project', null, InputOption::VALUE_REQUIRED, 'Project directory (default: the one the agent is working in)')
             ->addOption('config', null, InputOption::VALUE_REQUIRED, 'Path to a sloppy configuration file');
     }
@@ -63,15 +65,20 @@ final class HookCliCommand extends CliCommandBase
 
     private function outcome(InputInterface $input): HookOutcome
     {
+        // A hook that cannot even name its agent still fails open, in the
+        // protocol the hooks written before there was a choice speak.
+        $host = AgentHost::ClaudeCode;
+
         try {
+            $host = AgentHost::parse((string) $this->stringOption($input, 'host'));
             $event = HookEvent::parse((string) $input->getArgument('event'));
             $payload = HookPayload::fromJson($this->readPayload());
             $root = (new ProjectLocator)->locate($this->stringOption($input, 'project'), $payload->cwd ?? (string) getcwd());
             $configuration = (new ConfigurationLoader($root))->load($this->stringOption($input, 'config'));
 
-            return (new HookRunner)->run(new Sloppy($configuration), $event, $payload);
+            return (new HookRunner)->run(new Sloppy($configuration), $event, $payload, $host);
         } catch (Throwable $exception) {
-            return HookOutcome::pass(sprintf("Sloppy: the check did not run (%s).\n", $exception->getMessage()));
+            return HookOutcome::pass(sprintf("Sloppy: the check did not run (%s).\n", $exception->getMessage()), $host);
         }
     }
 

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Heyosseus\Sloppy\Agent\AgentHost;
 use Heyosseus\Sloppy\Agent\RulesetGenerator;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Runner\AgentsOptions;
@@ -232,4 +233,116 @@ it('deletes the Boost guideline it wrote, and only that one', function (): void 
     expect(file_get_contents($project.'/.ai/guidelines/sloppy.blade.php'))->toBe("Our own guideline.\n");
 
     removeTree($project);
+});
+
+it('wires up every agent it is asked to, each with its own ruleset', function (): void {
+    $project = tempProject(['vendor/bin/sloppy' => '<?php']);
+    $output = new RecordingRunnerOutput;
+
+    $code = (new AgentsRunner)->run(agentsSloppy($project), new AgentsOptions(hosts: [AgentHost::Gemini, AgentHost::Codex]), $output);
+
+    $messages = implode("\n", $output->messages());
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and((string) file_get_contents($project.'/.gemini/settings.json'))->toContain('hook post-edit --host=gemini')
+        ->and((string) file_get_contents($project.'/.codex/hooks.json'))->toContain('php vendor/bin/sloppy hook stop --host=codex')
+        ->and((string) file_get_contents($project.'/GEMINI.md'))->toContain('### SL101 God Method')
+        ->and((string) file_get_contents($project.'/AGENTS.md'))->toContain('### SL101 God Method')
+        // Claude Code was not asked for.
+        ->and(is_dir($project.'/.claude'))->toBeFalse()
+        ->and(is_file($project.'/CLAUDE.md'))->toBeFalse()
+        ->and($messages)->toContain('info: Created .gemini/settings.json: Gemini CLI now runs Sloppy')
+        ->and($messages)->toContain('run /hooks in Codex')
+        ->and($messages)->not->toContain('MCP');
+
+    removeTree($project);
+});
+
+it('writes the Boost guideline once for every agent where Boost is installed', function (): void {
+    $project = tempProject(['vendor/bin/sloppy' => '<?php', 'boost.json' => '{}']);
+
+    (new AgentsRunner)->run(agentsSloppy($project), new AgentsOptions(hosts: [AgentHost::ClaudeCode, AgentHost::Codex]), new RecordingRunnerOutput);
+
+    expect(is_file($project.'/.ai/guidelines/sloppy.blade.php'))->toBeTrue()
+        ->and(is_file($project.'/AGENTS.md'))->toBeFalse()
+        ->and(is_file($project.'/CLAUDE.md'))->toBeFalse();
+
+    removeTree($project);
+});
+
+it('skips an agent with no personal settings file when asked for --local, and installs the rest', function (): void {
+    $project = tempProject(['vendor/bin/sloppy' => '<?php']);
+    $output = new RecordingRunnerOutput;
+
+    $code = (new AgentsRunner)->run(agentsSloppy($project), new AgentsOptions(local: true, hosts: [AgentHost::ClaudeCode, AgentHost::Gemini]), $output);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and(is_file($project.'/.claude/settings.local.json'))->toBeTrue()
+        ->and(is_dir($project.'/.gemini'))->toBeFalse()
+        ->and(is_file($project.'/GEMINI.md'))->toBeFalse()
+        ->and($output->messages()[0])->toStartWith('info: Created .claude/settings.local.json')
+        ->and($output->messages())->toContain('warn: Gemini CLI was skipped: it has no personal settings file inside the project, so its hooks cannot be kept out of git. Install without --local to share them with the team.');
+
+    removeTree($project);
+});
+
+it('fails when no agent it was asked for can be installed', function (): void {
+    $project = tempProject(['composer.json' => '{}']);
+    $output = new RecordingRunnerOutput;
+
+    $code = (new AgentsRunner)->run(agentsSloppy($project), new AgentsOptions(binary: '/tools/sloppy.phar', hosts: [AgentHost::Codex]), $output);
+
+    expect($code)->toBe(ExitCode::Error)
+        ->and($output->messages())->toBe([
+            'warn: Codex was skipped: this project has no vendor/bin/sloppy for its hooks to run, and Codex has no personal settings file to hold a path on this machine. Run composer require --dev heyosseus/sloppy and install again.',
+            'error: No agent\'s hooks were installed.',
+        ])
+        ->and(is_dir($project.'/.codex'))->toBeFalse();
+
+    removeTree($project);
+});
+
+it('names every file a dry run for several agents would have written', function (): void {
+    $project = tempProject(['vendor/bin/sloppy' => '<?php']);
+    $output = new RecordingRunnerOutput;
+
+    (new AgentsRunner)->run(agentsSloppy($project), new AgentsOptions(dryRun: true, hosts: [AgentHost::ClaudeCode, AgentHost::Gemini]), $output);
+
+    expect($output->messages())->toBe(['info: Dry run: .claude/settings.json, .gemini/settings.json, CLAUDE.md and GEMINI.md were not written.'])
+        ->and(is_dir($project.'/.gemini'))->toBeFalse();
+
+    removeTree($project);
+});
+
+it('takes every agent back out, Gemini\'s MCP server included, or only the ones named', function (): void {
+    $project = tempProject(['vendor/bin/sloppy' => '<?php']);
+    $all = [AgentHost::ClaudeCode, AgentHost::Gemini, AgentHost::Codex];
+    (new AgentsRunner)->run(agentsSloppy($project), new AgentsOptions(hosts: $all), new RecordingRunnerOutput);
+
+    $gemini = (string) file_get_contents($project.'/.gemini/settings.json');
+    file_put_contents($project.'/.gemini/settings.json', str_replace('"hooks"', '"mcpServers": {"sloppy": {"command": "php", "args": ["vendor/bin/sloppy-mcp"]}},'."\n  ".'"hooks"', $gemini));
+
+    $code = (new AgentsRunner)->uninstall(agentsSloppy($project), new AgentsOptions(hosts: [AgentHost::Codex]), new RecordingRunnerOutput);
+
+    expect($code)->toBe(ExitCode::Success)
+        ->and(is_file($project.'/.codex/hooks.json'))->toBeFalse()
+        ->and(is_file($project.'/AGENTS.md'))->toBeFalse()
+        ->and(is_file($project.'/.gemini/settings.json'))->toBeTrue()
+        ->and(is_file($project.'/.claude/settings.json'))->toBeTrue();
+
+    $output = new RecordingRunnerOutput;
+    (new AgentsRunner)->uninstall(agentsSloppy($project), new AgentsOptions, $output);
+
+    expect(is_file($project.'/.gemini/settings.json'))->toBeFalse()
+        ->and(is_file($project.'/GEMINI.md'))->toBeFalse()
+        ->and(is_file($project.'/.claude/settings.json'))->toBeFalse()
+        ->and($output->messages())->toContain("info: Deleted .gemini/settings.json: Sloppy's entries were all it held.");
+
+    removeTree($project);
+});
+
+it('parses the agents it is given, once each', function (): void {
+    expect(AgentsOptions::parseHosts(['gemini', 'Codex', 'gemini']))->toBe([AgentHost::Gemini, AgentHost::Codex])
+        ->and((new AgentsOptions)->installHosts())->toBe([AgentHost::ClaudeCode])
+        ->and((new AgentsOptions)->uninstallHosts())->toBe(AgentHost::cases());
 });
