@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-10-14
+
+Sloppy now checks agents beyond Claude Code: Gemini CLI and Codex get the
+same two hooks.
+
 ### Added
 
 - **Hooks for Gemini CLI and Codex.** `agents install --host=gemini` and
@@ -19,6 +24,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `agents uninstall --host` limits the removal to the agents named. Without
   it, `uninstall` also takes Sloppy out of `.gemini/settings.json` (hooks and
   MCP server), `.codex/hooks.json`, `GEMINI.md` and `AGENTS.md`.
+- `rules --format=gemini`, which writes `GEMINI.md` for Gemini CLI.
+
+### Upgrading
+
+- Codex runs a project's hooks only once they are trusted: run `/hooks` in
+  Codex after installing, and start it from the project root.
+- The CI templates install `^1.7` by default.
 
 ## [1.6.0] — 2026-10-05
 
@@ -1174,7 +1186,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/heyosseus/sloppy/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/heyosseus/sloppy/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/heyosseus/sloppy/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/heyosseus/sloppy/compare/v1.3.1...v1.4.0
