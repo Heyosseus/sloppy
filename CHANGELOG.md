@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Hooks for Gemini CLI and Codex.** `agents install --host=gemini` and
+  `--host=codex` (repeatable, and on `sloppy:agents` too) give those agents
+  the same two checks as Claude Code: findings an edit introduced, handed
+  back after the edit, and the agent sent back once before it finishes. Each
+  gets its own ruleset (`GEMINI.md`, `AGENTS.md`), or the Boost guideline
+  where Boost is installed. A Codex patch that touches several files reports
+  each of them. Without `--host`, `install` wires up Claude Code only, as
+  before, and hooks written by earlier releases keep working unchanged.
+- `agents uninstall --host` limits the removal to the agents named. Without
+  it, `uninstall` also takes Sloppy out of `.gemini/settings.json` (hooks and
+  MCP server), `.codex/hooks.json`, `GEMINI.md` and `AGENTS.md`.
+
 ## [1.6.0] — 2026-10-05
 
 A correctness release: fewer false positives, git handling that survives

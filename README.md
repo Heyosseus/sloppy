@@ -34,7 +34,7 @@
 composer require --dev heyosseus/sloppy
 
 vendor/bin/sloppy                   # scan the project (php artisan sloppy in Laravel)
-vendor/bin/sloppy agents install    # make Claude Code check its own work
+vendor/bin/sloppy agents install    # make Claude Code check its own work (--host=gemini, --host=codex)
 ```
 
 That's it: no configuration file, no account. Sloppy finds your source roots
@@ -59,8 +59,8 @@ the agent still has the code in hand.
 1. **The rules go in first.** `CLAUDE.md` (or `AGENTS.md`, `.cursorrules`,
    Copilot, Windsurf, Gemini CLI, Laravel Boost) gets this project's rules, each written as
    an instruction the agent can follow.
-2. **Every edit is checked.** After each change to a PHP file, Claude Code runs
-   Sloppy and hands the model anything *that edit* introduced, then the model
+2. **Every edit is checked.** After each change to a PHP file, Claude Code (or
+   Gemini CLI, or Codex) runs Sloppy and hands the model anything *that edit* introduced, then the model
    fixes it.
 3. **It can't finish dirty.** When the agent tries to call the task done, new
    findings at or above your threshold send it back to fix them.
@@ -209,7 +209,7 @@ If PHPStan can prove it, Sloppy stays out of it.
 | | |
 | --- | --- |
 | [Getting started](docs/getting-started.md) | Install options, every command, your first scan and how a long one is triaged, adopting on an existing codebase |
-| [Coding agents](docs/agents.md) | Claude Code hooks, rulesets for every agent, Laravel Boost, the MCP server |
+| [Coding agents](docs/agents.md) | Claude Code, Gemini CLI and Codex hooks, rulesets for every agent, Laravel Boost, the MCP server |
 | [Rules](docs/rules.md) | Every rule in detail, and how false positives are kept down |
 | [Everyday workflow](docs/workflow.md) | Diff and review, `sloppy fix` over Rector, Pint and narrating comments, Pest expectations, `watch`, Filament and NativePHP |
 | [CI and code scanning](docs/ci.md) | `sloppy ci`, the GitHub Action, GitLab, SARIF, annotations, exit codes |
