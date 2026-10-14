@@ -274,7 +274,6 @@ final readonly class Configuration
      */
     public function isRuleEnabled(string $id): bool
     {
-        /** @var mixed $enabled */
         $enabled = $this->ruleOptions($id)['enabled'] ?? true;
 
         return $enabled !== false;

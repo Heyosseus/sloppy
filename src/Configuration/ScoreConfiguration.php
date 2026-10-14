@@ -40,7 +40,6 @@ final readonly class ScoreConfiguration
         /** @var array<string, float> $weights */
         $weights = [];
 
-        /** @var mixed $rawWeights */
         $rawWeights = $config['weights'] ?? [];
 
         if (is_array($rawWeights)) {
@@ -55,7 +54,6 @@ final readonly class ScoreConfiguration
         /** @var array<string, int> $bands */
         $bands = [];
 
-        /** @var mixed $rawBands */
         $rawBands = $config['bands'] ?? [];
 
         if (is_array($rawBands)) {

@@ -61,7 +61,6 @@ final readonly class ConfigReader
      */
     public function arrayValue(string $key): array
     {
-        /** @var mixed $value */
         $value = $this->values[$key] ?? [];
 
         return is_array($value) ? $value : [];
