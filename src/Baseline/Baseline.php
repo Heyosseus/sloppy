@@ -52,7 +52,6 @@ final readonly class Baseline
         /** @var array<string, BaselineEntry> $entries */
         $entries = [];
 
-        /** @var mixed $raw */
         $raw = $data['entries'] ?? [];
 
         if (is_array($raw)) {

@@ -22,7 +22,7 @@ function hookTester(string $payload): ApplicationTester
     $application = new SloppyApplication('test');
     $application->setAutoExit(false);
     $application->setCatchExceptions(false);
-    $application->addCommand(new HookCliCommand($stdin));
+    $application->addCommands([new HookCliCommand($stdin)]);
 
     return new ApplicationTester($application);
 }

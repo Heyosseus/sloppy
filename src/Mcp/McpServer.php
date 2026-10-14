@@ -285,7 +285,6 @@ final class McpServer
             return $this->error($id, self::INVALID_PARAMS, sprintf('Unknown tool [%s].', $name));
         }
 
-        /** @var mixed $arguments */
         $arguments = $params['arguments'] ?? [];
 
         // Arguments that do not fit the schema the tool advertised are an
