@@ -491,6 +491,12 @@ return [
             // throw, or a TODO over an empty or constant return.
         ],
 
+        'SL113' => [
+            // Long Parameter List. Methods on this list are not counted.
+            'max_params' => 7,
+            'ignore_methods' => ['__construct'],
+        ],
+
         // ---- Laravel ---------------------------------------------------
 
         'SL201' => [

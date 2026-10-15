@@ -32,6 +32,7 @@ use Heyosseus\Sloppy\Rules\Php\DuplicateLogicRule;
 use Heyosseus\Sloppy\Rules\Php\ExcessiveNestingRule;
 use Heyosseus\Sloppy\Rules\Php\GodClassRule;
 use Heyosseus\Sloppy\Rules\Php\GodMethodRule;
+use Heyosseus\Sloppy\Rules\Php\LongParameterListRule;
 use Heyosseus\Sloppy\Rules\Php\NarrativeCommentRule;
 use Heyosseus\Sloppy\Rules\Php\PlaceholderImplementationRule;
 use Heyosseus\Sloppy\Rules\Php\RedundantConditionRule;
@@ -65,6 +66,7 @@ final readonly class RuleRegistry
             GodMethodRule::class,
             GodClassRule::class,
             ExcessiveNestingRule::class,
+            LongParameterListRule::class,
             DuplicateLogicRule::class,
             DeadPrivateMethodRule::class,
             UnusedConstructorDependencyRule::class,
