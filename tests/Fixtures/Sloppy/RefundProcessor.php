@@ -23,4 +23,19 @@ class RefundProcessor
         // TODO: query the refunds table
         return [];
     }
+
+    public function refundWithDetails(
+        int $paymentId,
+        int $cents,
+        string $currency,
+        string $reason,
+        string $requestedBy,
+        string $approvedBy,
+        bool $notifyCustomer,
+        string $channel,
+    ): bool {
+        $payment = Payment::findOrFail($paymentId);
+
+        return $payment->markRefunded($cents);
+    }
 }

@@ -6,7 +6,7 @@ Every rule Sloppy ships, and how the rule set is kept quiet on ordinary code.
 
 ## Rules
 
-26 rules ship, plus two diff-only checks (`SL502`, `SL503`) that compare your
+27 rules ship, plus two diff-only checks (`SL502`, `SL503`) that compare your
 change with its base revision, and five more (`SL304` to `SL308`, one of them
 diff-only) that join a run only when a project declares its architecture.
 Every one has tests proving both that it fires on the pattern and that it
@@ -32,6 +32,7 @@ by checking less.
 | `SL110` | Defensive Programming Noise | Low | Readability | A method or function that guards the same subject twice where the second guard can only catch what the first already did (`! $x` after `$x === null` is not reported: it also catches `0` and `''`), with the same outcome, in the same block, and no write to the subject in between -- assignment, destructuring, `foreach` or `catch` variables included. |
 | `SL111` | Copy-Paste Drift | High | Duplication | A method body nearly identical to a sibling's, where the one difference looks like an unfinished copy rather than a deliberate variation -- a missing guard, a flipped comparison, the wrong class constructed. Heuristic: the majority is more likely to be right, not automatically right. |
 | `SL112` | Placeholder Implementation | High | Dead code | A body that says it is unfinished: an elided-code comment such as `// ... existing code ...`, a body that only throws "not implemented", or a TODO over an empty or constant return (Medium). The thrown message has to be the marker -- `TODO`, `Not implemented`, `stub` -- or lead or end with it; `Cannot stub a final class` is not one. A bare `return [];` never fires on its own — default hooks and null objects do that on purpose. |
+| `SL113` | Long Parameter List | Medium | Complexity | Methods, functions and property hooks whose signature takes more parameters than the configured limit. Constructors are not counted by default: promoted properties are the usual fix for this smell, not an instance of it. |
 
 ### Laravel
 
@@ -102,7 +103,7 @@ test fails on any *new* finding about Sloppy's own code. Four others it found
 were genuine, and they were fixed.
 
 The other half of the answer is `tests/Fixtures/Good`: deliberately ordinary
-Laravel code, with a test asserting that all 26 rules report **zero** findings
+Laravel code, with a test asserting that all 27 rules report **zero** findings
 on it at a score of 100. The same corpus is run again under a declared
 architecture (the `laravel` preset plus a policy, a shape and a module
 boundary for every role it contains), where `SL304`, `SL305`, `SL306` and
@@ -137,7 +138,7 @@ priority the whole rule set is tuned around:
   attributes, reflection, `compact()`, subclasses — anything that could reach a
   member indirectly makes the relevant rule step back rather than guess.
 - **A regression test for silence.** `tests/Fixtures/Good` is ordinary Laravel
-  code, and tests assert that every rule reports zero findings on it: the 26
+  code, and tests assert that every rule reports zero findings on it: the 27
   that always run, the architecture rules under a declared policy, and the
   diff-only checks on a change that adds it. If a change to any rule breaks
   one of those tests, the rule is wrong.

@@ -49,6 +49,10 @@ function selfAnalysis(): AnalysisResult
  * both real abstractions with more than one implementation, and SL303 does not
  * report them -- which is the rule working, not the rule being lenient.
  *
+ * `BaseRule::report()` and `WeakenedTestSource::finding()` both assemble a
+ * `Finding` and must take every one of its fields. A parameter object would
+ * just move those same values onto a class instead of a signature.
+ *
  * @return list<string>
  */
 function acceptedSelfFindings(): array
@@ -56,6 +60,8 @@ function acceptedSelfFindings(): array
     return [
         'SL102 src/Ast/NodeHelper.php NodeHelper',
         'SL303 src/Watch/EditorLauncher.php EditorLauncher',
+        'SL113 src/Rules/BaseRule.php BaseRule::report',
+        'SL113 src/Evidence/WeakenedTestSource.php WeakenedTestSource::finding',
 
         // ToolRunner used to be signed off here too, as the seam that keeps
         // `sloppy fix` testable without running Rector. Splitting FixRunner

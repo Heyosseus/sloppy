@@ -77,13 +77,13 @@ scan on demand. See [Coding agents](docs/agents.md).
 
 ## What it catches
 
-26 rules, plus two checks that compare your change with its base, and five
+27 rules, plus two checks that compare your change with its base, and five
 more that enforce an architecture you describe. Each one is tested to fire on
 the pattern *and* to stay silent on ordinary Laravel code.
 
 | | Rules |
 | --- | --- |
-| **Complexity** | `SL101` God Method · `SL102` God Class · `SL103` Excessive Nesting |
+| **Complexity** | `SL101` God Method · `SL102` God Class · `SL103` Excessive Nesting · `SL113` Long Parameter List |
 | **Duplication** | `SL104` Duplicate Logic · `SL111` Copy-Paste Drift, a near-copy whose one difference looks like an unfinished edit |
 | **Dead code & dependencies** | `SL105` Dead Private Method · `SL106` Unused Constructor Dependency · `SL112` Placeholder Implementation, the `// ... existing code ...` or "not implemented" left where a body should be |
 | **Error handling** | `SL107` Swallowed Exception |
