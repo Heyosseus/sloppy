@@ -56,7 +56,7 @@ final readonly class AgentsRunner
         }
 
         if ($options->dryRun) {
-            $output->info(sprintf('Dry run: %s were not written.', $this->listed([...$written, ...$this->rulesFiles($installed, $options)])));
+            $output->info(sprintf('Dry run: %s were not written.', $this->listed([...$written, ...$this->rulesFiles($sloppy, $installed, $options)])));
 
             return ExitCode::Success;
         }
@@ -202,19 +202,18 @@ final readonly class AgentsRunner
     }
 
     /**
-     * The ruleset files an install writes, as a dry run names them.
+     * The ruleset files an install writes, as a dry run names them: the
+     * same ones {@see installRules()} would, Boost's guideline included.
      *
      * @param  list<AgentHost>  $hosts
      * @return list<string>
      */
-    private function rulesFiles(array $hosts, AgentsOptions $options): array
+    private function rulesFiles(Sloppy $sloppy, array $hosts, AgentsOptions $options): array
     {
-        return array_map(
-            static fn (AgentHost $host): string => $host === AgentHost::ClaudeCode && $options->local
-                ? self::LOCAL_RULES_FILE
-                : ($host->rulesetFormat() ?? RulesetFormat::Claude)->defaultFile(),
-            $hosts,
-        );
+        $local = $options->local && in_array(AgentHost::ClaudeCode, $hosts, true) ? [self::LOCAL_RULES_FILE] : [];
+        $shared = $this->sharedFormats($hosts, $options, (new RulesRunner)->usesBoost($sloppy->configuration));
+
+        return [...$local, ...array_map(static fn (RulesetFormat $format): string => $format->defaultFile(), $shared)];
     }
 
     /**

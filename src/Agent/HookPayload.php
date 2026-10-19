@@ -58,8 +58,9 @@ final readonly class HookPayload
     /**
      * The files a Codex patch writes: the ones it adds or updates, and a
      * moved file's new name. A deleted file has no code left to judge, and a
-     * moved file's old name simply has no findings. Patch paths are relative to the session's directory, so they are
-     * made absolute against it, as the other agents send them.
+     * moved file's old name simply has no findings. Patch paths are relative
+     * to the session's directory, so they are made absolute against it, as
+     * the other agents send them.
      *
      * @return list<string>
      */

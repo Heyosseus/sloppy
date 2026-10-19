@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.7.1] — 2026-10-19
+
+### Fixed
+
+- **`sloppy --version` reports 1.7.1.** The `v1.7.0` tag was placed one
+  commit before the release commit, so an install of 1.7.0 still called
+  itself 1.6.0.
+- **`agents install --dry-run` names the files a real install writes.**
+  Where Laravel Boost is installed, the dry run listed `CLAUDE.md`,
+  `GEMINI.md` and `AGENTS.md`, although the install writes the Boost
+  guideline (`.ai/guidelines/sloppy.blade.php`) in their place.
+
 ## [1.7.0] — 2026-10-14
 
 Sloppy now checks agents beyond Claude Code: Gemini CLI and Codex get the
@@ -1186,7 +1198,8 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
-[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/heyosseus/sloppy/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/heyosseus/sloppy/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/heyosseus/sloppy/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/heyosseus/sloppy/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/heyosseus/sloppy/compare/v1.4.0...v1.5.0

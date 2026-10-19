@@ -270,6 +270,17 @@ it('writes the Boost guideline once for every agent where Boost is installed', f
     removeTree($project);
 });
 
+it('names the Boost guideline, not the rulesets it stands in for, on a dry run', function (): void {
+    $project = tempProject(['vendor/bin/sloppy' => '<?php', 'boost.json' => '{}']);
+    $output = new RecordingRunnerOutput;
+
+    (new AgentsRunner)->run(agentsSloppy($project), new AgentsOptions(dryRun: true, hosts: [AgentHost::ClaudeCode, AgentHost::Gemini]), $output);
+
+    expect($output->messages())->toBe(['info: Dry run: .claude/settings.json, .gemini/settings.json and .ai/guidelines/sloppy.blade.php were not written.']);
+
+    removeTree($project);
+});
+
 it('skips an agent with no personal settings file when asked for --local, and installs the rest', function (): void {
     $project = tempProject(['vendor/bin/sloppy' => '<?php']);
     $output = new RecordingRunnerOutput;

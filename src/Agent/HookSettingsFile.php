@@ -12,10 +12,11 @@ use stdClass;
  *
  * `.claude/settings.json`, `.gemini/settings.json` and `.codex/hooks.json` all
  * map events to matcher groups of commands, and usually already hold
- * permissions, environment and other people's hooks. Every one of them survives: ours are found by their
- * command and replaced in place, so installing twice, or after moving from a
- * phar to a Composer install, leaves exactly one of each. The rest of the file
- * keeps its bytes: see {@see JsonDocument}.
+ * permissions, environment and other people's hooks. Every one of them
+ * survives: ours are found by their command and replaced in place, so
+ * installing twice, or after moving from a phar to a Composer install, leaves
+ * exactly one of each. The rest of the file keeps its bytes: see
+ * {@see JsonDocument}.
  */
 final readonly class HookSettingsFile
 {
