@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Git\ChangedFile;
 use Heyosseus\Sloppy\Git\Git;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * What a real working copy throws at the git layer: a project that is one
  * package of a larger repository, file names git quotes, a user's own diff

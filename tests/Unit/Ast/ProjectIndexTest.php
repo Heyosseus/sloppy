@@ -4,24 +4,6 @@ declare(strict_types=1);
 
 use Heyosseus\Sloppy\Ast\BlockSignature;
 use Heyosseus\Sloppy\Ast\ClassSummary;
-use Heyosseus\Sloppy\Ast\Parser;
-use Heyosseus\Sloppy\Ast\ProjectIndex;
-
-/**
- * @param  array<string, string>  $files
- */
-function indexOf(array $files): ProjectIndex
-{
-    $parser = new Parser;
-    $parsed = [];
-
-    foreach ($files as $path => $source) {
-        $trimmed = ltrim($source);
-        $parsed[] = $parser->parse($path, str_starts_with($trimmed, '<?php') ? $trimmed : "<?php\n\n".$trimmed);
-    }
-
-    return ProjectIndex::build($parsed);
-}
 
 it('keys declarations by fully qualified name', function (): void {
     $index = indexOf([

@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Integrations\Tooling\ProcessToolRunner;
 use Heyosseus\Sloppy\Integrations\Tooling\ToolDetector;
 use Heyosseus\Sloppy\Integrations\Tooling\ToolResult;
 
+uses()->group('integration');
+
 it('finds the binaries composer installed', function (): void {
     $root = tempProject([
         'vendor/bin/pint' => '#!/usr/bin/env php',

@@ -9,6 +9,8 @@ use Heyosseus\Sloppy\Tests\Support\TempRepository;
 use Symfony\Component\Console\Tester\ApplicationTester;
 use Symfony\Component\Process\Process;
 
+uses()->group('integration');
+
 /**
  * An application whose `hook` command reads this payload instead of the real
  * standard input.

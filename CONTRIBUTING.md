@@ -22,7 +22,7 @@ coverage floor, so it cannot run without a coverage driver.
 | Pint | `pint --test` |
 | PHPStan | `phpstan analyse` (level 8) |
 | Type coverage | `pest --type-coverage --min=100` |
-| Line coverage | `pest --coverage --min=99` |
+| Line coverage | `pest --parallel --coverage --min=99` |
 
 All five must pass. Type coverage is absolute: every parameter, return and
 property is typed. Line coverage has a 99% floor rather than 100%, which is
@@ -42,6 +42,28 @@ to explain in the pull request, not as a budget to spend.
 Individual gates run on their own: `composer test:lint`, `composer test:types`,
 and so on. `composer lint` and `composer refacto` apply the fixes rather than
 only reporting them.
+
+## The fast loop
+
+```bash
+composer test:fast
+```
+
+runs every test that stays inside PHP -- the rules, the parser, the formatters,
+the scoring -- in parallel, in seconds. The rest are in the `integration` group:
+they build real git repositories, start `bin/sloppy`, git, Rector or Pint, or
+boot Laravel, and starting a process is what costs a test its time, several
+times over on Windows. `composer test` and CI run both groups.
+
+A test file that starts a process, creates a git repository or needs Laravel
+says so at the top, after its imports:
+
+```php
+uses()->group('integration');
+```
+
+Laravel itself is bound only to the files that use it, in `tests/Pest.php`: a
+test that calls `artisan()` or resolves from the container is listed there.
 
 ## Running the commands by hand
 

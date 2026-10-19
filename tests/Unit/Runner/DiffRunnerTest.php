@@ -11,6 +11,8 @@ use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 it('says nothing and succeeds when sloppy is disabled', function (): void {
     $project = tempProject(['app/A.php' => '<?php class A {}']);
     $output = new RecordingRunnerOutput;

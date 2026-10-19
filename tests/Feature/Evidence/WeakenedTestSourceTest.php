@@ -8,6 +8,8 @@ use Heyosseus\Sloppy\Evidence\EvidenceContext;
 use Heyosseus\Sloppy\Evidence\WeakenedTestSource;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * @return list<Heyosseus\Sloppy\Analysis\Finding>
  */

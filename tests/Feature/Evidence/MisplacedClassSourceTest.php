@@ -11,6 +11,8 @@ use Heyosseus\Sloppy\Evidence\MisplacedClassSource;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * The SL307 findings of a diff against the commit before the change.
  *

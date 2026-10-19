@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Cli\SloppyApplication;
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Symfony\Component\Console\Tester\ApplicationTester;
 
+uses()->group('integration');
+
 /**
  * A tester over a fresh application, the way a user's shell sees it.
  */

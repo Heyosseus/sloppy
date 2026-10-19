@@ -7,6 +7,8 @@ use Heyosseus\Sloppy\Mcp\Tools\ArchitecturePromptTool;
 use Heyosseus\Sloppy\Mcp\Tools\ArchitectureTool;
 use Heyosseus\Sloppy\Mcp\Tools\PlaceTool;
 
+uses()->group('integration');
+
 /**
  * A project with a declared architecture an agent might ask about.
  */

@@ -14,6 +14,8 @@ use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 use Heyosseus\Sloppy\Watch\EditorCommand;
 use Heyosseus\Sloppy\Watch\KeyPress;
 
+uses()->group('integration');
+
 /**
  * @param  array<string, mixed>  $config
  */

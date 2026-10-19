@@ -7,6 +7,8 @@ use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Sloppy;
 use Symfony\Component\Console\Tester\ApplicationTester;
 
+uses()->group('integration');
+
 /**
  * Both `watch` surfaces, in the one situation a test can put them in.
  *

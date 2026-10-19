@@ -8,6 +8,8 @@ use Heyosseus\Sloppy\Integrations\HealthReporter;
 use Heyosseus\Sloppy\Integrations\HealthSnapshot;
 use Heyosseus\Sloppy\Sloppy;
 
+uses()->group('integration');
+
 /**
  * A project with one god method in it, so the snapshot has something to say.
  *

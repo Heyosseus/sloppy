@@ -10,6 +10,8 @@ use Heyosseus\Sloppy\Mcp\Tools\ScanTool;
 use Heyosseus\Sloppy\Mcp\Tools\ToolArguments;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * A project an agent might ask about: one bad file, one clean one.
  */

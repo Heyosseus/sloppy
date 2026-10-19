@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Heyosseus\Sloppy\Sloppy;
 
+uses()->group('integration');
+
 /**
  * @return array<string, mixed>
  */

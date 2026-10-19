@@ -34,16 +34,17 @@ final readonly class FormatterFactory
 
     public function for(OutputFormat $format): Formatter
     {
-        $risk = $this->sloppy->risks();
-
+        // Risk is asked for only by the formats that rank by it: it reads the
+        // git history and looks for a coverage report, which a SARIF or Rector
+        // run would pay for and never use.
         return match ($format) {
-            OutputFormat::Json => new JsonFormatter(explainRisk: $this->explainRisk, risk: $risk, tiers: $this->tiers()),
+            OutputFormat::Json => new JsonFormatter(explainRisk: $this->explainRisk, risk: $this->sloppy->risks(), tiers: $this->tiers()),
             OutputFormat::Sarif => new SarifFormatter(Sloppy::VERSION, $this->pathPrefix()),
             OutputFormat::Github => new GithubFormatter($this->pathPrefix()),
             OutputFormat::Gitlab => new GitlabFormatter(pathPrefix: $this->pathPrefix()),
             OutputFormat::Rector => new RectorFormatter,
-            OutputFormat::Markdown => new MarkdownFormatter(risk: $risk, explainRisk: $this->explainRisk),
-            OutputFormat::Console => $this->console($risk),
+            OutputFormat::Markdown => new MarkdownFormatter(risk: $this->sloppy->risks(), explainRisk: $this->explainRisk),
+            OutputFormat::Console => $this->console($this->sloppy->risks()),
         };
     }
 

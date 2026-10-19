@@ -9,6 +9,8 @@ use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RuleTester;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * The sloppy corpus, including the SL111 drift fixtures.
  *

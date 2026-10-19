@@ -12,6 +12,8 @@ use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * A project with one god method, outside git, for the scan-mode paths.
  *

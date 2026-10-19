@@ -12,6 +12,8 @@ use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 
+uses()->group('integration');
+
 $fixtures = dirname(__DIR__, 2).'/Fixtures';
 
 it('writes a baseline and says what it recorded', function () use ($fixtures): void {

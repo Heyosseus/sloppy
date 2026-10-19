@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Analysis\Drift\DriftFinder;
 use Heyosseus\Sloppy\Ast\Parser;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 
+uses()->group('integration');
+
 /**
  * Bodies of deliberately varied length, the way real code is.
  *

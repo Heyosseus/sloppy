@@ -11,20 +11,32 @@ use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Ast\ParsedFile;
 use Heyosseus\Sloppy\Ast\Parser;
+use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Scoring\ScoreCalculator;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RuleTester;
+use Heyosseus\Sloppy\Tests\Support\TempRepository;
 use Heyosseus\Sloppy\Tests\Support\TempTree;
 use Heyosseus\Sloppy\Tests\TestCase;
 use Illuminate\Contracts\Config\Repository;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 
-uses(TestCase::class)->in(__DIR__.'/Unit', __DIR__.'/Feature');
+// Laravel only where a test uses it: the artisan commands, the service
+// provider and the Filament views. Testbench builds a whole application for
+// every test it wraps, which cost the ~1,900 tests that never touch it a
+// tenth of a second or more each -- more than the tests themselves.
+uses(TestCase::class)->in(
+    __DIR__.'/Feature/Console',
+    __DIR__.'/Feature/ServiceProviderTest.php',
+    __DIR__.'/Feature/Integrations/FilamentTest.php',
+    __DIR__.'/Feature/Watch/WatchCommandsTest.php',
+);
 
 hermeticGit();
+cachePerWorker();
 
 /**
  * Stop git from climbing out of the system temp directory.
@@ -52,6 +64,34 @@ function hermeticGit(): void
     putenv('GIT_CEILING_DIRECTORIES='.$value);
     $_ENV['GIT_CEILING_DIRECTORIES'] = $value;
     $_SERVER['GIT_CEILING_DIRECTORIES'] = $value;
+}
+
+/**
+ * Give each parallel worker its own Laravel manifest files.
+ *
+ * Testbench writes `bootstrap/cache/services.php` and `packages.php` inside
+ * vendor by writing a temporary file and renaming it over the manifest. Under
+ * `--parallel` every worker does so at once, and Windows refuses to rename
+ * over a file another process has open: the test that lost the race failed
+ * with "Access is denied". Paratest numbers its workers in `TEST_TOKEN`; a
+ * serial run has none and keeps the shared files. The paths are relative,
+ * because Laravel reads `C:\...` as relative to the base path anyway.
+ */
+function cachePerWorker(): void
+{
+    $token = getenv('TEST_TOKEN');
+
+    if (! is_string($token) || $token === '') {
+        return;
+    }
+
+    foreach (['APP_SERVICES_CACHE' => 'services', 'APP_PACKAGES_CACHE' => 'packages'] as $key => $name) {
+        $value = sprintf('bootstrap/cache/%s-%s.php', $name, $token);
+
+        putenv($key.'='.$value);
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
 }
 
 /**
@@ -172,7 +212,7 @@ function findingsUnder(Rule $rule, array $files, array $architecture): array
  */
 function tempProject(array $files = []): string
 {
-    $root = str_replace('\\', '/', sys_get_temp_dir()).'/sloppy-'.bin2hex(random_bytes(6));
+    $root = TempTree::track(str_replace('\\', '/', sys_get_temp_dir()).'/sloppy-'.bin2hex(random_bytes(6)));
 
     if ($files === []) {
         mkdir($root, 0o777, true);
@@ -283,3 +323,71 @@ function project(array $files, array $config = []): string
 
     return $root;
 }
+
+/**
+ * Bind the container to a throwaway git repository.
+ *
+ * @param  array<string, mixed>  $config
+ */
+function bindRepository(TempRepository $repository, array $config = []): void
+{
+    $merged = [
+        'paths' => ['app'],
+        'exclude' => ['vendor'],
+        'fail_on' => 'high',
+        ...$config,
+    ];
+
+    app()->instance(Configuration::class, Configuration::fromArray($merged, $repository->path));
+    app()->instance(Sloppy::class, new Sloppy(Configuration::fromArray($merged, $repository->path)));
+}
+
+/**
+ * @param  array<string, string>  $files
+ */
+function indexOf(array $files): ProjectIndex
+{
+    $parser = new Parser;
+    $parsed = [];
+
+    foreach ($files as $path => $source) {
+        $trimmed = ltrim($source);
+        $parsed[] = $parser->parse($path, str_starts_with($trimmed, '<?php') ? $trimmed : "<?php\n\n".$trimmed);
+    }
+
+    return ProjectIndex::build($parsed);
+}
+
+function neonFor(string $path, int $count): string
+{
+    return "parameters:\n\tignoreErrors:\n\t\t-\n\t\t\tmessage: \"#^Something\.$#\"\n\t\t\tcount: {$count}\n\t\t\tpath: {$path}\n";
+}
+
+function writeReport(string $name, string $contents): string
+{
+    $root = tempProject([]);
+    file_put_contents($root.'/'.$name, $contents);
+
+    return $root;
+}
+
+/**
+ * A controller that swallows every exception: one SL107 finding.
+ */
+const SWALLOWING_CONTROLLER = <<<'PHP'
+<?php
+
+namespace App\Http\Controllers;
+
+class OrderController
+{
+    public function show(int $id)
+    {
+        try {
+            return $this->records->find($id);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+}
+PHP;

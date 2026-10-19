@@ -4,14 +4,6 @@ declare(strict_types=1);
 
 use Heyosseus\Sloppy\Coverage\CloverReader;
 
-function writeReport(string $name, string $contents): string
-{
-    $root = tempProject([]);
-    file_put_contents($root.'/'.$name, $contents);
-
-    return $root;
-}
-
 it('reads the covered ratio per file', function (): void {
     $root = writeReport('clover.xml', <<<'XML'
     <?xml version="1.0" encoding="UTF-8"?>

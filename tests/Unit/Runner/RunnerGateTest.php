@@ -16,6 +16,8 @@ use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * The exits a pipeline relies on: no green check for a run that checked
  * nothing, and no format quietly swapped for another.

@@ -17,7 +17,7 @@ function generatorFor(array $config = []): RulesetGenerator
 {
     return RulesetGenerator::for(new Sloppy(Configuration::fromArray(
         [...['framework' => 'laravel', 'fail_on' => 'high'], ...$config],
-        sys_get_temp_dir(),
+        tempProject(),
     )));
 }
 
@@ -139,7 +139,7 @@ it('falls back to a rule\'s own description when it is not one of ours', functio
 
     $generator = new RulesetGenerator(
         RuleRegistry::of([$rule]),
-        Configuration::fromArray([], sys_get_temp_dir()),
+        Configuration::fromArray([], tempProject()),
     );
 
     expect($generator->generate(RulesetFormat::Markdown))->toContain('### APP001 No Facades In Domain')
@@ -159,7 +159,7 @@ it('names a rule by its id in every format it writes', function (): void {
 
 it('takes the rules from the registry it was handed', function (): void {
     $registry = RuleRegistry::withDefaults()->only(['SL101', 'SL107']);
-    $generator = new RulesetGenerator($registry, Configuration::fromArray([], sys_get_temp_dir()), '9.9.9');
+    $generator = new RulesetGenerator($registry, Configuration::fromArray([], tempProject()), '9.9.9');
 
     $ruleset = $generator->generate(RulesetFormat::Windsurf);
 

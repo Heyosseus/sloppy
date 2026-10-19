@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Heyosseus\Sloppy\Cli\SloppyApplication;
 use Symfony\Component\Console\Tester\ApplicationTester;
 
+uses()->group('integration');
+
 function runSloppy(array $input): string
 {
     $application = new SloppyApplication('test');

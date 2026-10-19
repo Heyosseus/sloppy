@@ -9,6 +9,8 @@ use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Sloppy;
 
+uses()->group('integration');
+
 const BRIEF_APP = [
     'app/Actions/RefundOrderAction.php' => '<?php namespace App\Actions; class RefundOrderAction {}',
     'app/Actions/CancelOrderAction.php' => '<?php namespace App\Actions; class CancelOrderAction {}',

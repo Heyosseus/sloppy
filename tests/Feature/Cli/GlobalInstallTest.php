@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Symfony\Component\Process\Process;
 
+uses()->group('integration');
+
 /**
  * A project that has never heard of Sloppy, and Sloppy installed somewhere
  * else entirely.

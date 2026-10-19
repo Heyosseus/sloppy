@@ -14,6 +14,8 @@ use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 
+uses()->group('integration');
+
 it('answers with nothing for every file it was asked about outside a repository', function (): void {
     $root = tempProject(['composer.json' => '{}', 'src/Fine.php' => "<?php\n\nclass Fine {}\n"]);
 

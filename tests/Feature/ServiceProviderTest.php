@@ -9,6 +9,8 @@ use Heyosseus\Sloppy\SloppyServiceProvider;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\ServiceProvider;
 
+uses()->group('integration');
+
 it('merges its configuration into the application', function (): void {
     $config = app(Repository::class);
 

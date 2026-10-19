@@ -123,13 +123,17 @@ jobs:
         with:
           dependency-versions: ${{ matrix.dependencies }}
 
+      # In parallel: most of the suite's time is spent waiting on the git, PHP
+      # and Rector processes the tests start, which one worker per core
+      # overlaps. Coverage is merged across the workers, so the floor still
+      # measures the whole suite.
       - name: Tests
         if: runner.os != 'Windows'
-        run: vendor/bin/pest --colors=always --coverage --min=99
+        run: vendor/bin/pest --colors=always --parallel --coverage --min=99
 
       - name: Tests (no coverage)
         if: runner.os == 'Windows'
-        run: vendor/bin/pest --colors=always
+        run: vendor/bin/pest --colors=always --parallel
 
   quality:
     runs-on: ubuntu-latest

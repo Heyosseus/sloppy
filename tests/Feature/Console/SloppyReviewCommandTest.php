@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 it('presents a change as a risk-ordered reading order through sloppy:review', function (): void {
     if (! TempRepository::gitIsAvailable()) {
         $this->markTestSkipped('git is not available on this machine.');
