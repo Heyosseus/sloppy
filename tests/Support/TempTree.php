@@ -20,7 +20,38 @@ namespace Heyosseus\Sloppy\Tests\Support;
  */
 final class TempTree
 {
+    /**
+     * Every tree created through {@see track()}, removed when the process
+     * ends unless a test removed it first.
+     *
+     * @var array<string, true>
+     */
+    private static array $tracked = [];
+
     private function __construct() {}
+
+    /**
+     * Have a throwaway tree removed when the process ends.
+     *
+     * A test that fails, or simply forgets, never reaches its own clean-up,
+     * and the trees used to pile up in the system temp directory by the
+     * thousand -- where every test that looks around a temporary directory
+     * then had to walk past all of them.
+     */
+    public static function track(string $path): string
+    {
+        if (self::$tracked === []) {
+            register_shutdown_function(static function (): void {
+                foreach (array_keys(self::$tracked) as $tracked) {
+                    self::remove($tracked);
+                }
+            });
+        }
+
+        self::$tracked[$path] = true;
+
+        return $path;
+    }
 
     public static function remove(string $path): void
     {

@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Git\Git;
 use Heyosseus\Sloppy\Git\IntentToAddIndex;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 it('hands over a throwaway index even when there is no index to copy, and cleans it up', function (): void {
     $root = tempProject(['src/A.php' => "<?php\n"]);
     $seen = [];

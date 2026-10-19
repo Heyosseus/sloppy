@@ -12,6 +12,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+uses()->group('integration');
+
 /**
  * Both adapters implement the same port, so both are checked the same way:
  * the four message kinds, a report, and a progress bar opened and closed.

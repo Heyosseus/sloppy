@@ -11,6 +11,8 @@ use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 
+uses()->group('integration');
+
 function agentsSloppy(string $project): Sloppy
 {
     return new Sloppy(Configuration::fromArray([], $project));

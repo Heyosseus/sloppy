@@ -18,6 +18,8 @@ use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 use Heyosseus\Sloppy\Tests\Support\RecordingToolRunner;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * A class with a private method nothing calls: SL105, which Rector fixes.
  */

@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Architecture\DeptracImporter;
 use Heyosseus\Sloppy\Architecture\ProfileException;
 use Heyosseus\Sloppy\Architecture\ProfileProposal;
 
+uses()->group('integration');
+
 const DEPTRAC_YAML = <<<'YAML'
 deptrac:
   paths: [./src]

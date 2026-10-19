@@ -10,6 +10,8 @@ use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 use Heyosseus\Sloppy\Tests\Support\RecordingToolRunner;
 
+uses()->group('integration');
+
 /**
  * A class with a private method nothing calls -- SL105, which Rector fixes.
  */

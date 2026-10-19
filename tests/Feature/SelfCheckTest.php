@@ -7,6 +7,8 @@ use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Sloppy;
 
+uses()->group('integration');
+
 /**
  * Sloppy analysing Sloppy.
  *

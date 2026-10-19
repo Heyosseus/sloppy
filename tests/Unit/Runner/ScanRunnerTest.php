@@ -10,6 +10,8 @@ use Heyosseus\Sloppy\Runner\ScanRunner;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 
+uses()->group('integration');
+
 $fixtures = dirname(__DIR__, 2).'/Fixtures';
 
 it('says nothing and succeeds when sloppy is disabled', function () use ($fixtures): void {

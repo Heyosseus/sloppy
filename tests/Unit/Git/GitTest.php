@@ -8,6 +8,8 @@ use Heyosseus\Sloppy\Git\Git;
 use Heyosseus\Sloppy\Git\GitException;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 beforeEach(function (): void {
     if (! TempRepository::gitIsAvailable()) {
         $this->markTestSkipped('git is not available on this machine.');

@@ -10,6 +10,8 @@ use Heyosseus\Sloppy\SloppyServiceProvider;
 use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Tester\ApplicationTester;
 
+uses()->group('integration');
+
 /**
  * A tester over a fresh application.
  */

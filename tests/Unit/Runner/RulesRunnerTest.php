@@ -11,6 +11,8 @@ use Heyosseus\Sloppy\Runner\RulesRunner;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 
+uses()->group('integration');
+
 /**
  * @param  array<string, string>  $files
  * @param  array<string, mixed>  $config

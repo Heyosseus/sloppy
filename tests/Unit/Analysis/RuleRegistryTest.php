@@ -11,6 +11,8 @@ use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Evidence\EvidenceCollector;
 use Heyosseus\Sloppy\Rules\BaseRule;
 
+uses()->group('integration');
+
 /**
  * A custom rule, standing in for one a host application would register.
  */

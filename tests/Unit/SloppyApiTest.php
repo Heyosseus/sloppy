@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Sloppy;
 
+uses()->group('integration');
+
 /**
  * A class that swallows every exception it meets: SL107 on any PHP project.
  */

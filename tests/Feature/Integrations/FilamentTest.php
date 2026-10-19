@@ -9,6 +9,8 @@ use Heyosseus\Sloppy\Integrations\Filament\SloppyPlugin;
 use Heyosseus\Sloppy\Integrations\HealthReporter;
 use Heyosseus\Sloppy\Sloppy;
 
+uses()->group('integration');
+
 /**
  * Point the container at a throwaway project, the way the widget will find it
  * in a real application.

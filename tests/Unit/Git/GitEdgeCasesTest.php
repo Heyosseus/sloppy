@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Heyosseus\Sloppy\Git\ChangedFile;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * A repository with one commit and a working tree change, for the paths git
  * only takes when something is missing or malformed.

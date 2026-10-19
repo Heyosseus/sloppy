@@ -11,6 +11,8 @@ use Heyosseus\Sloppy\Runner\ScanRunner;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 
+uses()->group('integration');
+
 /**
  * A configuration says what it means or says why it cannot be read -- never
  * quietly something else.

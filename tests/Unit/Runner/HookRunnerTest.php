@@ -10,6 +10,8 @@ use Heyosseus\Sloppy\Runner\HookRunner;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * What Claude Code sends after it edits a file, for a path in the repository.
  */

@@ -8,10 +8,7 @@ use Heyosseus\Sloppy\Evidence\BaselineGrowthSource;
 use Heyosseus\Sloppy\Evidence\EvidenceContext;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
-function neonFor(string $path, int $count): string
-{
-    return "parameters:\n\tignoreErrors:\n\t\t-\n\t\t\tmessage: \"#^Something\.$#\"\n\t\t\tcount: {$count}\n\t\t\tpath: {$path}\n";
-}
+uses()->group('integration');
 
 /**
  * @return list<Heyosseus\Sloppy\Analysis\Finding>

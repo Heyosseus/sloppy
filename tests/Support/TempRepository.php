@@ -18,7 +18,7 @@ final readonly class TempRepository
 
     public static function create(): self
     {
-        $path = str_replace('\\', '/', sys_get_temp_dir()).'/sloppy-repo-'.bin2hex(random_bytes(6));
+        $path = TempTree::track(str_replace('\\', '/', sys_get_temp_dir()).'/sloppy-repo-'.bin2hex(random_bytes(6)));
 
         if (! mkdir($path, 0o777, true) && ! is_dir($path)) {
             throw new RuntimeException(sprintf('Could not create [%s].', $path));
@@ -26,10 +26,16 @@ final readonly class TempRepository
 
         $repository = new self($path);
 
+        // One process instead of four: the identity is written straight into
+        // the config `init` just made. Starting git is most of what a git test
+        // costs -- around half a second a time on Windows, where every call
+        // goes through cmd.exe -- and the suite creates hundreds of these.
         $repository->git(['init', '--initial-branch=main']);
-        $repository->git(['config', 'user.email', 'tests@example.com']);
-        $repository->git(['config', 'user.name', 'Sloppy Tests']);
-        $repository->git(['config', 'commit.gpgsign', 'false']);
+        file_put_contents(
+            $path.'/.git/config',
+            "[user]\n\temail = tests@example.com\n\tname = Sloppy Tests\n[commit]\n\tgpgsign = false\n",
+            FILE_APPEND,
+        );
 
         return $repository;
     }

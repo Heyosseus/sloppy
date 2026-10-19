@@ -12,6 +12,8 @@ use Heyosseus\Sloppy\Scoring\RiskCalculator;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 it('counts the commits that touched each file, within the window, relative to the project', function (): void {
     if (! TempRepository::gitIsAvailable()) {
         $this->markTestSkipped('git is not available on this machine.');

@@ -8,6 +8,8 @@ use Heyosseus\Sloppy\Testing\SloppyAssertionFailed;
 use Heyosseus\Sloppy\Testing\SloppyAssertions;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * Run a closure with the working directory somewhere else, because the
  * expectations locate the project the same way the binary does.

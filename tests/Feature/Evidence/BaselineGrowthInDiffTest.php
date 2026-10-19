@@ -7,6 +7,8 @@ use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 /**
  * @param  list<Finding>  $findings
  * @return list<Finding>

@@ -10,6 +10,8 @@ use Illuminate\Contracts\Config\Repository;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
+uses()->group('integration');
+
 /**
  * Point the package at a throwaway project and re-bind the container, the way
  * the other Artisan tests do.

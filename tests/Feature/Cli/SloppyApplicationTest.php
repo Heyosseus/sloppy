@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Cli\SloppyApplication;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 use Symfony\Component\Console\Tester\ApplicationTester;
 
+uses()->group('integration');
+
 function tester(): ApplicationTester
 {
     $application = new SloppyApplication('test');

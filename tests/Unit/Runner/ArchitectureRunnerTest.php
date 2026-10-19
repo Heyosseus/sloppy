@@ -10,6 +10,8 @@ use Heyosseus\Sloppy\Runner\ExitCode;
 use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\RecordingRunnerOutput;
 
+uses()->group('integration');
+
 /**
  * @param  array<string, mixed>  $config
  * @return array{0: Sloppy, 1: string}

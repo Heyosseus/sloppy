@@ -4,23 +4,7 @@ declare(strict_types=1);
 
 use Heyosseus\Sloppy\Runner\ExitCode;
 
-const SWALLOWING_CONTROLLER = <<<'PHP'
-<?php
-
-namespace App\Http\Controllers;
-
-class OrderController
-{
-    public function show(int $id)
-    {
-        try {
-            return $this->records->find($id);
-        } catch (\Throwable $e) {
-            return null;
-        }
-    }
-}
-PHP;
+uses()->group('integration');
 
 const CLEAN_ACTION = <<<'PHP'
 <?php

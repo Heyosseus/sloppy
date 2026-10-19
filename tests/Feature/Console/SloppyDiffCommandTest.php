@@ -2,28 +2,10 @@
 
 declare(strict_types=1);
 
-use Heyosseus\Sloppy\Configuration\Configuration;
 use Heyosseus\Sloppy\Runner\ExitCode;
-use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
-/**
- * Bind the container to a throwaway git repository.
- *
- * @param  array<string, mixed>  $config
- */
-function bindRepository(TempRepository $repository, array $config = []): void
-{
-    $merged = [
-        'paths' => ['app'],
-        'exclude' => ['vendor'],
-        'fail_on' => 'high',
-        ...$config,
-    ];
-
-    app()->instance(Configuration::class, Configuration::fromArray($merged, $repository->path));
-    app()->instance(Sloppy::class, new Sloppy(Configuration::fromArray($merged, $repository->path)));
-}
+uses()->group('integration');
 
 it('reports and fails on a finding the change introduced', function (): void {
     if (! TempRepository::gitIsAvailable()) {

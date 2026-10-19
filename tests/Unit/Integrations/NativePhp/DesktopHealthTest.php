@@ -8,6 +8,8 @@ use Heyosseus\Sloppy\Integrations\HealthSnapshot;
 use Heyosseus\Sloppy\Integrations\NativePhp\DesktopHealth;
 use Heyosseus\Sloppy\Sloppy;
 
+uses()->group('integration');
+
 /**
  * @return array{0: DesktopHealth, 1: string}
  */

@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Ci\BaseRevision;
 use Heyosseus\Sloppy\Ci\CiEnvironment;
 use Heyosseus\Sloppy\Tests\Support\TempRepository;
 
+uses()->group('integration');
+
 it('asks for what the user asked for first, then the remote copy of it', function (): void {
     expect(BaseRevision::candidates('main', new CiEnvironment))->toBe(['main', 'origin/main'])
         ->and(BaseRevision::candidates('  ', new CiEnvironment(['GITHUB_BASE_REF' => 'dev'])))->toBe(['origin/dev', 'dev'])

@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Rules\Architecture\AbstractionInflationRule;
 use Heyosseus\Sloppy\Tests\Support\RuleTester;
 
+uses()->group('integration');
+
 /**
  * @param  array<string, mixed>  $options
  */

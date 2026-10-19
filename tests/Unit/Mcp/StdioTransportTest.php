@@ -6,6 +6,8 @@ use Heyosseus\Sloppy\Mcp\McpServer;
 use Heyosseus\Sloppy\Mcp\McpTool;
 use Heyosseus\Sloppy\Mcp\StdioTransport;
 
+uses()->group('integration');
+
 /**
  * Serve a transcript and read back what the server wrote.
  *
