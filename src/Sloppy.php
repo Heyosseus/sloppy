@@ -135,6 +135,7 @@ final readonly class Sloppy
             calculator: $this->scores(),
             minConfidence: $this->configuration->minConfidence(),
             architecture: $this->configuration->architecture(),
+            kinds: $this->configuration->sourceKinds(),
         );
     }
 

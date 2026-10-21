@@ -37,7 +37,7 @@ final class ConfigSchema
      */
     private const array TOP_LEVEL = [
         'enabled', 'framework', 'architecture', 'paths', 'exclude', 'fail_on', 'min_confidence',
-        'baseline', 'score', 'risk', 'rules', 'custom_rules', 'health',
+        'baseline', 'score', 'risk', 'rules', 'custom_rules', 'health', 'laravel',
     ];
 
     /**
@@ -122,6 +122,11 @@ final class ConfigSchema
     private const array HEALTH = ['cache', 'ttl', 'top'];
 
     /**
+     * @var list<string>
+     */
+    private const array LARAVEL = ['routes', 'migrations'];
+
+    /**
      * The configuration with every value in the shape the rest of the package
      * reads, and what could not be put in that shape.
      *
@@ -155,6 +160,7 @@ final class ConfigSchema
                 'score' => $this->score($value, $problems),
                 'risk' => $this->risk($value, $problems),
                 'health' => $this->health($value, $problems),
+                'laravel' => $this->laravel($value, $problems),
                 // Rules are checked once every key is read: which IDs exist
                 // depends on `custom_rules`, wherever in the array it is.
                 default => $value,
@@ -275,6 +281,22 @@ final class ConfigSchema
         }
 
         return $health;
+    }
+
+    /**
+     * @param  list<string>  $problems
+     * @return array<string, mixed>
+     */
+    private function laravel(mixed $value, array &$problems): array
+    {
+        $laravel = $this->section('sloppy.laravel', $value, self::LARAVEL, $problems);
+
+        /** @var mixed $item */
+        foreach ($laravel as $key => $item) {
+            $laravel[$key] = in_array($key, self::LARAVEL, true) ? $this->stringList('sloppy.laravel.'.$key, $item, $problems) : $item;
+        }
+
+        return $laravel;
     }
 
     /**

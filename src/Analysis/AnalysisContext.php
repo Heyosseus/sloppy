@@ -24,6 +24,7 @@ final readonly class AnalysisContext
         public ParsedFile $file,
         public ProjectIndex $index,
         public ArchitectureMap $architecture = new ArchitectureMap,
+        public SourceKind $kind = SourceKind::Code,
     ) {}
 
     public function relativePath(): string
