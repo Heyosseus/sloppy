@@ -131,12 +131,13 @@ return [
     | "storage" excludes everything beneath it. Entries containing "*" are
     | matched as globs instead.
     |
-    | Migrations and factories are excluded by default: they are legitimately
+    | Factories and seeders are excluded by default: they are legitimately
     | repetitive and long, and flagging them teaches people to ignore reports.
     | Tests are excluded for the same reason -- long setup, many public methods
     | and near-identical bodies are what good tests look like. The capitalised
-    | entries cover module layouts such as Modules/Billing/Database/Migrations
-    | and Modules/Billing/Tests.
+    | entries cover module layouts such as Modules/Billing/Database/Factories
+    | and Modules/Billing/Tests. Migrations are not excluded: they get rules of
+    | their own, below.
     |
     */
 
@@ -146,15 +147,35 @@ return [
         'bootstrap/cache',
         'node_modules',
         'public',
-        'database/migrations',
         'database/factories',
         'database/seeders',
-        'Database/Migrations',
         'Database/Factories',
         'Database/Seeders',
         'tests',
         'Tests',
         '*.blade.php',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Routes and migrations
+    |--------------------------------------------------------------------------
+    |
+    | In a Laravel project these directories are read as well as `paths`, and
+    | each gets rules written for it: a route to a controller method that does
+    | not exist (SL211), a migration edited after it ran (SL214). The size,
+    | duplication and readability rules do not read them -- a long `up()` is
+    | not a god method. Matched as path segments at any depth, like `exclude`,
+    | so `routes` also covers Modules/Billing/routes; `*` is a glob.
+    |
+    | Set either to [] to stop reading those files. `exclude` still applies,
+    | so a config that excludes database/migrations keeps them out.
+    |
+    */
+
+    'laravel' => [
+        'routes' => ['routes', 'Routes'],
+        'migrations' => ['database/migrations', 'Database/Migrations'],
     ],
 
     /*
@@ -555,6 +576,46 @@ return [
                 'Country', 'Currency', 'Setting', 'Role', 'Permission',
                 'Language', 'Timezone', 'State', 'Locale',
             ],
+        ],
+
+        // ---- Routes and migrations -------------------------------------
+        //
+        // These read only the files `laravel` above names, and SL214 only
+        // runs where there is a base to compare with.
+
+        'SL211' => [
+            // Missing Route Action. Reports only when the controller, its
+            // parents and its traits are all in the analysed paths.
+        ],
+
+        'SL212' => [
+            // Logic In Route Closure. A closure longer than this is reported
+            // even when it neither queries nor validates.
+            'max_statements' => 10,
+        ],
+
+        'SL213' => [
+            // Destructive GET Route. Listed with the defects: a GET that
+            // deletes is a hole, not a style choice.
+            'tier' => 'defect',
+        ],
+
+        'SL214' => [
+            // Edited Migration, reported by sloppy diff, ci, review and the
+            // agent hooks only.
+        ],
+
+        'SL215' => [
+            // Irreversible Migration. Turn it off if your team never rolls
+            // back and says so in its migrations.
+        ],
+
+        'SL216' => [
+            // Model In Migration.
+        ],
+
+        'SL217' => [
+            // Unconstrained Foreign Key.
         ],
 
         // ---- Architecture ----------------------------------------------

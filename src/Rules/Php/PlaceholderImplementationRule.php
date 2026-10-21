@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Analysis\SourceKind;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use PhpParser\Comment;
@@ -122,6 +123,11 @@ final class PlaceholderImplementationRule extends BaseRule
     protected function defaultSeverity(): Severity
     {
         return Severity::High;
+    }
+
+    public function sourceKinds(): array
+    {
+        return SourceKind::cases();
     }
 
     public function analyze(AnalysisContext $context): iterable

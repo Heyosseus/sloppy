@@ -23,7 +23,22 @@ uses()->group('integration');
  */
 function sloppyCorpus(): array
 {
-    return RuleTester::fixtureDirectory('Sloppy') + RuleTester::fixtureDirectory('Sloppy/Drift');
+    return RuleTester::fixtureDirectory('Sloppy')
+        + RuleTester::fixtureDirectory('Sloppy/Drift')
+        + RuleTester::fixtureDirectory('Sloppy/routes', 'routes')
+        + RuleTester::fixtureDirectory('Sloppy/database/migrations', 'database/migrations');
+}
+
+/**
+ * The clean corpus, with a routes file and a migration of its own.
+ *
+ * @return array<string, string>
+ */
+function goodCorpus(): array
+{
+    return RuleTester::fixtureDirectory('Good')
+        + RuleTester::fixtureDirectory('Good/routes', 'routes')
+        + RuleTester::fixtureDirectory('Good/database/migrations', 'database/migrations');
 }
 
 /**
@@ -36,7 +51,7 @@ function sloppyCorpus(): array
  * silent here. If a change to any rule breaks this test, the rule is wrong.
  */
 it('reports nothing at all on ordinary Laravel code', function (): void {
-    $result = RuleTester::runAll(RuleTester::fixtureDirectory('Good'));
+    $result = RuleTester::runAll(goodCorpus());
 
     expect($result->findings)->toBe([], sprintf(
         "Expected no findings on clean fixtures, got:\n%s",

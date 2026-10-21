@@ -27,6 +27,7 @@ final readonly class Analyzer
         private ScoreCalculator $calculator,
         private int $minConfidence = 0,
         private ?Profile $architecture = null,
+        private SourceKinds $kinds = new SourceKinds,
     ) {}
 
     /**
@@ -122,7 +123,10 @@ final readonly class Analyzer
             $analyzed[] = $file->relativePath;
             $lines += $file->codeLineCount();
 
-            $perFile[] = $this->inspect(new AnalysisContext($file, $index, $architecture), $errors);
+            $perFile[] = $this->inspect(
+                new AnalysisContext($file, $index, $architecture, $this->kinds->of($file->relativePath)),
+                $errors,
+            );
         }
 
         // Merged once at the end: spreading each file's findings into a
@@ -158,6 +162,10 @@ final readonly class Analyzer
         $findings = [];
 
         foreach ($this->registry->rules() as $rule) {
+            if (! $context->kind->admits($rule)) {
+                continue;
+            }
+
             try {
                 foreach ($rule->analyze($context) as $finding) {
                     if ($finding->confidence >= $this->minConfidence) {

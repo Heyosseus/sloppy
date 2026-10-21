@@ -6,6 +6,7 @@ namespace Heyosseus\Sloppy\Configuration;
 
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Analysis\SourceKinds;
 use Heyosseus\Sloppy\Analysis\Tier;
 use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Architecture\ProfileException;
@@ -40,10 +41,12 @@ final readonly class Configuration
      * itself where a bad one is reported.
      *
      * @param  array<array-key, mixed>  $config
+     * @param  bool  $explicitPaths  The paths were named for this run (`--path`), so nothing else is added to them.
      */
     public function __construct(
         array $config,
         public string $basePath,
+        public bool $explicitPaths = false,
     ) {
         $checked = (new ConfigSchema)->normalise($config);
 
@@ -76,6 +79,15 @@ final readonly class Configuration
         $paths = $this->values->stringList('paths');
 
         return $paths === [] ? ['app'] : $paths;
+    }
+
+    /**
+     * Which files are routes and which are migrations. Outside Laravel every
+     * file is code.
+     */
+    public function sourceKinds(): SourceKinds
+    {
+        return $this->hasFramework('laravel') ? SourceKinds::fromSettings($this->values->arrayValue('laravel')) : new SourceKinds;
     }
 
     /**
@@ -287,7 +299,7 @@ final readonly class Configuration
         $config = $this->config;
         $config['paths'] = $paths;
 
-        return new self($config, $this->basePath);
+        return new self($config, $this->basePath, explicitPaths: true);
     }
 
     public function withFailOn(?Severity $severity): self
@@ -295,7 +307,7 @@ final readonly class Configuration
         $config = $this->config;
         $config['fail_on'] = $severity?->value;
 
-        return new self($config, $this->basePath);
+        return new self($config, $this->basePath, $this->explicitPaths);
     }
 
     public function withMinConfidence(int $confidence): self
@@ -303,6 +315,6 @@ final readonly class Configuration
         $config = $this->config;
         $config['min_confidence'] = $confidence;
 
-        return new self($config, $this->basePath);
+        return new self($config, $this->basePath, $this->explicitPaths);
     }
 }

@@ -77,7 +77,7 @@ scan on demand. See [Coding agents](docs/agents.md).
 
 ## What it catches
 
-27 rules, plus two checks that compare your change with its base, and five
+33 rules, plus three checks that compare your change with its base, and five
 more that enforce an architecture you describe. Each one is tested to fire on
 the pattern *and* to stay silent on ordinary Laravel code.
 
@@ -89,6 +89,7 @@ the pattern *and* to stay silent on ordinary Laravel code.
 | **Error handling** | `SL107` Swallowed Exception |
 | **Readability** | `SL108` Redundant Condition · `SL109` Narrative Comment · `SL110` Defensive Programming Noise |
 | **Laravel** | `SL201` Business Logic In Controller · `SL202` Inline Validation · `SL208` Direct External API Call · `SL209` Model Doing Too Much |
+| **Routes & migrations** | `SL211` Missing Route Action, a route to a controller method nobody wrote · `SL212` Logic In Route Closure · `SL213` Destructive GET Route · `SL214` Edited Migration, a migration changed after it already ran · `SL215` Irreversible Migration · `SL216` Model In Migration · `SL217` Unconstrained Foreign Key |
 | **Performance** | `SL203` Possible N+1 · `SL204` Query Inside Loop · `SL205` Collection Instead Of Query · `SL210` Suspicious `Model::all()` |
 | **Dependencies** | `SL206` Excessive Controller Dependencies · `SL207` Excessive Service Dependencies |
 | **Architecture** (advisory) | `SL301` Abstraction Inflation · `SL302` Empty Wrapper Class · `SL303` Single-Use Abstraction |

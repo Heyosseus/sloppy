@@ -16,7 +16,7 @@ it('lists what can go wrong as defects, and how the code reads as maintainabilit
     }
 
     expect(array_keys(array_filter($tiers, static fn (string $tier): bool => $tier === 'defect')))
-        ->toBe(['SL105', 'SL107', 'SL112', 'SL501', 'SL203', 'SL204', 'SL205', 'SL210'])
+        ->toBe(['SL105', 'SL107', 'SL112', 'SL501', 'SL203', 'SL204', 'SL205', 'SL210', 'SL211'])
         ->and(array_keys(array_filter($tiers, static fn (string $tier): bool => $tier === 'advisory')))
         ->toBe(['SL301', 'SL302', 'SL303'])
         ->and($tiers['SL101'])->toBe('maintainability')

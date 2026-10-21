@@ -8,6 +8,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\Location;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Analysis\SourceKind;
 use Heyosseus\Sloppy\Contracts\Rule;
 use Heyosseus\Sloppy\Support\StringListOption;
 use PhpParser\Node;
@@ -62,6 +63,18 @@ abstract class BaseRule implements Rule
     public function requiredFramework(): ?string
     {
         return null;
+    }
+
+    /**
+     * The kinds of file this rule reads. Code only, unless a rule says what
+     * it means in a routes file or a migration -- a long `up()` is not a god
+     * method, and forty `Route::get` lines are not duplication.
+     *
+     * @return list<SourceKind>
+     */
+    public function sourceKinds(): array
+    {
+        return [SourceKind::Code];
     }
 
     protected function intOption(string $key, int $default): int

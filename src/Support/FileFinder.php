@@ -23,7 +23,7 @@ final readonly class FileFinder
      */
     public function find(): array
     {
-        return $this->findIn($this->config->paths());
+        return $this->findIn($this->roots());
     }
 
     /**
@@ -74,7 +74,7 @@ final readonly class FileFinder
             return false;
         }
 
-        foreach ($this->config->paths() as $configured) {
+        foreach ($this->roots() as $configured) {
             $root = trim($this->relative($this->absolute($configured)), '/');
 
             if ($root === '' || $root === '.' || $path === $root || str_starts_with($path, $root.'/')) {
@@ -83,6 +83,48 @@ final readonly class FileFinder
         }
 
         return false;
+    }
+
+    /**
+     * What a run reads: the configured paths, and in a Laravel project the
+     * routes and migrations directories that exist -- unless this run was
+     * told exactly what to read (`--path`).
+     *
+     * @return list<string>
+     */
+    public function roots(): array
+    {
+        $paths = $this->config->paths();
+
+        if ($this->config->explicitPaths) {
+            return $paths;
+        }
+
+        // Keyed by real path, so `Routes` on a case-insensitive disk is the
+        // `routes` already listed rather than a second copy of it.
+        $seen = [];
+
+        foreach ($paths as $path) {
+            $real = realpath($this->absolute($path));
+            $seen[$real === false ? $path : $real] = true;
+        }
+
+        foreach ($this->config->sourceKinds()->directories() as $directory) {
+            $found = str_contains($directory, '*') ? glob($this->absolute($directory), GLOB_ONLYDIR) : [$this->absolute($directory)];
+
+            foreach ($found === false ? [] : $found as $absolute) {
+                $real = is_dir($absolute) ? realpath($absolute) : false;
+
+                if ($real === false || isset($seen[$real])) {
+                    continue;
+                }
+
+                $seen[$real] = true;
+                $paths[] = $this->relative($absolute);
+            }
+        }
+
+        return $paths;
     }
 
     /**

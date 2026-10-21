@@ -9,6 +9,7 @@ use Heyosseus\Sloppy\Analysis\AnalysisResult;
 use Heyosseus\Sloppy\Analysis\Analyzer;
 use Heyosseus\Sloppy\Analysis\Finding;
 use Heyosseus\Sloppy\Analysis\RuleRegistry;
+use Heyosseus\Sloppy\Analysis\SourceKinds;
 use Heyosseus\Sloppy\Architecture\ArchitectureMap;
 use Heyosseus\Sloppy\Architecture\Profile;
 use Heyosseus\Sloppy\Ast\Parser;
@@ -57,10 +58,19 @@ final class RuleTester
 
         $index = ProjectIndex::build($parsed);
         $map = new ArchitectureMap($architecture);
+        $kinds = SourceKinds::laravel();
         $findings = [];
 
+        // Gated by kind exactly as a run is, so a test of a routes rule on
+        // app/Example.php sees what a scan would: nothing.
         foreach ($parsed as $file) {
-            foreach ($rule->analyze(new AnalysisContext($file, $index, $map)) as $finding) {
+            $kind = $kinds->of($file->relativePath);
+
+            if (! $kind->admits($rule)) {
+                continue;
+            }
+
+            foreach ($rule->analyze(new AnalysisContext($file, $index, $map, $kind)) as $finding) {
                 $findings[] = $finding;
             }
         }
@@ -76,7 +86,7 @@ final class RuleTester
      */
     public static function runAll(array $files, ?Profile $architecture = null): AnalysisResult
     {
-        $analyzer = new Analyzer(new Parser, RuleRegistry::withDefaults(), new ScoreCalculator, architecture: $architecture);
+        $analyzer = new Analyzer(new Parser, RuleRegistry::withDefaults(), new ScoreCalculator, architecture: $architecture, kinds: SourceKinds::laravel());
 
         return $analyzer->analyzeSources(array_map(self::normalise(...), $files));
     }
@@ -97,17 +107,18 @@ final class RuleTester
     }
 
     /**
-     * Every fixture in a directory, keyed as if it lived under app/.
+     * Every fixture in a directory, keyed as if it lived under app/ -- or
+     * under another directory, for the routes and migrations fixtures.
      *
      * @return array<string, string>
      */
-    public static function fixtureDirectory(string $directory): array
+    public static function fixtureDirectory(string $directory, string $under = 'app'): array
     {
         $paths = glob(__DIR__.'/../Fixtures/'.trim($directory, '/').'/*.php');
         $files = [];
 
         foreach ($paths === false ? [] : $paths as $path) {
-            $files['app/'.basename($path)] = (string) file_get_contents($path);
+            $files[trim($under, '/').'/'.basename($path)] = (string) file_get_contents($path);
         }
 
         return $files;

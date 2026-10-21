@@ -7,6 +7,7 @@ namespace Heyosseus\Sloppy\Rules\Php;
 use Heyosseus\Sloppy\Analysis\AnalysisContext;
 use Heyosseus\Sloppy\Analysis\Category;
 use Heyosseus\Sloppy\Analysis\Severity;
+use Heyosseus\Sloppy\Analysis\SourceKind;
 use Heyosseus\Sloppy\Ast\CodeUnit;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Rules\BaseRule;
@@ -77,6 +78,11 @@ final class UnexplainedSuppressionRule extends BaseRule
     protected function defaultSeverity(): Severity
     {
         return Severity::Medium;
+    }
+
+    public function sourceKinds(): array
+    {
+        return SourceKind::cases();
     }
 
     public function analyze(AnalysisContext $context): iterable

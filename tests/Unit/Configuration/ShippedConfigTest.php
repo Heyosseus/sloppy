@@ -51,20 +51,35 @@ it('excludes test directories by default, including inside modules', function ()
         ->and($finder->isExcluded('Modules/Billing/app/Models/Charge.php'))->toBeFalse();
 });
 
-it('excludes migrations, factories and seeders in module layouts by default', function (): void {
+it('excludes factories and seeders in module layouts by default', function (): void {
     // nwidart modules keep them under Modules/<Name>/Database/..., which the
-    // lower-case database/migrations entry does not match.
+    // lower-case database/factories entry does not match.
     $config = require dirname(__DIR__, 3).'/config/sloppy.php';
     $finder = new FileFinder(Configuration::fromArray([
         'paths' => ['app'],
         'exclude' => $config['exclude'],
     ], '/project'));
 
-    expect($finder->isExcluded('Modules/Billing/Database/Migrations/2024_01_01_000000_backfill.php'))->toBeTrue()
-        ->and($finder->isExcluded('Modules/Billing/Database/Seeders/BillingSeeder.php'))->toBeTrue()
+    expect($finder->isExcluded('Modules/Billing/Database/Seeders/BillingSeeder.php'))->toBeTrue()
         ->and($finder->isExcluded('Modules/Billing/Database/Factories/ChargeFactory.php'))->toBeTrue()
-        ->and($finder->isExcluded('Modules/Billing/database/migrations/2024_01_01_000000_backfill.php'))->toBeTrue()
         ->and($finder->isExcluded('Modules/Billing/app/Models/Charge.php'))->toBeFalse();
+});
+
+it('reads migrations, with rules of their own, rather than excluding them', function (): void {
+    // They used to be excluded because the size and duplication rules
+    // flooded them; those rules no longer read a migration.
+    $config = require dirname(__DIR__, 3).'/config/sloppy.php';
+    $finder = new FileFinder(Configuration::fromArray([
+        'paths' => ['app'],
+        'exclude' => $config['exclude'],
+    ], '/project'));
+
+    expect($finder->isExcluded('database/migrations/2024_01_01_000000_create_orders.php'))->toBeFalse()
+        ->and($finder->isExcluded('Modules/Billing/Database/Migrations/2024_01_01_000000_backfill.php'))->toBeFalse()
+        ->and($config['laravel'])->toBe([
+            'routes' => ['routes', 'Routes'],
+            'migrations' => ['database/migrations', 'Database/Migrations'],
+        ]);
 });
 
 it('ships the same SL301 convention bases the rule defaults to', function (): void {

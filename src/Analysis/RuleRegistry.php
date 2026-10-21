@@ -17,14 +17,20 @@ use Heyosseus\Sloppy\Rules\Architecture\SingleUseAbstractionRule;
 use Heyosseus\Sloppy\Rules\BaseRule;
 use Heyosseus\Sloppy\Rules\Laravel\BusinessLogicInControllerRule;
 use Heyosseus\Sloppy\Rules\Laravel\CollectionInsteadOfQueryRule;
+use Heyosseus\Sloppy\Rules\Laravel\DestructiveGetRouteRule;
 use Heyosseus\Sloppy\Rules\Laravel\DirectExternalApiRule;
 use Heyosseus\Sloppy\Rules\Laravel\ExcessiveControllerDependenciesRule;
 use Heyosseus\Sloppy\Rules\Laravel\ExcessiveServiceDependenciesRule;
 use Heyosseus\Sloppy\Rules\Laravel\InlineValidationRule;
+use Heyosseus\Sloppy\Rules\Laravel\IrreversibleMigrationRule;
+use Heyosseus\Sloppy\Rules\Laravel\LogicInRouteClosureRule;
+use Heyosseus\Sloppy\Rules\Laravel\MissingRouteActionRule;
 use Heyosseus\Sloppy\Rules\Laravel\ModelDoingTooMuchRule;
+use Heyosseus\Sloppy\Rules\Laravel\ModelInMigrationRule;
 use Heyosseus\Sloppy\Rules\Laravel\PossibleNPlusOneRule;
 use Heyosseus\Sloppy\Rules\Laravel\QueryInsideLoopRule;
 use Heyosseus\Sloppy\Rules\Laravel\SuspiciousModelAllRule;
+use Heyosseus\Sloppy\Rules\Laravel\UnconstrainedForeignKeyRule;
 use Heyosseus\Sloppy\Rules\Php\CopyPasteDriftRule;
 use Heyosseus\Sloppy\Rules\Php\DeadPrivateMethodRule;
 use Heyosseus\Sloppy\Rules\Php\DefensiveProgrammingNoiseRule;
@@ -88,6 +94,12 @@ final readonly class RuleRegistry
             DirectExternalApiRule::class,
             ModelDoingTooMuchRule::class,
             SuspiciousModelAllRule::class,
+            MissingRouteActionRule::class,
+            LogicInRouteClosureRule::class,
+            DestructiveGetRouteRule::class,
+            IrreversibleMigrationRule::class,
+            ModelInMigrationRule::class,
+            UnconstrainedForeignKeyRule::class,
 
             AbstractionInflationRule::class,
             EmptyWrapperClassRule::class,

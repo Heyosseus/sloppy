@@ -4,6 +4,46 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] — 2026-10-21
+
+Sloppy reads routes and migrations in Laravel projects, with rules written for
+them, and keeps the size and duplication rules out of both.
+
+### Added
+
+- **Routes and migrations are read by default in a Laravel project.** The new
+  `laravel` setting names their directories (`routes`, `database/migrations`
+  and the capitalised module layouts), matched at any depth like `exclude`.
+  They are read as well as `paths`, unless `--path` says what to read.
+- **Files have a kind, and a rule says which kinds it reads.** Routes files
+  and migrations are read only by the rules written for them plus `SL103`,
+  `SL107`, `SL112` and `SL501`; `SL101`, `SL104` and the other size,
+  duplication and readability rules no longer see them. A custom rule reads
+  code only, as before, unless it extends `BaseRule` and overrides
+  `sourceKinds()`.
+- `SL211` Missing Route Action: a route to a controller method that does not
+  exist, with the method a typo was reaching for. Reported only when the whole
+  controller is in sight.
+- `SL212` Logic In Route Closure: a closure in a routes file that queries,
+  writes, validates or runs long.
+- `SL213` Destructive GET Route: a GET routed to `store`, `update` or
+  `destroy`, or whose URI says `delete`. Listed with the defects.
+- `SL214` Edited Migration: a migration that existed at the base revision and
+  was modified or renamed. Diff, CI, review and the agent hooks only.
+- `SL215` Irreversible Migration, `SL216` Model In Migration and `SL217`
+  Unconstrained Foreign Key.
+
+### Upgrading
+
+- `database/migrations` and `Database/Migrations` are no longer in the default
+  `exclude`. A published config that still lists them keeps migrations out of
+  the scan: remove those entries to get `SL215` to `SL217`. `SL214` reads git,
+  not the scan, and works either way.
+- A project that put `routes` in `paths` itself now gets the routes rules on
+  it instead of the general ones, so those files may report fewer findings
+  than before.
+- The CI templates install `^1.8` by default.
+
 ## [1.7.2] — 2026-10-19
 
 ### Fixed
@@ -1214,6 +1254,7 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
+[1.8.0]: https://github.com/heyosseus/sloppy/compare/v1.7.2...v1.8.0
 [1.7.2]: https://github.com/heyosseus/sloppy/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/heyosseus/sloppy/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/heyosseus/sloppy/compare/v1.6.0...v1.7.0
