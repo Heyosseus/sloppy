@@ -43,11 +43,16 @@ final readonly class EvidenceCollector
             new BaselineGrowthSource(self::stringsFrom($config, 'SL502', 'files', ['phpstan-baseline.neon', 'psalm-baseline.xml'])),
             new WeakenedTestSource(self::stringsFrom($config, 'SL503', 'paths', ['tests'])),
             new MisplacedClassSource($profile),
+            new EditedMigrationSource($config->sourceKinds()),
         ];
 
         foreach ($candidates as $source) {
             // Like a policy rule, SL307 joins only when the architecture
             // declares where classes are expected to play a role.
+            if ($source instanceof EditedMigrationSource && ! $config->hasFramework('laravel')) {
+                continue;
+            }
+
             if ($config->isRuleEnabled($source->id()) && (! $source instanceof PolicyRule || $source->appliesTo($profile))) {
                 $sources[] = $source;
             }

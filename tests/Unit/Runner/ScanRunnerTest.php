@@ -26,7 +26,7 @@ it('says nothing and succeeds when sloppy is disabled', function () use ($fixtur
 
 it('names the skipped rules when a missing framework is the reason none are enabled', function () use ($fixtures): void {
     $output = new RecordingRunnerOutput;
-    // $fixtures has no composer.json, so the ten Laravel rules are skipped for
+    // $fixtures has no composer.json, so the sixteen Laravel rules are skipped for
     // a missing framework before --rule even gets a chance to matter.
     $sloppy = new Sloppy(Configuration::fromArray(['paths' => ['Sloppy']], $fixtures));
 
@@ -34,7 +34,7 @@ it('names the skipped rules when a missing framework is the reason none are enab
 
     expect($code)->toBe(ExitCode::Error)
         ->and($output->messages())->toBe([
-            'error: No rules are enabled: 10 rule(s) were skipped for a missing framework '
+            'error: No rules are enabled: 16 rule(s) were skipped for a missing framework '
             .'(sloppy.framework: auto). Check sloppy.rules and any --rule filter.',
         ]);
 });

@@ -49,13 +49,13 @@ final class NeverFiresRule extends BaseRule
     }
 }
 
-it('ships thirty-one rules with unique ids', function (): void {
+it('ships thirty-seven rules with unique ids', function (): void {
     $registry = RuleRegistry::withDefaults();
     $ids = $registry->ids();
 
-    expect($ids)->toHaveCount(31)
-        ->and(array_unique($ids))->toHaveCount(31)
-        ->and($registry->count())->toBe(31);
+    expect($ids)->toHaveCount(37)
+        ->and(array_unique($ids))->toHaveCount(37)
+        ->and($registry->count())->toBe(37);
 });
 
 it('gives every rule an id, name, description, explanation and category', function (): void {
@@ -84,7 +84,7 @@ it('drops rules the configuration disables', function (): void {
 
     expect($registry->ids())->not->toContain('SL109')
         ->not->toContain('SL110')
-        ->and($registry->count())->toBe(25);
+        ->and($registry->count())->toBe(31);
 });
 
 it('applies per-rule options', function (): void {
@@ -102,7 +102,7 @@ it('registers custom rules from configuration', function (): void {
         'custom_rules' => [NeverFiresRule::class],
     ], '/project'));
 
-    expect($registry->count())->toBe(28)
+    expect($registry->count())->toBe(34)
         ->and($registry->get('APP001'))->toBeInstanceOf(NeverFiresRule::class);
 });
 
@@ -130,6 +130,7 @@ it('keeps the skipped list when narrowing to specific rule ids', function (): vo
         ->and($registry->skipped())->toBe([
             'SL201', 'SL202', 'SL203', 'SL204', 'SL205',
             'SL206', 'SL207', 'SL208', 'SL209', 'SL210',
+            'SL211', 'SL212', 'SL213', 'SL215', 'SL216', 'SL217',
         ]);
 
     removeTree($project);
@@ -155,8 +156,9 @@ it('has an entry in the shipped config for every shipped detector', function ():
     // same way, so it belongs to the same invariant.
     $detectors = [
         ...RuleRegistry::withDefaults()->ids(),
-        // SL307 joins only where the architecture covers paths.
-        ...EvidenceCollector::fromConfiguration(Configuration::fromArray(['architecture' => ['covers' => 'app/*']], __DIR__))->ids(),
+        // SL307 joins only where the architecture covers paths, SL214 only
+        // in a Laravel project.
+        ...EvidenceCollector::fromConfiguration(Configuration::fromArray(['framework' => 'laravel', 'architecture' => ['covers' => 'app/*']], __DIR__))->ids(),
     ];
 
     foreach ($detectors as $id) {
@@ -176,6 +178,7 @@ it('skips the laravel rules in a project that is not laravel, and names them', f
         ->and($registry->skipped())->toBe([
             'SL201', 'SL202', 'SL203', 'SL204', 'SL205',
             'SL206', 'SL207', 'SL208', 'SL209', 'SL210',
+            'SL211', 'SL212', 'SL213', 'SL215', 'SL216', 'SL217',
         ]);
 
     removeTree($project);
@@ -185,7 +188,7 @@ it('runs every rule in a laravel project, except the architecture rules with not
     $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
     $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project));
 
-    expect($registry->count())->toBe(27)
+    expect($registry->count())->toBe(33)
         ->and($registry->skipped())->toBe([]);
 
     removeTree($project);

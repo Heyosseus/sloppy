@@ -47,7 +47,7 @@ it('scans a vanilla project and skips the laravel rules', function (): void {
 
     expect($code)->toBe(0)
         ->and($decoded['findings'])->toBe([])
-        ->and($decoded['rules_skipped'])->toHaveCount(10);
+        ->and($decoded['rules_skipped'])->toHaveCount(16);
 
     removeTree($project);
 });

@@ -578,6 +578,46 @@ return [
             ],
         ],
 
+        // ---- Routes and migrations -------------------------------------
+        //
+        // These read only the files `laravel` above names, and SL214 only
+        // runs where there is a base to compare with.
+
+        'SL211' => [
+            // Missing Route Action. Reports only when the controller, its
+            // parents and its traits are all in the analysed paths.
+        ],
+
+        'SL212' => [
+            // Logic In Route Closure. A closure longer than this is reported
+            // even when it neither queries nor validates.
+            'max_statements' => 10,
+        ],
+
+        'SL213' => [
+            // Destructive GET Route. Listed with the defects: a GET that
+            // deletes is a hole, not a style choice.
+            'tier' => 'defect',
+        ],
+
+        'SL214' => [
+            // Edited Migration, reported by sloppy diff, ci, review and the
+            // agent hooks only.
+        ],
+
+        'SL215' => [
+            // Irreversible Migration. Turn it off if your team never rolls
+            // back and says so in its migrations.
+        ],
+
+        'SL216' => [
+            // Model In Migration.
+        ],
+
+        'SL217' => [
+            // Unconstrained Foreign Key.
+        ],
+
         // ---- Architecture ----------------------------------------------
 
         'SL301' => [

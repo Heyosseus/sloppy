@@ -88,6 +88,13 @@ final class ConfigSchema
         'SL208' => [],
         'SL209' => ['max_method_lines' => 'int', 'min_signals' => 'int'],
         'SL210' => ['ignore_models' => 'list'],
+        'SL211' => [],
+        'SL212' => ['max_statements' => 'int'],
+        'SL213' => [],
+        'SL214' => [],
+        'SL215' => [],
+        'SL216' => [],
+        'SL217' => [],
         'SL301' => [
             'min_layers' => 'int', 'min_signals' => 'int', 'trivial_max_statements' => 'int',
             'trivial_max_methods' => 'int', 'convention_bases' => 'list', 'layer_suffixes' => 'list',

@@ -26,7 +26,7 @@ it('writes every rule in force, with what to do instead', function (): void {
 
     expect($ruleset)->toContain('# Sloppy: code rules for this repository')
         ->and($ruleset)->toContain('Instructions for Claude Code working in this repository.')
-        ->and($ruleset)->toContain('## The 27 rules in force')
+        ->and($ruleset)->toContain('## The 33 rules in force')
         ->and($ruleset)->toContain('### SL101 God Method')
         ->and($ruleset)->toContain('### SL210 Suspicious Model::all()')
         ->and($ruleset)->toContain('- Write it this way instead: Give a method one job.')
@@ -84,7 +84,7 @@ it('writes the same rules as structured JSON', function (): void {
     expect($decoded['schema'])->toBe(1)
         ->and($decoded['version'])->toBe(Sloppy::VERSION)
         ->and($decoded['project']['fail_on'])->toBe('high')
-        ->and($decoded['rules'])->toHaveCount(27)
+        ->and($decoded['rules'])->toHaveCount(33)
         ->and($decoded['rules'][0])->toHaveKeys(['id', 'name', 'category', 'severity', 'description', 'explanation', 'guidance'])
         ->and($decoded['rules_not_in_force'])->toBe([]);
 });
