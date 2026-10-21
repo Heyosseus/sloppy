@@ -6,9 +6,10 @@ Every rule Sloppy ships, and how the rule set is kept quiet on ordinary code.
 
 ## Rules
 
-27 rules ship, plus two diff-only checks (`SL502`, `SL503`) that compare your
-change with its base revision, and five more (`SL304` to `SL308`, one of them
-diff-only) that join a run only when a project declares its architecture.
+33 rules ship, plus three diff-only checks (`SL214`, `SL502`, `SL503`) that
+compare your change with its base revision, and five more (`SL304` to `SL308`,
+one of them diff-only) that join a run only when a project declares its
+architecture.
 Every one has tests proving both that it fires on the pattern and that it
 stays quiet on ordinary code.
 
@@ -48,6 +49,23 @@ by checking less.
 | `SL208` | Direct External API Call | Medium | Laravel | Outbound HTTP requests made directly from controllers, models, form requests or middleware -- and from any role whose [architecture policy](configuration.md#policies) forbids `http`. Outbound means the `Http` facade, curl, a remote `file_get_contents()`, or constructing a Guzzle, PSR-18, Symfony or HTTPlug client by its fully qualified name -- not any class named `Client`. |
 | `SL209` | Model Doing Too Much | Medium | Laravel | Eloquent models -- including ones that extend a base model of the project's own -- that make outbound calls, dispatch notifications or jobs, or contain long business workflows. |
 | `SL210` | Suspicious `Model::all()` | Medium | Performance | `Model::all()` whose result is iterated in the same method (including `foreach (Order::all() as ...)`), or which is called from inside a loop. |
+
+### Routes and migrations
+
+In a Laravel project Sloppy reads `routes/` and `database/migrations/` as well
+as `app/` -- see [Routes and migrations](configuration.md#routes-and-migrations).
+These rules read only those files, and the size, duplication and readability
+rules leave them alone.
+
+| ID | Rule | Severity | Category | What it looks for |
+| --- | --- | --- | --- | --- |
+| `SL211` | Missing Route Action | High | Dead code | A route whose action names a controller method the controller does not have -- `[OrderController::class, 'exportCsv']`, `'App\Http\Controllers\OrderController@export'`, a bare method name inside `Route::controller(...)->group()`, or an invokable controller with no `__invoke()`. Only public methods count. Reported only when the controller, every parent and every trait are in the analysed paths, or the chain ends at `Illuminate\Routing\Controller`, and nothing on the way declares `__call`. Suggests the method a typo was reaching for. |
+| `SL212` | Logic In Route Closure | Medium | Laravel | A closure in a routes file that queries or writes the database, validates input, or runs more than `max_statements` (10) statements. Low with one of those, Medium with two or more. A closure that returns a view or a redirect is fine. |
+| `SL213` | Destructive GET Route | High | Laravel | A GET route pointed at `store`, `update`, `destroy`, `delete` or `remove`, or whose URI has a segment such as `delete`, `remove` or `purge`. A segment that only starts with one (`/delete-account`) is often the confirmation page, and is Medium at 65% confidence. Listed with the defects by default. |
+| `SL214` | Edited Migration | High | Laravel | A migration that existed at the base revision and this change modified or renamed. Laravel never runs a migration twice, so an edit never reaches a database where it already ran, and a rename runs it again. Diff mode only. Reads every file git says changed, so it works even where `exclude` keeps migrations out of the scan. |
+| `SL215` | Irreversible Migration | Medium | Laravel | A migration whose `up()` calls `Schema::` while its `down()` is missing, empty, or touches neither `Schema` nor `DB` (70% confidence). A `down()` that throws, or calls a method of its own, counts as an answer. |
+| `SL216` | Model In Migration | Medium | Laravel | A static call on, or `new` of, an Eloquent model inside a migration: a model the index knows, or any `App\Models\*` class. Reported once per model per migration. `foreignIdFor(User::class)` is not a call through the model. |
+| `SL217` | Unconstrained Foreign Key | Low | Laravel | A `foreignId()` or `foreignIdFor()` column in `up()` with no `constrained()` in its chain and no separate `$table->foreign()` for it. |
 
 ### Architecture
 
@@ -103,7 +121,7 @@ test fails on any *new* finding about Sloppy's own code. Four others it found
 were genuine, and they were fixed.
 
 The other half of the answer is `tests/Fixtures/Good`: deliberately ordinary
-Laravel code, with a test asserting that all 27 rules report **zero** findings
+Laravel code, with a routes file and a migration, and a test asserting that all 33 rules report **zero** findings
 on it at a score of 100. The same corpus is run again under a declared
 architecture (the `laravel` preset plus a policy, a shape and a module
 boundary for every role it contains), where `SL304`, `SL305`, `SL306` and

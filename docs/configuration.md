@@ -37,9 +37,15 @@ return [
 
     'exclude' => [
         'vendor', 'storage', 'bootstrap/cache', 'node_modules', 'public',
-        'database/migrations', 'database/factories', 'database/seeders',
-        'Database/Migrations', 'Database/Factories', 'Database/Seeders',
+        'database/factories', 'database/seeders',
+        'Database/Factories', 'Database/Seeders',
         'tests', 'Tests', '*.blade.php',
+    ],
+
+    // Laravel only: read as well as `paths`, each with rules of its own.
+    'laravel' => [
+        'routes' => ['routes', 'Routes'],
+        'migrations' => ['database/migrations', 'Database/Migrations'],
     ],
 
     // Lowest severity that fails the command, or null to never fail.
@@ -72,6 +78,23 @@ return [
 Exclusions match whole path segments at any depth, so `vendor` excludes both
 `vendor/…` and `packages/foo/vendor/…`. Entries containing `*` are matched as
 globs.
+
+### Routes and migrations
+
+In a Laravel project, the directories under `laravel` are read as well as
+`paths`, and matched the way exclusions are: `routes` covers
+`Modules/Billing/routes` too. A routes file is read by
+[`SL211` to `SL213`](rules.md#routes-and-migrations) and a migration by
+`SL215` to `SL217`, plus the four rules that mean the same thing anywhere:
+`SL103`, `SL107`, `SL112` and `SL501`. The size, duplication and readability
+rules do not read either: a long `up()` is not a god method, and forty
+`Route::get` lines are not duplication.
+
+`--path` replaces all of it: `sloppy --path=app/Http` reads `app/Http` and
+nothing else. Set `routes` or `migrations` to `[]` to stop reading them, and
+`exclude` still wins over both. A config file published before Sloppy read
+migrations lists `database/migrations` under `exclude`, so its migrations stay
+unread until that entry is removed.
 
 The published config file documents every option of every rule with its
 default. Start by reading that rather than this page.
