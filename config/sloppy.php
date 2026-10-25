@@ -518,6 +518,10 @@ return [
             'ignore_methods' => ['__construct'],
         ],
 
+        'SL114' => [
+            // Nested Ternary.
+        ],
+
         // ---- Laravel ---------------------------------------------------
 
         'SL201' => [

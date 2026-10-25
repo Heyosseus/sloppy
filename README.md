@@ -77,7 +77,7 @@ scan on demand. See [Coding agents](docs/agents.md).
 
 ## What it catches
 
-33 rules, plus three checks that compare your change with its base, and five
+34 rules, plus three checks that compare your change with its base, and five
 more that enforce an architecture you describe. Each one is tested to fire on
 the pattern *and* to stay silent on ordinary Laravel code.
 
@@ -87,7 +87,7 @@ the pattern *and* to stay silent on ordinary Laravel code.
 | **Duplication** | `SL104` Duplicate Logic · `SL111` Copy-Paste Drift, a near-copy whose one difference looks like an unfinished edit |
 | **Dead code & dependencies** | `SL105` Dead Private Method · `SL106` Unused Constructor Dependency · `SL112` Placeholder Implementation, the `// ... existing code ...` or "not implemented" left where a body should be |
 | **Error handling** | `SL107` Swallowed Exception |
-| **Readability** | `SL108` Redundant Condition · `SL109` Narrative Comment · `SL110` Defensive Programming Noise |
+| **Readability** | `SL108` Redundant Condition · `SL109` Narrative Comment · `SL110` Defensive Programming Noise · `SL114` Nested Ternary |
 | **Laravel** | `SL201` Business Logic In Controller · `SL202` Inline Validation · `SL208` Direct External API Call · `SL209` Model Doing Too Much |
 | **Routes & migrations** | `SL211` Missing Route Action, a route to a controller method nobody wrote · `SL212` Logic In Route Closure · `SL213` Destructive GET Route · `SL214` Edited Migration, a migration changed after it already ran · `SL215` Irreversible Migration · `SL216` Model In Migration · `SL217` Unconstrained Foreign Key |
 | **Performance** | `SL203` Possible N+1 · `SL204` Query Inside Loop · `SL205` Collection Instead Of Query · `SL210` Suspicious `Model::all()` |

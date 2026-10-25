@@ -44,7 +44,7 @@ it('binds the entry point with every rule wired up', function (): void {
     $sloppy = app(Sloppy::class);
 
     expect($sloppy)->toBeInstanceOf(Sloppy::class)
-        ->and($sloppy->rules()->count())->toBe(33)
+        ->and($sloppy->rules()->count())->toBe(34)
         // SL304 to SL306 and SL308 enforce a declared architecture, and the default
         // profile declares no policies, shapes or boundaries.
         ->and($sloppy->rules()->ids())->toBe(array_values(array_diff(RuleRegistry::withDefaults()->ids(), ['SL304', 'SL305', 'SL306', 'SL308'])));
@@ -81,5 +81,5 @@ it('narrows to selected rules without touching the original', function (): void 
     $narrowed = $sloppy->onlyRules(['SL101']);
 
     expect($narrowed->rules()->ids())->toBe(['SL101'])
-        ->and($sloppy->rules()->count())->toBe(33);
+        ->and($sloppy->rules()->count())->toBe(34);
 });

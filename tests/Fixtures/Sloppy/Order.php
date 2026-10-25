@@ -32,6 +32,11 @@ class Order extends Model
         return number_format($this->total / 100, 2);
     }
 
+    public function priorityLabel(): string
+    {
+        return $this->total > 100000 ? 'high' : ($this->total > 10000 ? 'medium' : 'low');
+    }
+
     public function fulfil(): void
     {
         $this->status = 'fulfilled';

@@ -78,6 +78,7 @@ final class ConfigSchema
         ],
         'SL112' => [],
         'SL113' => ['max_params' => 'int', 'ignore_methods' => 'list'],
+        'SL114' => [],
         'SL201' => ['min_score' => 'int', 'min_statements' => 'int', 'max_complexity' => 'int', 'max_statements' => 'int'],
         'SL202' => ['max_rules' => 'int', 'controllers_only' => 'bool'],
         'SL203' => ['ignore_relations' => 'list'],
