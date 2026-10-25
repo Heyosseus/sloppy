@@ -37,7 +37,11 @@ final readonly class HookOutcome
         HookEvent $event,
     ) {
         $visible = $blocking || $host->noticesOnStdout();
-        $this->stdout = $blocking ? $this->decision($host->blockOutput($event, rtrim($feedback))) : ($visible ? $notice : '');
+        $this->stdout = match (true) {
+            $blocking => $this->decision($host->blockOutput($event, rtrim($feedback))),
+            $visible => $notice,
+            default => '',
+        };
         $this->stderr = $visible ? '' : $notice;
     }
 

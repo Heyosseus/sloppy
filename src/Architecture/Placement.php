@@ -131,7 +131,11 @@ final readonly class Placement
         $score = 0;
 
         foreach (array_unique($words) as $word) {
-            $score += in_array($word, $strong, true) ? 3 : (in_array($word, $weak, true) ? 1 : 0);
+            $score += match (true) {
+                in_array($word, $strong, true) => 3,
+                in_array($word, $weak, true) => 1,
+                default => 0,
+            };
         }
 
         return $score;
