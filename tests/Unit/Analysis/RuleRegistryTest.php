@@ -49,13 +49,13 @@ final class NeverFiresRule extends BaseRule
     }
 }
 
-it('ships thirty-seven rules with unique ids', function (): void {
+it('ships thirty-eight rules with unique ids', function (): void {
     $registry = RuleRegistry::withDefaults();
     $ids = $registry->ids();
 
-    expect($ids)->toHaveCount(37)
-        ->and(array_unique($ids))->toHaveCount(37)
-        ->and($registry->count())->toBe(37);
+    expect($ids)->toHaveCount(38)
+        ->and(array_unique($ids))->toHaveCount(38)
+        ->and($registry->count())->toBe(38);
 });
 
 it('gives every rule an id, name, description, explanation and category', function (): void {
@@ -84,7 +84,7 @@ it('drops rules the configuration disables', function (): void {
 
     expect($registry->ids())->not->toContain('SL109')
         ->not->toContain('SL110')
-        ->and($registry->count())->toBe(31);
+        ->and($registry->count())->toBe(32);
 });
 
 it('applies per-rule options', function (): void {
@@ -102,7 +102,7 @@ it('registers custom rules from configuration', function (): void {
         'custom_rules' => [NeverFiresRule::class],
     ], '/project'));
 
-    expect($registry->count())->toBe(34)
+    expect($registry->count())->toBe(35)
         ->and($registry->get('APP001'))->toBeInstanceOf(NeverFiresRule::class);
 });
 
@@ -188,7 +188,7 @@ it('runs every rule in a laravel project, except the architecture rules with not
     $project = tempProject(['composer.json' => '{"require":{"laravel/framework":"^12.0"}}']);
     $registry = RuleRegistry::fromConfiguration(Configuration::fromArray([], $project));
 
-    expect($registry->count())->toBe(33)
+    expect($registry->count())->toBe(34)
         ->and($registry->skipped())->toBe([]);
 
     removeTree($project);

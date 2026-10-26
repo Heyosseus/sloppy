@@ -265,7 +265,11 @@ final readonly class DiffAnalyzer
                 continue;
             }
 
-            $gone = $file->status === 'deleted' ? $file->relativePath : ($file->status === 'renamed' ? $file->previousPath : null);
+            $gone = match ($file->status) {
+                'deleted' => $file->relativePath,
+                'renamed' => $file->previousPath,
+                default => null,
+            };
 
             if ($gone !== null && $this->finder->covers($gone)) {
                 $deleted[$gone] = new ChangedFile($gone, 'deleted');

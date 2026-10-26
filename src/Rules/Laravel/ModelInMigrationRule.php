@@ -114,8 +114,10 @@ final class ModelInMigrationRule extends LaravelRule
     {
         $snake = mb_strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $model));
 
-        return str_ends_with($snake, 'y') && ! preg_match('/[aeiou]y$/', $snake)
-            ? substr($snake, 0, -1).'ies'
-            : (str_ends_with($snake, 's') ? $snake.'es' : $snake.'s');
+        return match (true) {
+            str_ends_with($snake, 'y') && ! preg_match('/[aeiou]y$/', $snake) => substr($snake, 0, -1).'ies',
+            str_ends_with($snake, 's') => $snake.'es',
+            default => $snake.'s',
+        };
     }
 }

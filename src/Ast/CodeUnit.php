@@ -153,9 +153,11 @@ final readonly class CodeUnit
             return [];
         }
 
-        $property = $owner instanceof Property
-            ? $owner->props[0]->name->toString()
-            : ($owner->var instanceof Node\Expr\Variable && is_string($owner->var->name) ? $owner->var->name : 'property');
+        $property = match (true) {
+            $owner instanceof Property => $owner->props[0]->name->toString(),
+            $owner->var instanceof Node\Expr\Variable && is_string($owner->var->name) => $owner->var->name,
+            default => 'property',
+        };
 
         $units = [];
 

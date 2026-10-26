@@ -28,7 +28,11 @@ final readonly class RulesetFile
     {
         // The team's own line endings, so the block does not turn a LF file
         // into a mixed one on Windows; a new file gets the platform's.
-        $eol = $existing === null || trim($existing) === '' ? PHP_EOL : (str_contains($existing, "\r\n") ? "\r\n" : "\n");
+        $eol = match (true) {
+            $existing === null || trim($existing) === '' => PHP_EOL,
+            str_contains($existing, "\r\n") => "\r\n",
+            default => "\n",
+        };
         $body = preg_replace('/\R/', $eol, trim($generated)) ?? trim($generated);
         $block = self::BEGIN.$eol.$eol.$body.$eol.$eol.self::END.$eol;
 
