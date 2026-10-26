@@ -52,6 +52,7 @@ jobs:
           # Unused here, because the step above guarantees a local binary.
           # It is set so this file stays an honest example of the action.
           version: '^1.8'
+          php-version: 'none'
 
       - name: Report
         if: always()
