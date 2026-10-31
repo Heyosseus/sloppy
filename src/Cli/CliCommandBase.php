@@ -14,7 +14,6 @@ use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Support\StringListOption;
 use Heyosseus\Sloppy\Support\Terminal;
 use InvalidArgumentException;
-use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -115,11 +114,9 @@ abstract class CliCommandBase extends Command
             return $paths;
         }
 
-        try {
-            $root = (new ProjectLocator)->locate(null, $cwd);
-        } catch (RuntimeException) {
-            return $paths;
-        }
+        // No composer.json above the working directory is an error sloppy()
+        // reports anyway, so it is left to surface from here unchanged.
+        $root = (new ProjectLocator)->locate(null, $cwd);
 
         return (new WorkingDirectoryPaths)->resolve($paths, $root, $cwd);
     }
