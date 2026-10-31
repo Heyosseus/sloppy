@@ -35,7 +35,7 @@ final class ScanCliCommand extends CliCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         return $this->runWith($input, $output, fn (Sloppy $sloppy, RunnerOutput $runnerOutput): ExitCode => (new ScanRunner)->run($sloppy, new ScanOptions(
-            paths: $this->stringListOption($input, 'path'),
+            paths: $this->pathOption($input),
             format: OutputFormat::parse($this->stringOption($input, 'format') ?? 'console'),
             failOn: $this->stringOption($input, 'fail-on'),
             minConfidence: $this->intOption($input, 'min-confidence'),

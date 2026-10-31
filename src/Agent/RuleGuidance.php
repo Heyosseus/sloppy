@@ -38,7 +38,7 @@ final readonly class RuleGuidance
         'SL111' => 'Copies drift. When two blocks started identical and one has changed, either re-unify them or make the difference explicit -- a divergence nobody chose is a bug waiting for its turn.',
         'SL112' => 'Finish the body you were asked for. Never leave "... existing code ...", a "not implemented" throw or a TODO over return []; if you cannot finish it, say so in your reply instead of shipping a stand-in.',
         'SL113' => 'Group related parameters into a value object, or split the method so each caller only passes what that part of the work needs.',
-        'SL114' => 'Replace a nested ternary with an if/elseif chain or a match expression, so each condition reads as its own line.',
+        'SL114' => 'Replace a nested ternary with an if/elseif chain or a match expression, so each condition reads as its own line. A chain of short ternaries ($a ?: $b ?: $c) is fine: it reads as a list of fallbacks.',
         'SL201' => 'Keep controllers to translating HTTP into one call and back. Put the decision in an action, a service or the model.',
         'SL202' => 'Validate in a FormRequest, or in a single validate() call. Hand-rolled if-blocks drift away from the rules the API documents.',
         'SL203' => 'Eager-load what the loop will touch: with() the relations before you iterate, not inside the iteration.',

@@ -27,7 +27,7 @@ final class BaselineCliCommand extends CliCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         return $this->runWith($input, $output, fn (Sloppy $sloppy, RunnerOutput $runnerOutput): ExitCode => (new BaselineRunner)->run($sloppy, new BaselineOptions(
-            paths: $this->stringListOption($input, 'path'),
+            paths: $this->pathOption($input),
             minConfidence: $this->intOption($input, 'min-confidence'),
             rules: $this->stringListOption($input, 'rule'),
             force: $input->getOption('force') === true,

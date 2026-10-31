@@ -4,6 +4,38 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] — 2026-10-31
+
+### Added
+
+- `SL114` Nested Ternary: a ternary whose condition, true branch or false
+  branch is itself a ternary, reported once at the outermost one.
+  - A single nested pair is Low; a chain three or more deep is Medium, and
+    the finding records its `depth`.
+  - The message says where the nested ternary sits, and one in the condition
+    is reported with more confidence than one in a branch.
+  - When every condition compares the same expression with a value, the
+    suggestion names the `match ($subject)` to write; otherwise it suggests
+    `match (true)` or if/elseif.
+  - A chain of short ternaries, `$a ?: $b ?: $c`, reads as a list of
+    fallbacks and is not reported. Neither is a ternary inside a function
+    call argument.
+
+### Fixed
+
+- **`--path` typed in a subdirectory is read from that subdirectory.** It used
+  to be read from the project root, so `cd app && sloppy --path=.` scanned the
+  whole project -- or, when the nearest `composer.json` sat far above, a tree
+  nobody meant to scan, which looked like a hang. A path that does not exist
+  from the working directory is still read from the root, and `--project`
+  keeps every path relative to that project.
+- The self-review workflow no longer switches the runner's PHP version.
+
+### Internal
+
+- Sloppy's own nested ternaries are now `match` expressions.
+- The package description counts 34 rules.
+
 ## [1.8.0] — 2026-10-21
 
 Sloppy reads routes and migrations in Laravel projects, with rules written for
@@ -1254,6 +1286,7 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
+[1.8.1]: https://github.com/heyosseus/sloppy/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/heyosseus/sloppy/compare/v1.7.2...v1.8.0
 [1.7.2]: https://github.com/heyosseus/sloppy/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/heyosseus/sloppy/compare/v1.7.0...v1.7.1

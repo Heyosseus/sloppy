@@ -39,7 +39,7 @@ final class WatchCliCommand extends CliCommandBase
         // and exit code 2, like every other command's, not a stack trace.
         return $this->runWith($input, $output, function (Sloppy $sloppy, RunnerOutput $runnerOutput) use ($input, $output): ExitCode {
             $options = new WatchOptions(
-                paths: $this->stringListOption($input, 'path'),
+                paths: $this->pathOption($input),
                 rules: $this->stringListOption($input, 'rule'),
                 minConfidence: $this->intOption($input, 'min-confidence'),
                 top: $this->intOption($input, 'top'),

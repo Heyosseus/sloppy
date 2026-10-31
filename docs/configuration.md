@@ -91,7 +91,10 @@ rules do not read either: a long `up()` is not a god method, and forty
 `Route::get` lines are not duplication.
 
 `--path` replaces all of it: `sloppy --path=app/Http` reads `app/Http` and
-nothing else. Set `routes` or `migrations` to `[]` to stop reading them, and
+nothing else. Typed in a subdirectory, a relative `--path` is read from there,
+the way the shell would: `cd app && sloppy --path=.` reads `app`. A path that
+does not exist from there is read from the project root, as before, and with
+`--project` paths are always relative to that project. Set `routes` or `migrations` to `[]` to stop reading them, and
 `exclude` still wins over both. A config file published before Sloppy read
 migrations lists `database/migrations` under `exclude`, so its migrations stay
 unread until that entry is removed.

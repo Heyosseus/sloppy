@@ -99,6 +99,29 @@ abstract class CliCommandBase extends Command
     }
 
     /**
+     * `--path` as the user meant it: relative to the directory they typed it
+     * in when that is inside the project (see {@see WorkingDirectoryPaths}).
+     * With `--project`, paths stay relative to that project, as documented.
+     *
+     * @return list<string>
+     */
+    protected function pathOption(InputInterface $input): array
+    {
+        $paths = $this->stringListOption($input, 'path');
+        $cwd = (string) getcwd();
+
+        if ($paths === [] || $this->stringOption($input, 'project') !== null) {
+            return $paths;
+        }
+
+        // No composer.json above the working directory is an error sloppy()
+        // reports anyway, so it is left to surface from here unchanged.
+        $root = (new ProjectLocator)->locate(null, $cwd);
+
+        return (new WorkingDirectoryPaths)->resolve($paths, $root, $cwd);
+    }
+
+    /**
      * The `DiffOptions` shared by `diff` and `review` -- same base revision,
      * paths, format, fail-on threshold, confidence floor and rule filter.
      * Only which explanation flag was read and whether the reading-order
@@ -114,7 +137,7 @@ abstract class CliCommandBase extends Command
 
         return new DiffOptions(
             base: is_string($base) && trim($base) !== '' ? trim($base) : 'HEAD',
-            paths: $this->stringListOption($input, 'path'),
+            paths: $this->pathOption($input),
             format: OutputFormat::parse($this->stringOption($input, 'format') ?? 'console'),
             failOn: $this->stringOption($input, 'fail-on'),
             minConfidence: $this->intOption($input, 'min-confidence'),
