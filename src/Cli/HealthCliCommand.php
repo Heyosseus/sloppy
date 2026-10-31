@@ -33,7 +33,7 @@ final class HealthCliCommand extends CliCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         return $this->runWith($input, $output, fn (Sloppy $sloppy, RunnerOutput $runnerOutput): ExitCode => (new HealthRunner)->run($sloppy, new HealthOptions(
-            paths: $this->stringListOption($input, 'path'),
+            paths: $this->pathOption($input),
             rules: $this->stringListOption($input, 'rule'),
             minConfidence: $this->intOption($input, 'min-confidence'),
             json: $input->getOption('json') === true,

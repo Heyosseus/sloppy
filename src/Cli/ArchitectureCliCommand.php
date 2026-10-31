@@ -39,7 +39,7 @@ final class ArchitectureCliCommand extends CliCommandBase
         return $this->runWith($input, $output, function (Sloppy $sloppy, RunnerOutput $runnerOutput) use ($input): ExitCode {
             $class = $input->getArgument('class');
             $words = $input->getArgument('words');
-            $paths = $this->stringListOption($input, 'path');
+            $paths = $this->pathOption($input);
 
             return (new ArchitectureRunner)->run(
                 $paths === [] ? $sloppy : $sloppy->withConfiguration($sloppy->configuration->withPaths($paths)),

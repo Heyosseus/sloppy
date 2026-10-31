@@ -14,6 +14,7 @@ use Heyosseus\Sloppy\Sloppy;
 use Heyosseus\Sloppy\Support\StringListOption;
 use Heyosseus\Sloppy\Support\Terminal;
 use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -99,6 +100,31 @@ abstract class CliCommandBase extends Command
     }
 
     /**
+     * `--path` as the user meant it: relative to the directory they typed it
+     * in when that is inside the project (see {@see WorkingDirectoryPaths}).
+     * With `--project`, paths stay relative to that project, as documented.
+     *
+     * @return list<string>
+     */
+    protected function pathOption(InputInterface $input): array
+    {
+        $paths = $this->stringListOption($input, 'path');
+        $cwd = (string) getcwd();
+
+        if ($paths === [] || $this->stringOption($input, 'project') !== null) {
+            return $paths;
+        }
+
+        try {
+            $root = (new ProjectLocator)->locate(null, $cwd);
+        } catch (RuntimeException) {
+            return $paths;
+        }
+
+        return (new WorkingDirectoryPaths)->resolve($paths, $root, $cwd);
+    }
+
+    /**
      * The `DiffOptions` shared by `diff` and `review` -- same base revision,
      * paths, format, fail-on threshold, confidence floor and rule filter.
      * Only which explanation flag was read and whether the reading-order
@@ -114,7 +140,7 @@ abstract class CliCommandBase extends Command
 
         return new DiffOptions(
             base: is_string($base) && trim($base) !== '' ? trim($base) : 'HEAD',
-            paths: $this->stringListOption($input, 'path'),
+            paths: $this->pathOption($input),
             format: OutputFormat::parse($this->stringOption($input, 'format') ?? 'console'),
             failOn: $this->stringOption($input, 'fail-on'),
             minConfidence: $this->intOption($input, 'min-confidence'),

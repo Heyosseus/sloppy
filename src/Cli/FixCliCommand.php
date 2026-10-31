@@ -36,7 +36,7 @@ final class FixCliCommand extends CliCommandBase
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         return $this->runWith($input, $output, fn (Sloppy $sloppy, RunnerOutput $runnerOutput): ExitCode => (new FixRunner)->run($sloppy, new FixOptions(
-            paths: $this->stringListOption($input, 'path'),
+            paths: $this->pathOption($input),
             rules: $this->stringListOption($input, 'rule'),
             minConfidence: $this->intOption($input, 'min-confidence'),
             dryRun: $input->getOption('dry-run') === true,

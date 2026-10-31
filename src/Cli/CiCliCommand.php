@@ -52,7 +52,7 @@ final class CiCliCommand extends CliCommandBase
 
             $options = new CiOptions(
                 base: $this->stringOption($input, 'base'),
-                paths: $this->stringListOption($input, 'path'),
+                paths: $this->pathOption($input),
                 rules: $this->stringListOption($input, 'rule'),
                 failOn: $this->stringOption($input, 'fail-on'),
                 minConfidence: $this->intOption($input, 'min-confidence'),
