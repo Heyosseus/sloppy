@@ -37,6 +37,8 @@ final readonly class Git
     }
 
     /**
+     * Run a command and return its output.
+     *
      * @param  list<string>  $args
      * @param  array<string, string>  $env
      *
@@ -44,6 +46,14 @@ final readonly class Git
      */
     public function run(array $args, array $env = []): string
     {
+        if (! is_dir($this->workingDirectory)) {
+            throw new GitException(sprintf(
+                'git %s could not run: working directory [%s] does not exist.',
+                implode(' ', $args),
+                $this->workingDirectory,
+            ));
+        }
+
         $process = $this->process($args, $env);
         $process->run();
 
@@ -61,15 +71,17 @@ final readonly class Git
     /**
      * Run a command, returning null instead of throwing when it fails.
      *
+     * A working directory that is gone cannot be asked anything: a child
+     * process would refuse to start rather than fail, so the check below turns
+     * a cleaned CI workspace or a deleted worktree into the same "no answer"
+     * every caller already handles. `run()` reports the same condition as the
+     * `GitException` its callers catch.
+     *
      * @param  list<string>  $args
      * @param  array<string, string>  $env
      */
     public function attempt(array $args, array $env = []): ?string
     {
-        // A project directory that is not there cannot be asked anything, and
-        // the process would refuse to start rather than fail: checking first
-        // turns a stack trace out of a path typo into the same "no answer"
-        // every caller of this method already handles.
         if (! is_dir($this->workingDirectory)) {
             return null;
         }
@@ -137,9 +149,7 @@ final readonly class Git
      */
     public function commitOf(string $revision): ?string
     {
-        $sha = $this->attempt(['rev-parse', '--verify', '--quiet', $revision.'^{commit}']);
-
-        return $sha === null || trim($sha) === '' ? null : trim($sha);
+        return $this->trimmed($this->attempt(['rev-parse', '--verify', '--quiet', $revision.'^{commit}']));
     }
 
     /**
@@ -149,7 +159,7 @@ final readonly class Git
      */
     public function isRef(string $revision): bool
     {
-        return trim((string) $this->attempt(['rev-parse', '--symbolic-full-name', $revision])) !== '';
+        return $this->trimmed($this->attempt(['rev-parse', '--symbolic-full-name', $revision])) !== null;
     }
 
     /**
@@ -159,9 +169,15 @@ final readonly class Git
      */
     public function mergeBase(string $revision, string $other = 'HEAD'): ?string
     {
-        $sha = $this->attempt(['merge-base', $revision, $other]);
+        return $this->trimmed($this->attempt(['merge-base', $revision, $other]));
+    }
 
-        return $sha === null || trim($sha) === '' ? null : trim($sha);
+    /**
+     * An answer git may give as whitespace, normalised to null.
+     */
+    private function trimmed(?string $output): ?string
+    {
+        return $output === null || trim($output) === '' ? null : trim($output);
     }
 
     /**
@@ -179,9 +195,7 @@ final readonly class Git
 
     public function currentBranch(): ?string
     {
-        $branch = $this->attempt(['rev-parse', '--abbrev-ref', 'HEAD']);
-
-        return $branch === null ? null : trim($branch);
+        return $this->trimmed($this->attempt(['rev-parse', '--abbrev-ref', 'HEAD']));
     }
 
     /**
@@ -197,12 +211,10 @@ final readonly class Git
      *
      * `git show` costs a process per file, and process startup dominates
      * everything else on a large diff -- 500 files took two minutes of pure
-     * spawning. `cat-file --batch` answers the whole list from one process fed
-     * on stdin.
-     *
-     * Each path is asked for as `<rev>:./<path>`, which git resolves from the
-     * working directory; a bare `<rev>:<path>` is read from the repository
-     * root and finds nothing for a project in a subdirectory.
+     * spawning, where `cat-file --batch` answers the whole list from one
+     * process fed on stdin. Each path is asked for as `<rev>:./<path>`, which
+     * git resolves from the working directory; a bare `<rev>:<path>` is read
+     * from the repository root and finds nothing under a subdirectory.
      *
      * @param  list<string>  $relativePaths
      * @return array<string, ?string>
@@ -219,11 +231,9 @@ final readonly class Git
         )."\n");
         $process->run();
 
-        if (! $process->isSuccessful()) {
-            return array_fill_keys($relativePaths, null);
-        }
-
-        return (new GitOutputParser)->blobs($process->getOutput(), $relativePaths);
+        return $process->isSuccessful()
+            ? (new GitOutputParser)->blobs($process->getOutput(), $relativePaths)
+            : array_fill_keys($relativePaths, null);
     }
 
     /**

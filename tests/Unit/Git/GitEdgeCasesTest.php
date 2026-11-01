@@ -101,3 +101,25 @@ it('lists nothing untracked outside a repository', function (): void {
 
     removeTree($root);
 });
+
+it('reports a vanished working directory as a git failure, never as a process error', function (): void {
+    // A checkout can disappear mid-run: a cleaned CI workspace, a deleted
+    // worktree, a tidied temp directory. Both entry points have to answer for
+    // that the same way, and `run()` had no guard at all -- a Symfony\Process
+    // exception escaped the abstraction. `attempt()` answered null, so the two
+    // disagreed about the same condition.
+    $root = tempProject(['composer.json' => '{}']);
+    $client = new Heyosseus\Sloppy\Git\Git($root);
+
+    removeTree($root);
+
+    // The tolerant entry point keeps its contract: no answer, no throw.
+    expect($client->attempt(['status']))->toBeNull()
+        ->and($client->isAvailable())->toBeFalse()
+        ->and($client->isRepository())->toBeFalse();
+
+    // The strict one raises this package's own exception, with the directory
+    // named, rather than letting Symfony's leak through.
+    expect(fn (): string => $client->run(['status']))
+        ->toThrow(Heyosseus\Sloppy\Git\GitException::class, 'does not exist');
+});

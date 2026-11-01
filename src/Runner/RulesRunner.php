@@ -76,7 +76,12 @@ final readonly class RulesRunner
 
         $directory = dirname($path);
 
-        if (! is_dir($directory) && ! @mkdir($directory, 0o777, true) && ! is_dir($directory)) {
+        // 0o755, not 0o777: these directories hold a rules file that an agent
+        // reads, and on a shared host or CI workspace a world-writable one
+        // lets another local user replace what the victim's agent loads.
+        // The process umask narrows this further, which is why the wider mode
+        // is easy to ship unnoticed until it matters.
+        if (! is_dir($directory) && ! @mkdir($directory, 0o755, true) && ! is_dir($directory)) {
             $output->error(sprintf('Could not create %s.', $directory));
 
             return false;

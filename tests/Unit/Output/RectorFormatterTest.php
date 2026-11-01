@@ -15,13 +15,49 @@ it('writes a runnable configuration scoped to the files with fixable findings', 
 
     expect($config)->toStartWith('<?php')
         ->and($config)->toContain('use Rector\Config\RectorConfig;')
-        ->and($config)->toContain("__DIR__.'/app/Order.php',")
-        ->and($config)->toContain("__DIR__.'/app/Pay.php',")
+        ->and($config)->toContain("__DIR__.'/'.'app/Order.php',")
+        ->and($config)->toContain("__DIR__.'/'.'app/Pay.php',")
         // SL101 has no automated fix, so its file is not handed to Rector.
         ->and($config)->not->toContain('app/Huge.php')
         ->and($config)->toContain('\Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPrivateMethodRector::class,')
         ->and($config)->toContain('// Fixes 2 of 3 finding(s) in this run.')
         ->and($config)->toContain('// SL101 x1: no automated fix -- splitting a long method is a design decision, not a rewrite.');
+});
+
+it('escapes a file name so it cannot escape its own string literal', function (string $name): void {
+    // A name is not necessarily the project owner's: a branch under review
+    // can call its files anything. Interpolated into the generated config -- a
+    // file Rector then executes -- an unescaped quote would end the literal
+    // and hand the rest of the name to the PHP parser as code.
+    $config = (new RectorFormatter)->format(analysisResult([finding(rule: 'SL105', file: $name)]));
+
+    $parsed = (new Parser)->parse('rector-sloppy.php', $config);
+
+    expect($parsed->parseError)->toBeNull()
+        ->and($config)->toContain(var_export($name, true));
+})->with([
+    'a single quote' => "app/Evil';system('id');//.php",
+    'an apostrophe in a surname' => "app/O'Brien.php",
+    'a backslash' => 'app/Back\\slash.php',
+    'a double quote' => 'app/Quote".php',
+]);
+
+it('resolves the escaped path expression to the file it names', function (): void {
+    // Escaping must not change the value: the config has to name the same
+    // file it named before, only safely. The expression is evaluated the way
+    // Rector would evaluate it, with __DIR__ standing in for the directory
+    // the config file lives in.
+    $name = "app/O'Brien.php";
+    $config = (new RectorFormatter)->format(analysisResult([finding(rule: 'SL105', file: $name)]));
+
+    preg_match('/(__DIR__\.\'\/\'\.\S+),/u', $config, $matches);
+
+    expect($matches)->not->toBeEmpty('the generated config should carry a path expression');
+
+    /** @var string $resolved */
+    $resolved = eval('return '.$matches[1].';');
+
+    expect($resolved)->toBe(__DIR__.'/'.$name);
 });
 
 it('is valid PHP that returns a configured Rector', function (): void {

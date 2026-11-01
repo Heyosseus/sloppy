@@ -18,11 +18,29 @@ use Heyosseus\Sloppy\Watch\EditorLauncher;
  *
  * The dashboard has already restored the terminal by the time this is called,
  * and takes it back when the editor exits.
+ *
+ * Every token goes through {@see escapeshellarg()} because the command line is
+ * assembled into a string and handed to a shell. A file path reaches this
+ * method, and a path is not necessarily something the person running Sloppy
+ * chose -- a checkout under review can name its files anything. The escaping
+ * is kept inside {@see commandLine()}, next to the `implode()`, so a later
+ * change cannot assemble the line some other way and leave the protection
+ * behind.
  */
 final readonly class ShellEditorLauncher implements EditorLauncher
 {
     public function launch(array $command): void
     {
-        passthru(implode(' ', array_map(escapeshellarg(...), $command)));
+        passthru(self::commandLine($command));
+    }
+
+    /**
+     * A token list as a shell command line, with every token escaped.
+     *
+     * @param  list<string>  $command
+     */
+    public static function commandLine(array $command): string
+    {
+        return implode(' ', array_map(escapeshellarg(...), $command));
     }
 }
