@@ -260,7 +260,10 @@ final readonly class AgentsRunner
     {
         $directory = dirname($path);
 
-        if (! is_dir($directory) && ! @mkdir($directory, 0o777, true) && ! is_dir($directory)) {
+        // 0o755, not 0o777: see RulesRunner::write. A settings file an agent
+        // later executes must not sit in a directory another local user can
+        // write to.
+        if (! is_dir($directory) && ! @mkdir($directory, 0o755, true) && ! is_dir($directory)) {
             return false;
         }
 

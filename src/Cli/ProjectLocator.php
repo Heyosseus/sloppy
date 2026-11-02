@@ -63,12 +63,20 @@ final readonly class ProjectLocator
         ));
     }
 
+    /**
+     * Whether a `--project` value names a place on this machine.
+     *
+     * Only real filesystem forms qualify. A URL-shaped value is deliberately
+     * *not* treated as absolute: there is no remote project here, and a
+     * value that looked absolute without being a path would be passed
+     * straight through some future caller that dropped the `realpath()`
+     * check below.
+     */
     private function isAbsolute(string $path): bool
     {
         return str_starts_with($path, '/')
             || str_starts_with($path, '\\')
-            || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1
-            || str_contains($path, '://');
+            || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1;
     }
 
     /**

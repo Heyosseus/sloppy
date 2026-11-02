@@ -57,13 +57,52 @@ final readonly class RectorFormatter implements Formatter
         ];
 
         $lines[] = '    ->withPaths([';
-        $lines = [...$lines, ...$this->entries($files, static fn (string $file): string => "__DIR__.'/".$file."'")];
+        $lines = [...$lines, ...$this->entries($files, $this->path(...))];
         $lines[] = '    ])';
         $lines[] = '    ->withRules([';
-        $lines = [...$lines, ...$this->entries($rules, static fn (string $class): string => '\\'.$class.'::class')];
+        $lines = [...$lines, ...$this->entries($rules, $this->classConstant(...))];
         $lines[] = '    ]);';
 
         return implode(PHP_EOL, $lines).PHP_EOL;
+    }
+
+    /**
+     * A path as a PHP expression, safely.
+     *
+     * The path is rendered with `var_export(..., true)` and concatenated at
+     * runtime with `__DIR__`, so it becomes a complete, valid string literal
+     * in the generated file. Interpolating it directly -- the previous
+     * behaviour -- let a name containing a quote end the literal early, after
+     * which the rest of the name was parsed as code in a file Rector then
+     * executes. A file name is not necessarily something the person running
+     * Sloppy chose: a branch under review can name its files anything.
+     *
+     * `__DIR__` is kept so the config resolves paths relative to itself
+     * rather than to wherever Rector happens to be invoked from.
+     */
+    private function path(string $file): string
+    {
+        return '__DIR__.\'/\'.'.var_export($file, true);
+    }
+
+    /**
+     * A class name as a `::class` constant.
+     *
+     * Rule class names are ours, not a caller's, so this needs no escaping
+     * against injection -- but a leading backslash is stripped and a name
+     * that is not a valid PHP identifier is refused, because a typo here
+     * would otherwise produce a config file that parses and then fails at
+     * runtime, which is the more annoying failure of the two.
+     */
+    private function classConstant(string $class): string
+    {
+        $name = ltrim($class, '\\');
+
+        if (preg_match('/^[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*(\\\\[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*)*$/', $name) !== 1) {
+            return '\\'.$class.'::class';
+        }
+
+        return '\\'.$name.'::class';
     }
 
     /**

@@ -82,6 +82,46 @@ it('refuses an explicit path that does not exist', function (): void {
         ->toThrow(RuntimeException::class, '/definitely/not/here');
 });
 
+it('refuses a URL-shaped project path rather than treating it as absolute', function (string $url): void {
+    // There is no remote project here. A value like this used to be classified
+    // as an absolute path and passed through validation untouched, which was
+    // harmless only because realpath() and is_dir() happen to reject it. The
+    // resolution must not depend on that: the value is refused, and refused as
+    // something that is not a directory here.
+    expect(fn (): string => (new ProjectLocator)->locate($url, sys_get_temp_dir()))
+        ->toThrow(RuntimeException::class, 'does not exist');
+})->with([
+    'http' => 'http://example.com',
+    'https' => 'https://example.com/project',
+    'a file stream' => 'file:///etc/passwd',
+    'php' => 'php://stdin',
+]);
+
+it('resolves a relative path that merely contains a colon', function (): void {
+    // The removed clause matched on `://` anywhere in the string. A relative
+    // directory whose name contains a colon is a legitimate path on POSIX, and
+    // must still resolve against the given working directory rather than being
+    // mistaken for a URL. Windows cannot create such a directory, so the case
+    // is asserted there only through the classifier's observable behaviour.
+    if (DIRECTORY_SEPARATOR === '\\') {
+        // On Windows a colon cannot appear in a directory name; the important
+        // half -- that a URL-shaped value is refused -- is covered above.
+        expect(fn (): string => (new ProjectLocator)->locate('weird:name', sys_get_temp_dir()))
+            ->toThrow(RuntimeException::class);
+
+        return;
+    }
+
+    $workspace = tempProject([
+        'composer.json' => '{}',
+        'weird:name/composer.json' => '{}',
+    ]);
+
+    expect((new ProjectLocator)->locate('weird:name', $workspace))->toBe(canonicalProjectPath($workspace.'/weird:name'));
+
+    removeTree($workspace);
+});
+
 it('takes a relative project path relative to the working directory it was given, not the process', function (): void {
     $workspace = tempProject([
         'composer.json' => '{}',
