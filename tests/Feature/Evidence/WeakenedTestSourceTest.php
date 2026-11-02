@@ -216,6 +216,68 @@ it('says nothing when a test gained assertions', function (): void {
     expect($findings)->toBeEmpty();
 })->skip(fn (): bool => ! TempRepository::gitIsAvailable(), 'git is not available');
 
+it('says nothing when explicit assertions were folded into a loop', function (): void {
+    // Issue #50. Nine assertions written out one by one became two loops
+    // over the lists they were checking. Each loop body is one call site, so
+    // the static count fell from 9 to 8 -- while the test now asserts once
+    // per item, which is more. A count of call sites cannot say how many
+    // times a loop runs, so a loop that appeared is not evidence of anything
+    // having been taken away.
+    $findings = weakenedTests(<<<'PHP'
+    <?php
+    it('the picker never offers a type the media disk would refuse', function () {
+        expect($fieldMatch[0] ?? null)->not->toBeNull();
+        expect(in_array('image/png', $disk, true))->toBeTrue();
+        expect(in_array('image/jpeg', $disk, true))->toBeTrue();
+        expect(in_array('image/gif', $disk, true))->toBeTrue();
+        expect(in_array('image/webp', $disk, true))->toBeTrue();
+        expect(in_array('image/png', $accepted, true))->toBeTrue();
+        expect(in_array('image/jpeg', $accepted, true))->toBeTrue();
+        expect(in_array('image/gif', $accepted, true))->toBeTrue();
+        expect(in_array('image/webp', $accepted, true))->toBeTrue();
+    });
+    PHP, <<<'PHP'
+    <?php
+    it('the picker never offers a type the media disk would refuse', function () {
+        expect($fieldMatch[0] ?? null)->not->toBeNull();
+        expect($accepted)->not->toBeEmpty();
+        expect($disk)->not->toBeEmpty();
+        expect(count($accepted))->toBe(count($disk));
+        expect($accepted)->toBeArray();
+        expect($disk)->toBeArray();
+
+        foreach ($accepted as $mime) {
+            expect(in_array($mime, $disk, true))->toBeTrue("{$mime} is offered but refused");
+        }
+
+        foreach ($disk as $mime) {
+            expect(in_array($mime, $accepted, true))->toBeTrue("{$mime} is allowed but not offered");
+        }
+    });
+    PHP);
+
+    expect($findings)->toBeEmpty();
+})->skip(fn (): bool => ! TempRepository::gitIsAvailable(), 'git is not available');
+
+it('still flags a test that lost assertions beside a loop it already had', function (): void {
+    // The loop is the same on both sides, so it explains nothing: the two
+    // assertions after it were simply removed.
+    $loop = "        foreach (\$lines as \$line) {\n            \$this->assertNotNull(\$line);\n        }\n";
+
+    $findings = weakenedTests(
+        phpunitTest($loop.THREE_ASSERTIONS),
+        phpunitTest($loop."        \$this->assertSame(100, Invoice::make(100)->net());\n"),
+    );
+
+    expect(messages($findings))->toBe('InvoiceTest::test_totals() makes 2 assertions, down from 4.');
+})->skip(fn (): bool => ! TempRepository::gitIsAvailable(), 'git is not available');
+
+it('says nothing about the assertion count of a file that is new in the change', function (): void {
+    // Also from issue #50: with no version at the base there is nothing to be
+    // "down from".
+    expect(weakenedTests(null, phpunitTest(THREE_ASSERTIONS)))->toBeEmpty();
+})->skip(fn (): bool => ! TempRepository::gitIsAvailable(), 'git is not available');
+
 it('says nothing when a whole test file was deleted', function (): void {
     expect(weakenedTests(phpunitTest(THREE_ASSERTIONS), null))->toBeEmpty();
 })->skip(fn (): bool => ! TempRepository::gitIsAvailable(), 'git is not available');

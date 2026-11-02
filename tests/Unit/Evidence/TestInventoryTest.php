@@ -251,6 +251,38 @@ it('records the line of each test and a hash of its body that ignores its name',
         ->and($old->hash)->toMatch('/^[0-9a-f]{32}$/');
 });
 
+it('counts the assertions made inside loops, once each however deeply nested', function (): void {
+    $tests = inventoryOf(<<<'PHP'
+        it('checks every type', function () {
+            expect($types)->not->toBeEmpty();
+
+            foreach ($types as $type) {
+                expect($type)->toBeString();
+
+                foreach ($disks as $disk) {
+                    expect($disk->accepts($type))->toBeTrue();
+                }
+            }
+
+            for ($i = 0; $i < 3; $i++) {
+                expect($i)->toBeInt();
+            }
+
+            while ($row = next($rows)) {
+                expect($row)->not->toBeNull();
+            }
+        });
+
+        it('has no loop', function () {
+            expect(1)->toBe(1);
+        });
+        PHP);
+
+    expect($tests['it checks every type']->assertions)->toBe(5)
+        ->and($tests['it checks every type']->looped)->toBe(4)
+        ->and($tests['it has no loop']->looped)->toBe(0);
+});
+
 it('treats a Pest test with no closure as an empty body', function (): void {
     $tests = inventoryOf("it('is pending');\nit('takes a callable', 'strlen');\n");
 

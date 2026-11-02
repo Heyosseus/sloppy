@@ -129,7 +129,64 @@ final class TestInventory
             skipped: $skippedByChain || $this->callsAny($statements, self::SKIPS),
             trivial: $this->trivialIn($statements),
             hash: md5($printed),
+            looped: $this->loopedIn($statements),
         );
+    }
+
+    /**
+     * Assertions made inside a loop.
+     *
+     * The count is of call sites, so an assertion in a loop body counts once
+     * however many times it runs. Nine assertions written out and the same
+     * nine folded into a `foreach` over a list check the same things, yet
+     * count nine and one. Keeping these apart lets a comparison see that the
+     * shape changed rather than mistake it for assertions being removed.
+     *
+     * Only outermost loops are counted, so an assertion in a nested loop is
+     * not counted twice.
+     *
+     * @param  array<Stmt>  $statements
+     */
+    private function loopedIn(array $statements): int
+    {
+        $bodies = $this->loopBodies($statements);
+        $nested = [];
+
+        foreach ($bodies as $body) {
+            foreach (array_keys($this->loopBodies($body)) as $inner) {
+                $nested[$inner] = true;
+            }
+        }
+
+        $count = 0;
+
+        foreach ($bodies as $loop => $body) {
+            if (! isset($nested[$loop])) {
+                $count += $this->assertionsIn($body);
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * The body of every loop in these statements, keyed by the loop's object id.
+     *
+     * @param  array<Stmt>  $statements
+     * @return array<int, array<Stmt>>
+     */
+    private function loopBodies(array $statements): array
+    {
+        $finder = new NodeFinder;
+        $bodies = [];
+
+        foreach ([Stmt\Foreach_::class, Stmt\For_::class, Stmt\While_::class, Stmt\Do_::class] as $type) {
+            foreach ($finder->findInstanceOf($statements, $type) as $loop) {
+                $bodies[spl_object_id($loop)] = $loop->stmts;
+            }
+        }
+
+        return $bodies;
     }
 
     private function isTestMethod(ClassMethod $method): bool

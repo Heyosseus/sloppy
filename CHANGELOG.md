@@ -4,6 +4,36 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] — 2026-11-02
+
+### Fixed
+
+- **`SL503` no longer reports a test as weakened when its assertions were
+  folded into a loop** ([#50](https://github.com/heyosseus/sloppy/issues/50)).
+  Assertions are counted by call site, so nine written out one by one count
+  nine, and the same checks in a `foreach` over the values count one -- the
+  rewrite read as "8 assertions, down from 9" while the test asserted more.
+  A drop in the count is now reported only when the assertions inside loops
+  did not grow. A test that loses assertions beside a loop it already had is
+  still reported.
+- **Generated Rector config escapes file names**
+  ([#52](https://github.com/heyosseus/sloppy/issues/52)). A path containing a
+  quote could end its string literal early in `rector-sloppy.php`, which
+  `sloppy fix` hands to Rector to run. Paths are now written with
+  `var_export()`.
+- `agents` and `rules` create their settings directories `0755` instead of
+  `0777` ([#53](https://github.com/heyosseus/sloppy/issues/53)).
+- `Git::run()` reports a working directory that no longer exists as a
+  `GitException`, as `attempt()` already answered `null`
+  ([#54](https://github.com/heyosseus/sloppy/issues/54)).
+- `--project` no longer treats a URL-shaped value as an absolute path
+  ([#55](https://github.com/heyosseus/sloppy/issues/55)).
+
+### Internal
+
+- The editor launcher's shell command line is built by a named, tested
+  `commandLine()` method ([#56](https://github.com/heyosseus/sloppy/issues/56)).
+
 ## [1.8.1] — 2026-10-31
 
 ### Added
@@ -1286,6 +1316,7 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
+[1.8.2]: https://github.com/heyosseus/sloppy/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/heyosseus/sloppy/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/heyosseus/sloppy/compare/v1.7.2...v1.8.0
 [1.7.2]: https://github.com/heyosseus/sloppy/compare/v1.7.1...v1.7.2
