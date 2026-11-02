@@ -14,6 +14,7 @@ final readonly class TestBody
      * @param  int  $assertions  Including those made through helpers in the same file.
      * @param  int  $trivial  Assertions that cannot fail, such as `assertTrue(true)`.
      * @param  string  $hash  The body as printed, so a renamed test can be recognised.
+     * @param  int  $looped  Those of `$assertions` made inside a loop, each of which may run any number of times.
      */
     public function __construct(
         public string $name,
@@ -22,5 +23,6 @@ final readonly class TestBody
         public bool $skipped,
         public int $trivial,
         public string $hash,
+        public int $looped = 0,
     ) {}
 }

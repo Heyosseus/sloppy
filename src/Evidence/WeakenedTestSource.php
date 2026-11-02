@@ -153,7 +153,12 @@ final readonly class WeakenedTestSource implements EvidenceSource
                 continue;
             }
 
-            if ($old instanceof TestBody && ! $test->skipped && $test->assertions < $old->assertions) {
+            // A count of call sites cannot say how often a loop runs, so once
+            // a change puts more assertions inside loops the two counts no
+            // longer measure the same thing. Folding written-out assertions
+            // into a loop over the values they checked is a common rewrite,
+            // and it lowers the count while checking as much or more.
+            if ($old instanceof TestBody && ! $test->skipped && $test->assertions < $old->assertions && $test->looped <= $old->looped) {
                 yield $this->finding($path, $test->line, $name, 'assertions', 85, Severity::High,
                     sprintf('%s makes %d assertion%s, down from %d.', $this->label($name), $test->assertions, $test->assertions === 1 ? '' : 's', $old->assertions),
                     'Restore the assertions, or replace each with a check of the new behaviour. If the '
