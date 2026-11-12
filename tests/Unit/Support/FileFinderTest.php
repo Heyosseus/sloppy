@@ -117,3 +117,24 @@ it('resolves relative and absolute paths', function (): void {
 it('ignores blank exclusion entries', function (): void {
     expect(finderFor('/project', ['exclude' => ['', '/', 'vendor']])->isExcluded('app/A.php'))->toBeFalse();
 });
+
+it('finds a file once when two paths spell the same directory differently', function (): void {
+    // Issue #59: on a case-insensitive disk `database/migrations` and
+    // `Database/Migrations` are one directory, and every file in it was
+    // collected -- and reported -- under both spellings.
+    $root = tempProject([
+        'app/Models/User.php' => '<?php',
+    ]);
+
+    if (! is_dir($root.'/APP')) {
+        removeTree($root);
+        $this->markTestSkipped('The filesystem is case-sensitive.');
+    }
+
+    $found = finderFor($root)->findIn(['app', 'APP', 'App/Models/User.php']);
+
+    expect(array_map(static fn (string $p): string => str_replace($root.'/', '', $p), $found))
+        ->toBe(['app/Models/User.php']);
+
+    removeTree($root);
+});
