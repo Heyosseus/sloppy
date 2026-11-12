@@ -182,7 +182,7 @@ final class ModelDoingTooMuchRule extends LaravelRule
                 continue;
             }
 
-            if (NodeHelper::lineSpan($method) > $maxLines) {
+            if (NodeHelper::lineSpanWithoutAttributes($method) > $maxLines) {
                 $found[] = $method->name->toString();
             }
         }

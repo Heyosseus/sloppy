@@ -243,3 +243,45 @@ it('does not count an anonymous class body against the method that creates it', 
 
     expect(array_map(static fn (Heyosseus\Sloppy\Analysis\Finding $finding): string => $finding->fingerprint, $found))->toBe(['anonymous class::process']);
 });
+
+it('does not count attribute lines towards a method\'s length', function (): void {
+    // Issue #58: an OpenAPI attribute of ninety lines on a short method that
+    // talks to many collaborators read as a 100 line god method.
+    $parameters = str_repeat("            new Parameter(name: 'filter', in: 'query'),\n", 90);
+    $code = <<<PHP
+    class OvertimeController
+    {
+        #[Get(
+            path: '/overtimes',
+            parameters: [
+    $parameters
+            ],
+        )]
+        public function index(\$request)
+        {
+            \$query = \$this->a->one(\$this->b->two(), \$this->c->three(), \$this->d->four());
+
+            return \$this->e->five(\$this->f->six(), \$this->g->seven(), \$this->h->eight(), \$this->i->nine(), \$this->j->ten(\$query));
+        }
+    }
+    PHP;
+
+    expect(findings(godMethod(), $code))->toBe([]);
+
+    // The same method made ninety lines longer in its body is flagged,
+    // so the attribute is what stopped counting.
+    $long = str_repeat("        \$x = 1;\n", 90);
+    $flagged = <<<PHP
+    class OvertimeController
+    {
+        public function index(\$request)
+        {
+            \$query = \$this->a->one(\$this->b->two(), \$this->c->three(), \$this->d->four());
+    $long
+            return \$this->e->five(\$this->f->six(), \$this->g->seven(), \$this->h->eight(), \$this->i->nine(), \$this->j->ten(\$query));
+        }
+    }
+    PHP;
+
+    expect(findings(godMethod(), $flagged))->toHaveCount(1);
+});

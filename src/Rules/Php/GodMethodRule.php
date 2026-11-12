@@ -169,7 +169,9 @@ final class GodMethodRule extends BaseRule
      */
     private function measure(Node $method): array
     {
-        $lines = NodeHelper::lineSpan($method);
+        // Attributes are metadata, not code to read: a method documented with
+        // an OpenAPI attribute is as long as its declaration and body.
+        $lines = NodeHelper::lineSpanWithoutAttributes($method);
 
         return [
             'lines' => $lines,
