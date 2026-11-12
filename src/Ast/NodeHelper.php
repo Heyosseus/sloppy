@@ -595,6 +595,32 @@ final class NodeHelper
     }
 
     /**
+     * Physical lines of a declaration, from the first line after its
+     * attributes. A node's start line includes its attribute groups, so an
+     * OpenAPI `#[Get(...)]` of ninety lines would otherwise make a short
+     * method read as a long one.
+     */
+    public static function lineSpanWithoutAttributes(Node $node): int
+    {
+        $end = $node->getEndLine();
+        $start = $node->getStartLine();
+
+        $groups = property_exists($node, 'attrGroups') && is_array($node->attrGroups) ? $node->attrGroups : [];
+
+        foreach ($groups as $group) {
+            if ($group instanceof Node) {
+                $start = max($start, $group->getEndLine() + 1);
+            }
+        }
+
+        if ($start < 1 || $end < $start) {
+            return 0;
+        }
+
+        return $end - $start + 1;
+    }
+
+    /**
      * Executable statements inside a node, ignoring structural noise.
      */
     public static function countStatements(Node $node): int

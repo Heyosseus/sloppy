@@ -4,6 +4,27 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3] — 2026-11-12
+
+### Fixed
+
+- **`SL101` measures a method from the line after its attributes**
+  ([#58](https://github.com/heyosseus/sloppy/issues/58)). A method's start
+  line includes its attribute groups, so a short controller action under a
+  ninety line OpenAPI `#[Get(...)]` read as a 100 line god method. The
+  `lines` metric and the length signal now count the declaration and body
+  only. `SL209`'s long business method check measures the same way.
+- **Migrations and routes are no longer reported twice on case-insensitive
+  filesystems** ([#59](https://github.com/heyosseus/sloppy/issues/59)). The
+  defaults list `database/migrations` and `Database/Migrations` (and
+  `routes` and `Routes`) for module layouts, and on macOS APFS both resolved
+  to one directory without being recognised as one -- `realpath()` there
+  keeps the casing it is given. Every finding was reported under both
+  spellings, `sloppy baseline` recorded it twice and the score penalty
+  doubled. Directories and files are now told apart by what they are on
+  disk (device and inode), so each file is analysed once, under the
+  spelling met first.
+
 ## [1.8.2] — 2026-11-02
 
 ### Fixed
@@ -1316,6 +1337,7 @@ Deliberately, so that nothing ships stubbed:
 - **No caching yet.** Every run re-parses. Fine for the applications measured
   so far; worth revisiting with numbers rather than guesses.
 
+[1.8.3]: https://github.com/heyosseus/sloppy/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/heyosseus/sloppy/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/heyosseus/sloppy/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/heyosseus/sloppy/compare/v1.7.2...v1.8.0

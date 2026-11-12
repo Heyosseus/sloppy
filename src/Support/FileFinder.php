@@ -34,12 +34,15 @@ final readonly class FileFinder
     {
         $files = [];
 
+        // Keyed by what each file is on disk, so one file reached under two
+        // spellings -- `app` and `App` on a case-insensitive disk -- is
+        // analysed and reported once, under the spelling met first.
         foreach ($paths as $path) {
             $absolute = $this->absolute($path);
 
             if (is_file($absolute)) {
                 if (str_ends_with($absolute, '.php') && ! $this->isExcluded($this->relative($absolute))) {
-                    $files[$absolute] = true;
+                    $files[$this->identity($absolute) ?? $absolute] ??= $absolute;
                 }
 
                 continue;
@@ -50,11 +53,11 @@ final readonly class FileFinder
             }
 
             foreach ($this->scan($absolute) as $file) {
-                $files[$file] = true;
+                $files[$this->identity($file) ?? $file] ??= $file;
             }
         }
 
-        $sorted = array_keys($files);
+        $sorted = array_values($files);
         sort($sorted);
 
         return $sorted;
@@ -100,26 +103,27 @@ final readonly class FileFinder
             return $paths;
         }
 
-        // Keyed by real path, so `Routes` on a case-insensitive disk is the
-        // `routes` already listed rather than a second copy of it.
+        // Keyed by what each directory is on disk, so `Routes` on a
+        // case-insensitive disk is the `routes` already listed rather than a
+        // second copy of it. Not by `realpath()`: on macOS it keeps the
+        // casing it was given, and both spellings came back distinct.
         $seen = [];
 
         foreach ($paths as $path) {
-            $real = realpath($this->absolute($path));
-            $seen[$real === false ? $path : $real] = true;
+            $seen[$this->identity($this->absolute($path)) ?? $path] = true;
         }
 
         foreach ($this->config->sourceKinds()->directories() as $directory) {
             $found = str_contains($directory, '*') ? glob($this->absolute($directory), GLOB_ONLYDIR) : [$this->absolute($directory)];
 
             foreach ($found === false ? [] : $found as $absolute) {
-                $real = is_dir($absolute) ? realpath($absolute) : false;
+                $identity = is_dir($absolute) ? $this->identity($absolute) : null;
 
-                if ($real === false || isset($seen[$real])) {
+                if ($identity === null || isset($seen[$identity])) {
                     continue;
                 }
 
-                $seen[$real] = true;
+                $seen[$identity] = true;
                 $paths[] = $this->relative($absolute);
             }
         }
@@ -185,6 +189,27 @@ final readonly class FileFinder
         }
 
         return $named;
+    }
+
+    /**
+     * What a path is on disk rather than how it was spelled: its device and
+     * inode, which two spellings of one file share on any filesystem. Where
+     * the platform reports no inode, the real path, case-folded on Windows.
+     * Null for a path that does not exist.
+     */
+    private function identity(string $path): ?string
+    {
+        $stat = file_exists($path) ? stat($path) : false;
+
+        if ($stat === false) {
+            return null;
+        }
+
+        if ($stat['ino'] > 0) {
+            return $stat['dev'].':'.$stat['ino'];
+        }
+
+        return $this->comparable($path);
     }
 
     private function comparable(string $path): string
