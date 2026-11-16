@@ -11,6 +11,7 @@ use Heyosseus\Sloppy\Ast\ClassSummary;
 use Heyosseus\Sloppy\Ast\NodeHelper;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
 use Heyosseus\Sloppy\Rules\BaseRule;
+use WeakMap;
 
 /**
  * SL301 -- several layers wrapping one concept, where the layers are not
@@ -24,6 +25,9 @@ use Heyosseus\Sloppy\Rules\BaseRule;
  */
 final class AbstractionInflationRule extends BaseRule
 {
+    /** @var WeakMap<ProjectIndex, array<string, LayerStack>>|null */
+    private ?WeakMap $stackCache = null;
+
     /**
      * Base classes a framework expects one subclass of per concept. A class
      * extending one, directly or through a project base class, is a
@@ -163,10 +167,16 @@ final class AbstractionInflationRule extends BaseRule
      */
     private function stacks(ProjectIndex $index): array
     {
+        $this->stackCache ??= new WeakMap;
+
+        if (isset($this->stackCache[$index])) {
+            return $this->stackCache[$index];
+        }
+
         $bases = $this->listOption('convention_bases', self::CONVENTION_BASES);
         $isConvention = static fn (ClassSummary $member): bool => $index->extendsAny($member->parent, $bases);
 
-        return array_map(
+        return $this->stackCache[$index] = array_map(
             static fn (LayerStack $stack): LayerStack => $stack->without($isConvention),
             LayerStack::group($index, $this->listOption('layer_suffixes', LayerStack::LAYER_SUFFIXES)),
         );
