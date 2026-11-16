@@ -7,6 +7,7 @@ namespace Heyosseus\Sloppy\Rules\Architecture;
 use Closure;
 use Heyosseus\Sloppy\Ast\ClassSummary;
 use Heyosseus\Sloppy\Ast\ProjectIndex;
+use WeakMap;
 
 /**
  * Classes in a project grouped by the noun their names are built around.
@@ -44,6 +45,16 @@ final readonly class LayerStack
      */
     public static function group(ProjectIndex $index, array $suffixes = self::LAYER_SUFFIXES): array
     {
+        /** @var WeakMap<ProjectIndex, array<string, array<string, self>>>|null $memo */
+        static $memo = null;
+        $memo ??= new WeakMap;
+        $key = serialize($suffixes);
+        $cached = $memo[$index] ?? [];
+
+        if (isset($cached[$key])) {
+            return $cached[$key];
+        }
+
         /** @var array<string, list<ClassSummary>> $grouped */
         $grouped = [];
 
@@ -63,6 +74,9 @@ final readonly class LayerStack
         }
 
         ksort($stacks);
+
+        $cached[$key] = $stacks;
+        $memo[$index] = $cached;
 
         return $stacks;
     }
