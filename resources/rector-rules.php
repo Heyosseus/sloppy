@@ -21,11 +21,7 @@ declare(strict_types=1);
  */
 return [
     'fixes' => [
-        'SL103' => [
-            'Rector\EarlyReturn\Rector\If_\ChangeNestedIfsToEarlyReturnRector',
-            'Rector\EarlyReturn\Rector\Foreach_\ChangeNestedForeachIfsToEarlyContinueRector',
-            'Rector\CodeQuality\Rector\If_\CombineIfRector',
-        ],
+        'SL103' => [],
         'SL105' => [
             'Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPrivateMethodRector',
         ],
@@ -53,6 +49,7 @@ return [
     // and six fixes should be told what happened to the other four, in a
     // sentence, at the point they would have asked.
     'unfixable' => [
+        'SL103' => 'the current Rector rules do not provide a safe rewrite for arbitrary excessive nesting',
         'SL101' => 'splitting a long method is a design decision, not a rewrite',
         'SL102' => 'which responsibility leaves the class is a design decision',
         'SL104' => 'the shared code has to be named before it can be extracted',

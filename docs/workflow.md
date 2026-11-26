@@ -118,11 +118,10 @@ findings, so a fix pass on a large project does not rewrite the whole of
 
 ### What it can fix, and what it will not pretend to
 
-Six rules map onto Rector rules that genuinely fix them:
+Five rules map onto Rector rules that genuinely fix them:
 
 | Rule | Fixed by |
 | --- | --- |
-| `SL103` Excessive Nesting | `ChangeNestedIfsToEarlyReturn`, `ChangeNestedForeachIfsToEarlyContinue`, `CombineIf` |
 | `SL105` Dead Private Method | `RemoveUnusedPrivateMethod` |
 | `SL106` Unused Constructor Dependency | `RemoveUnusedConstructorParam`, `RemoveUnusedPromotedProperty`, `RemoveUnusedPrivateProperty` |
 | `SL107` Swallowed Exception | `ThrowWithPreviousException`, `RemoveDeadTryCatch` |
@@ -139,6 +138,7 @@ would have asked:
 | --- | --- |
 | `SL101` God Method | splitting a long method is a design decision, not a rewrite |
 | `SL102` God Class | which responsibility leaves the class is a design decision |
+| `SL103` Excessive Nesting | current Rector rules do not provide a safe rewrite for arbitrary excessive nesting |
 | `SL104` Duplicate Logic | the shared code has to be named before it can be extracted |
 | `SL109` Narrative Comment | deleting a comment automatically risks deleting the one that mattered |
 | `SL111` Copy-Paste Drift | only you know whether the drift between the copies was deliberate |
