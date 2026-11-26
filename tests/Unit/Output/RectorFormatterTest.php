@@ -88,6 +88,11 @@ it('says nothing beyond the count for a rule with no recorded reason', function 
     expect($config)->toContain('// SL201 x1: no automated fix.');
 });
 
+it('explains why excessive nesting has no automated fix', function (): void {
+    expect(RectorRules::for('SL103'))->toBe([])
+        ->and(RectorRules::reason('SL103'))->toBe('the current Rector rules do not provide a safe rewrite for arbitrary excessive nesting');
+});
+
 it('lists the findings a person still has to deal with', function (): void {
     $remaining = RectorFormatter::unfixable([
         finding(rule: 'SL105', fingerprint: 'a'),
